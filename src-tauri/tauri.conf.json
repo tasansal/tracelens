@@ -1,0 +1,37 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "tracelens",
+  "version": "0.1.0",
+  "identifier": "com.seismic.viewer",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "TraceLens",
+        "width": 1024,
+        "height": 768,
+        "resizable": true,
+        "fullscreen": false,
+        "devtools": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://releases.myapp.com/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "dialog": true,
+      "pubkey": "YOUR_UPDATER_PUBLIC_KEY_HERE"
+    }
+  }
+}
