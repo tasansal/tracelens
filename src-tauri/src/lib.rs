@@ -19,7 +19,9 @@ pub fn run() {
             commands::load_segy_file,
             commands::get_binary_header_spec,
             commands::get_trace_header_spec,
-            commands::load_single_trace
+            commands::load_single_trace,
+            commands::load_trace_range,
+            commands::render_variable_density
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

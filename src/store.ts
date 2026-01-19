@@ -8,7 +8,6 @@ interface AppState {
   segyData: SegyData | null;
   error: string | null;
   setFilePath: (path: string | null) => void;
-  toggleDarkMode: () => void;
   setLoading: (loading: boolean) => void;
   setSegyData: (data: SegyData | null) => void;
   setError: (error: string | null) => void;
@@ -27,7 +26,6 @@ export const useAppStore = create<AppState>(set => ({
   segyData: null,
   error: null,
   setFilePath: path => set({ filePath: path }),
-  toggleDarkMode: () => set(state => ({ isDarkMode: !state.isDarkMode })),
   setLoading: loading => set({ isLoading: loading }),
   setSegyData: data => set({ segyData: data }),
   setError: error => set({ error }),

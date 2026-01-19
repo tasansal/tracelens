@@ -100,7 +100,7 @@ function formatStringEnum(value: string): string {
 }
 
 /**
- * Extract raw enum code for tooltip display
+ * Extract raw enum code for the tooltip display
  */
 export function getRawCode(value: unknown): string | null {
   // Handle string enum variants

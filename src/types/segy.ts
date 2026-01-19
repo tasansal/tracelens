@@ -24,14 +24,6 @@ export type DataSampleFormat =
   | { Int16: null }
   | { FixedPointWithGain: null };
 
-export type TraceSortingCode =
-  | { AsRecorded: null }
-  | { CdpEnsemble: null }
-  | { SingleFold: null }
-  | { HorizontallyStacked: null };
-
-export type MeasurementSystem = { Meters: null } | { Feet: null };
-
 export type TextEncoding = 'Ebcdic' | 'Ascii';
 
 export type ByteOrder = 'BigEndian' | 'LittleEndian';
@@ -43,22 +35,6 @@ export function formatTextEncoding(encoding: TextEncoding): string {
 
 export function formatByteOrder(order: ByteOrder): string {
   return order === 'BigEndian' ? 'Big Endian' : 'Little Endian';
-}
-export function formatDataSampleFormat(format: DataSampleFormat): string {
-  if (typeof format === 'string') {
-    // Handle string variant from Rust
-    if (format === 'IbmFloat32') return 'IBM Float32';
-    if (format === 'Int32') return '32-bit Integer';
-    if (format === 'Int16') return '16-bit Integer';
-    if (format === 'FixedPointWithGain') return 'Fixed Point (Obsolete)';
-  } else if (typeof format === 'object' && format !== null) {
-    // Handle object variant
-    if ('IbmFloat32' in format) return 'IBM Float32';
-    if ('Int32' in format) return '32-bit Integer';
-    if ('Int16' in format) return '16-bit Integer';
-    if ('FixedPointWithGain' in format) return 'Fixed Point (Obsolete)';
-  }
-  return 'Unknown';
 }
 
 export function getDataSampleFormatCode(format: DataSampleFormat): number {

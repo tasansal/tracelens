@@ -1,8 +1,13 @@
 use crate::error::AppError;
 use crate::segy::{
-    BinaryHeader, ByteOrder, HeaderFieldSpec, SegyFormatSpec, TextEncoding, TextualHeader,
-    TraceBlock,
+    rendering::{
+        self, AmplitudeScaling, ColormapType, ImageFormat, RenderMode, RenderedImage,
+        ViewportConfig, WiggleConfig,
+    },
+    BinaryHeader, ByteOrder, HeaderFieldSpec, SegyFileConfig, SegyFormatSpec, TextEncoding,
+    TextualHeader, TraceBlock,
 };
+use image::RgbImage;
 use serde::{Deserialize, Serialize};
 use std::io::Cursor;
 use tokio::io::AsyncReadExt;
@@ -180,9 +185,7 @@ pub fn get_trace_header_spec() -> Result<Vec<HeaderFieldSpec>, String> {
 /// # Arguments
 /// * `file_path` - Absolute path to the SEG-Y file
 /// * `trace_index` - Zero-based trace index
-/// * `samples_per_trace` - Number of samples per trace from binary header
-/// * `data_sample_format` - Data format code from binary header
-/// * `byte_order` - Byte order from binary header
+/// * `segy_config` - SEG-Y file configuration (samples, format, byte order)
 /// * `max_samples` - Optional max samples to load
 ///
 /// # Returns
@@ -191,13 +194,9 @@ pub fn get_trace_header_spec() -> Result<Vec<HeaderFieldSpec>, String> {
 pub async fn load_single_trace(
     file_path: String,
     trace_index: usize,
-    samples_per_trace: u16,
-    data_sample_format: u16,
-    byte_order: ByteOrder,
+    segy_config: SegyFileConfig,
     max_samples: Option<usize>,
 ) -> Result<TraceBlock, String> {
-    use crate::segy::binary_header::DataSampleFormat;
-
     // Open file asynchronously
     let mut file = tokio::fs::File::open(&file_path)
         .await
@@ -205,19 +204,10 @@ pub async fn load_single_trace(
             message: format!("Failed to open file '{}': {}", file_path, e),
         })?;
 
-    // Parse data sample format
-    let format = DataSampleFormat::from_code(data_sample_format as i16)
-        .map_err(|e| AppError::ValidationError { message: e })?;
-
-    // Calculate trace block size
-    let trace_header_size = 240;
-    let sample_size = format.bytes_per_sample();
-    let trace_data_size = samples_per_trace as usize * sample_size;
-    let trace_block_size = trace_header_size + trace_data_size;
-
-    // Calculate file position
-    let header_size = 3600; // textual (3200) + binary (400)
-    let trace_position = header_size + (trace_index * trace_block_size);
+    // Parse data sample format and calculate sizes using helper methods
+    let format = segy_config.data_sample_format_parsed()?;
+    let trace_block_size = segy_config.trace_block_size()?;
+    let trace_position = segy_config.calculate_trace_position(trace_index)?;
 
     // Seek to trace position
     use tokio::io::AsyncSeekExt;
@@ -240,8 +230,8 @@ pub async fn load_single_trace(
     let trace = TraceBlock::from_reader(
         &mut cursor,
         format,
-        Some(samples_per_trace as i16),
-        byte_order,
+        Some(segy_config.samples_per_trace as i16),
+        segy_config.byte_order,
     )
     .map_err(|e| AppError::SegyError {
         message: format!("Failed to parse trace {}: {}", trace_index, e),
@@ -254,4 +244,183 @@ pub async fn load_single_trace(
     };
 
     Ok(trace)
+}
+
+/// Load a range of traces from a SEG-Y file
+///
+/// Uses memory-mapped I/O for fast random access at any file offset.
+/// More efficient than loading traces one-by-one via load_single_trace.
+#[tauri::command]
+pub async fn load_trace_range(
+    file_path: String,
+    start_index: usize,
+    count: usize,
+    segy_config: SegyFileConfig,
+    max_samples: Option<usize>,
+) -> Result<Vec<TraceBlock>, String> {
+    // Parse data sample format and calculate sizes using helper methods
+    let format = segy_config.data_sample_format_parsed()?;
+    let trace_block_size = segy_config.trace_block_size()?;
+    let start_position = segy_config.calculate_trace_position(start_index)?;
+    let total_bytes = trace_block_size * count;
+
+    // Open file synchronously for mmap (mmap requires sync file handle)
+    let file = std::fs::File::open(&file_path).map_err(|e| AppError::IoError {
+        message: format!("Failed to open file '{}': {}", file_path, e),
+    })?;
+
+    // Memory-map the file for fast random access
+    // SAFETY: We have exclusive access to the file and it won't be modified during the lifetime of the mmap
+    let mmap = unsafe { memmap2::Mmap::map(&file) }.map_err(|e| AppError::IoError {
+        message: format!("Failed to memory-map file: {}", e),
+    })?;
+
+    // Verify we have enough data
+    if start_position + total_bytes > mmap.len() {
+        return Err(AppError::SegyError {
+            message: format!(
+                "Requested traces exceed file size (need {} bytes, file has {} bytes)",
+                start_position + total_bytes,
+                mmap.len()
+            ),
+        }
+        .into());
+    }
+
+    // Parse traces directly from memory-mapped region
+    let mut traces = Vec::with_capacity(count);
+    for i in 0..count {
+        let offset = start_position + (i * trace_block_size);
+        let trace_bytes = &mmap[offset..offset + trace_block_size];
+        let mut cursor = Cursor::new(trace_bytes);
+
+        let trace = TraceBlock::from_reader(
+            &mut cursor,
+            format,
+            Some(segy_config.samples_per_trace as i16),
+            segy_config.byte_order,
+        )
+        .map_err(|e| AppError::SegyError {
+            message: format!("Failed to parse trace {}: {}", start_index + i, e),
+        })?;
+
+        let trace = if let Some(limit) = max_samples {
+            trace.downsample(limit)
+        } else {
+            trace
+        };
+
+        traces.push(trace);
+    }
+
+    Ok(traces)
+}
+
+/// Render Variable Density view from SEG-Y traces
+#[tauri::command]
+pub async fn render_variable_density(
+    file_path: String,
+    viewport: ViewportConfig,
+    colormap_type: ColormapType,
+    scaling: AmplitudeScaling,
+    render_mode: RenderMode,
+    wiggle_config: Option<WiggleConfig>,
+    segy_config: SegyFileConfig,
+) -> Result<RenderedImage, String> {
+    use crate::segy::rendering::{normalizer, render_wiggle, render_wiggle_vd};
+
+    // 1. Load trace range - always load full traces (no sample limiting)
+    let traces = load_trace_range(
+        file_path,
+        viewport.start_trace,
+        viewport.trace_count,
+        segy_config,
+        None, // Load all samples
+    )
+    .await?;
+
+    // 2. Extract trace data (pre-allocate capacity)
+    let mut trace_data = Vec::with_capacity(traces.len());
+    for trace in traces {
+        trace_data.push(trace.data);
+    }
+
+    // 3. Normalize traces (shared across all render modes)
+    let normalized = normalizer::normalize_traces(&trace_data, &scaling);
+
+    // 4. Render based on mode
+    match render_mode {
+        RenderMode::VariableDensity => {
+            // Classic VD rendering - use existing function
+            let colormap = rendering::create_colormap(colormap_type);
+            rendering::render_variable_density(trace_data, &viewport, colormap.as_ref(), &scaling)
+        }
+        RenderMode::Wiggle => {
+            // Wiggle traces only
+            let config = wiggle_config.unwrap_or(WiggleConfig {
+                line_width: 1.0,
+                line_color: [0, 0, 0],
+                fill_positive: true,
+                fill_negative: false,
+                positive_fill_color: [0, 0, 0],
+                negative_fill_color: [255, 0, 0],
+            });
+            let img = render_wiggle(trace_data, &viewport, &config, &normalized)?;
+
+            // Encode to PNG in parallel
+            encode_png_parallel(img)
+        }
+        RenderMode::WiggleVariableDensity => {
+            // Combined wiggle + VD
+            let colormap = rendering::create_colormap(colormap_type);
+            let config = wiggle_config.unwrap_or(WiggleConfig {
+                line_width: 1.0,
+                line_color: [0, 0, 0],
+                fill_positive: false,
+                fill_negative: false,
+                positive_fill_color: [0, 0, 0],
+                negative_fill_color: [255, 0, 0],
+            });
+            let img = render_wiggle_vd(
+                trace_data,
+                &viewport,
+                colormap.as_ref(),
+                &config,
+                &normalized,
+            )?;
+
+            // Encode to PNG in parallel
+            encode_png_parallel(img)
+        }
+    }
+}
+
+/// Encode PNG with fast compression settings
+fn encode_png_parallel(img: RgbImage) -> Result<RenderedImage, String> {
+    let (width, height) = img.dimensions();
+    let raw_pixels = img.into_raw();
+
+    // Encode using png crate with best speed compression
+    let mut png_bytes = Vec::with_capacity((width * height * 3) as usize);
+    let mut encoder = png::Encoder::new(std::io::Cursor::new(&mut png_bytes), width, height);
+    encoder.set_color(png::ColorType::Rgb);
+    encoder.set_depth(png::BitDepth::Eight);
+    encoder.set_compression(png::Compression::Fast); // Use fast compression for better performance
+
+    let mut writer = encoder
+        .write_header()
+        .map_err(|e| format!("PNG header write failed: {}", e))?;
+
+    writer
+        .write_image_data(&raw_pixels)
+        .map_err(|e| format!("PNG encoding failed: {}", e))?;
+
+    drop(writer); // Finalize encoding
+
+    Ok(RenderedImage {
+        width,
+        height,
+        data: png_bytes,
+        format: ImageFormat::Png,
+    })
 }

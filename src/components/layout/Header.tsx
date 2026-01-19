@@ -1,6 +1,6 @@
+import { useAppStore } from '@/store.ts';
+import { formatByteOrder, formatTextEncoding } from '@/types/segy.ts';
 import React from 'react';
-import { useAppStore } from '../../store';
-import { formatByteOrder, formatTextEncoding } from '../../types/segy';
 
 const menuItems = [{ id: 'file', label: 'File', disabled: false }];
 
@@ -8,7 +8,7 @@ export const Header: React.FC<{
   onFileSelect: () => void;
   onExit: () => void;
 }> = ({ onFileSelect, onExit }) => {
-  const { isDarkMode, toggleDarkMode, segyData, isLoading } = useAppStore();
+  const { isDarkMode, segyData, isLoading } = useAppStore();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const menuRef = React.useRef<HTMLDivElement>(null);
 
@@ -109,16 +109,6 @@ export const Header: React.FC<{
           )}
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={toggleDarkMode}
-              className={`rounded-lg p-2 transition-colors ${
-                isDarkMode ? 'text-yellow-400 hover:bg-gray-800' : 'text-gray-600 hover:bg-gray-100'
-              }`}
-              title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDarkMode ? '☀️' : '🌙'}
-            </button>
-
             <button
               onClick={onFileSelect}
               disabled={isLoading}

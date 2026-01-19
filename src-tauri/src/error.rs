@@ -29,10 +29,6 @@ pub enum AppError {
     #[error("Parse error: {message}")]
     ParseError { message: String },
 
-    /// Resource not found (file, record, etc.)
-    #[error("Not found: {message}")]
-    NotFound { message: String },
-
     /// Invalid input or validation error
     #[error("Validation error: {message}")]
     ValidationError { message: String },
@@ -40,14 +36,6 @@ pub enum AppError {
     /// SEG-Y specific parsing errors
     #[error("SEG-Y error: {message}")]
     SegyError { message: String },
-
-    /// Network or cloud storage errors
-    #[error("Network error: {message}")]
-    NetworkError { message: String },
-
-    /// Internal application error
-    #[error("Internal error: {message}")]
-    InternalError { message: String },
 }
 
 impl From<std::io::Error> for AppError {

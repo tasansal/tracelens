@@ -114,25 +114,37 @@ impl TraceData {
     /// - 24 bits fraction (F) - 6 hexadecimal digits
     ///
     /// Value = S × 16^(C-64) × F
+    ///
+    /// Optimized with batch reading and vectorized conversion
     fn read_ibm_float32<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<f32>> {
-        let mut samples = Vec::with_capacity(count);
+        // Batch read all bytes at once (major optimization)
+        let byte_count = count * 4;
+        let mut raw_bytes = vec![0u8; byte_count];
+        reader.read_exact(&mut raw_bytes)?;
 
-        for _ in 0..count {
-            let raw = reader.read_u32::<BigEndian>()?;
-            let value = Self::ibm_to_ieee(raw);
-            samples.push(value);
-        }
+        // Convert using iterator - compiler optimizes this well
+        let samples = raw_bytes
+            .chunks_exact(4)
+            .map(|chunk| {
+                let raw = u32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]);
+                Self::ibm_to_ieee_fast(raw)
+            })
+            .collect();
 
         Ok(samples)
     }
 
-    /// Convert IBM floating point to IEEE 754 floating point
+    /// Convert IBM floating point to IEEE 754 floating point (optimized version)
     ///
     /// IBM format: SEEEEEEE MMMMMMMM MMMMMMMM MMMMMMMM
     /// - S: sign bit (1 bit)
     /// - E: exponent (7 bits, base 16, excess 64)
     /// - M: mantissa (24 bits, normalized 0.1xxx... in base 16)
-    fn ibm_to_ieee(ibm: u32) -> f32 {
+    ///
+    /// Optimized with inlining - uses proven algorithm with better performance
+    #[inline(always)]
+    fn ibm_to_ieee_fast(ibm: u32) -> f32 {
+        // Fast path for zero
         if ibm == 0 {
             return 0.0;
         }
@@ -179,46 +191,66 @@ impl TraceData {
         f32::from_bits(ieee_bits)
     }
 
-    /// Read 32-bit two's complement integer samples
+    /// Convert IBM floating point to IEEE 754 floating point (legacy version)
+    ///
+    /// IBM format: SEEEEEEE MMMMMMMM MMMMMMMM MMMMMMMM
+    /// - S: sign bit (1 bit)
+    /// - E: exponent (7 bits, base 16, excess 64)
+    /// - M: mantissa (24 bits, normalized 0.1xxx... in base 16)
+    #[allow(dead_code)]
+    fn ibm_to_ieee(ibm: u32) -> f32 {
+        Self::ibm_to_ieee_fast(ibm)
+    }
+
+    /// Read 32-bit two's complement integer samples (optimized with batch read)
     fn read_int32<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<i32>> {
-        let mut samples = Vec::with_capacity(count);
+        let byte_count = count * 4;
+        let mut raw_bytes = vec![0u8; byte_count];
+        reader.read_exact(&mut raw_bytes)?;
 
-        for _ in 0..count {
-            samples.push(reader.read_i32::<BigEndian>()?);
-        }
+        let samples = raw_bytes
+            .chunks_exact(4)
+            .map(|chunk| i32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+            .collect();
 
         Ok(samples)
     }
 
-    /// Read 16-bit two's complement integer samples
+    /// Read 16-bit two's complement integer samples (optimized with batch read)
     fn read_int16<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<i16>> {
-        let mut samples = Vec::with_capacity(count);
+        let byte_count = count * 2;
+        let mut raw_bytes = vec![0u8; byte_count];
+        reader.read_exact(&mut raw_bytes)?;
 
-        for _ in 0..count {
-            samples.push(reader.read_i16::<BigEndian>()?);
-        }
+        let samples = raw_bytes
+            .chunks_exact(2)
+            .map(|chunk| i16::from_be_bytes([chunk[0], chunk[1]]))
+            .collect();
 
         Ok(samples)
     }
 
-    /// Read IEEE 32-bit floating point samples
+    /// Read IEEE 32-bit floating point samples (optimized with batch read)
     fn read_ieee_float32<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<f32>> {
-        let mut samples = Vec::with_capacity(count);
+        let byte_count = count * 4;
+        let mut raw_bytes = vec![0u8; byte_count];
+        reader.read_exact(&mut raw_bytes)?;
 
-        for _ in 0..count {
-            samples.push(reader.read_f32::<BigEndian>()?);
-        }
+        let samples = raw_bytes
+            .chunks_exact(4)
+            .map(|chunk| f32::from_be_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
+            .collect();
 
         Ok(samples)
     }
 
-    /// Read 8-bit two's complement integer samples
+    /// Read 8-bit two's complement integer samples (optimized with batch read)
     fn read_int8<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<i8>> {
-        let mut samples = Vec::with_capacity(count);
+        let mut raw_bytes = vec![0u8; count];
+        reader.read_exact(&mut raw_bytes)?;
 
-        for _ in 0..count {
-            samples.push(reader.read_i8()?);
-        }
+        // i8 has same bit representation as u8, safe to transmute
+        let samples = raw_bytes.into_iter().map(|b| b as i8).collect();
 
         Ok(samples)
     }
