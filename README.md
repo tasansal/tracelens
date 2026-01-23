@@ -43,7 +43,7 @@ cd tracelens
 npm install
 
 # Run in development mode
-npm run tauri development
+npm run tauri dev
 ```
 
 ### Build
