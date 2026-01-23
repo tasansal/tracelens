@@ -1,4 +1,6 @@
-// Header field specification from backend
+/**
+ * Shape of header field metadata returned by the backend spec endpoints.
+ */
 export interface HeaderFieldSpec {
   name: string;
   field_key: string;

@@ -1,8 +1,10 @@
+//! Colormap implementations for variable density rendering.
+
 use super::types::ColormapType;
 
-/// Trait for colormap implementations
+/// Trait for colormap implementations.
 pub trait Colormap: Send + Sync {
-    /// Convert normalized amplitude [-1.0, 1.0] to RGB color
+    /// Convert normalized amplitude [-1.0, 1.0] to an RGB color.
     fn to_rgb(&self, normalized_amplitude: f32) -> [u8; 3];
 }
 
@@ -38,6 +40,7 @@ pub struct GrayscaleColormap {
 }
 
 impl GrayscaleColormap {
+    /// Create a grayscale colormap, optionally inverted.
     pub fn new(inverted: bool) -> Self {
         Self { inverted }
     }
@@ -66,6 +69,7 @@ impl Default for ViridisColormap {
 }
 
 impl ViridisColormap {
+    /// Create a viridis colormap from the preset gradient.
     pub fn new() -> Self {
         Self {
             gradient: Box::new(colorgrad::preset::viridis()),
@@ -85,7 +89,7 @@ impl Colormap for ViridisColormap {
     }
 }
 
-/// Factory function to create colormap from type
+/// Factory function to create a colormap from a public enum.
 pub fn create_colormap(colormap_type: ColormapType) -> Box<dyn Colormap> {
     match colormap_type {
         ColormapType::Seismic => Box::new(SeismicColormap),

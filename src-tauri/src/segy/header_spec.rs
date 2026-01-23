@@ -1,63 +1,81 @@
-//! SEG-Y Header Specification Parser
+//! SEG-Y header specification parser.
 //!
-//! Loads and parses canonical header definitions from JSON spec file.
-//! This eliminates duplication and enables easy extension for Rev1 or custom formats.
+//! Loads canonical header definitions from a JSON spec file and exposes them
+//! for the frontend to render field metadata. Keeping this in data makes it
+//! easy to update or extend to Rev 1 or custom formats without code changes.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// Header field specification metadata
+/// Header field specification metadata used by the UI and validators.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HeaderFieldSpec {
+    /// Human-friendly label for display.
     pub name: String,
+    /// Stable key used in serialized payloads and UI lookups.
     pub field_key: String,
+    /// Inclusive 1-based starting byte offset from the SEG-Y file start.
     pub byte_start: u16,
+    /// Inclusive 1-based ending byte offset from the SEG-Y file start.
     pub byte_end: u16,
+    /// String representation of the expected data type (ex: int16, int32).
     pub data_type: String,
+    /// Specification description of the field.
     pub description: String,
+    /// Whether the field is required by the spec (defaults to false).
     #[serde(default)]
     pub required: bool,
+    /// Optional mapping of coded values to human-friendly labels.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub code_mapping: Option<HashMap<String, String>>,
 }
 
-/// Binary header specification
+/// Binary header specification block loaded from the JSON spec.
 #[derive(Debug, Clone, Deserialize)]
 pub struct BinaryHeaderSpec {
+    /// Total size of the header in bytes.
     pub size: usize,
+    /// Byte offset where the header begins in the file.
     pub byte_offset: usize,
+    /// Field definitions for the binary header.
     pub fields: Vec<HeaderFieldSpec>,
 }
 
-/// Trace header specification
+/// Trace header specification block loaded from the JSON spec.
 #[derive(Debug, Clone, Deserialize)]
 pub struct TraceHeaderSpec {
+    /// Total size of the header in bytes.
     pub size: usize,
+    /// Field definitions for the trace header.
     pub fields: Vec<HeaderFieldSpec>,
 }
 
-/// Complete SEG-Y format specification
+/// Complete SEG-Y format specification.
 #[derive(Debug, Clone, Deserialize)]
 pub struct SegyFormatSpec {
+    /// Version string provided by the spec file.
     pub version: String,
+    /// Reference or citation for the spec source.
     pub reference: String,
+    /// Binary header metadata.
     pub binary_header: BinaryHeaderSpec,
+    /// Trace header metadata.
     pub trace_header: TraceHeaderSpec,
 }
 
 impl SegyFormatSpec {
-    /// Load SEG-Y Rev 0 specification from embedded JSON
+    /// Load SEG-Y Rev 0 specification from embedded JSON.
     pub fn load_rev0() -> Result<Self, String> {
         const SPEC_JSON: &str = include_str!("../../segy_rev0_spec.json");
         serde_json::from_str(SPEC_JSON).map_err(|e| format!("Failed to parse SEG-Y spec: {}", e))
     }
 
-    /// Get binary header field specifications
+    /// Get binary header field specifications.
     pub fn get_binary_header_fields(&self) -> Vec<HeaderFieldSpec> {
         self.binary_header.fields.clone()
     }
 
-    /// Get trace header field specifications
+    /// Get trace header field specifications.
     pub fn get_trace_header_fields(&self) -> Vec<HeaderFieldSpec> {
         self.trace_header.fields.clone()
     }

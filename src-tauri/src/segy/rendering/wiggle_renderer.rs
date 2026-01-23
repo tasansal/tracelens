@@ -1,10 +1,10 @@
+//! Wiggle trace renderer and composite rendering helpers.
+
 use super::types::*;
-use crate::segy::TraceData;
 use image::{Rgb, RgbImage};
 
-/// Render wiggle traces
+/// Render wiggle traces on a white background.
 pub fn render_wiggle(
-    traces: Vec<TraceData>,
     viewport: &ViewportConfig,
     wiggle_config: &WiggleConfig,
     normalized: &[Vec<f32>],
@@ -13,7 +13,7 @@ pub fn render_wiggle(
     let height = viewport.height;
     let mut img = RgbImage::from_pixel(width, height, Rgb([255, 255, 255])); // White background
 
-    let trace_count = traces.len();
+    let trace_count = normalized.len();
     if trace_count == 0 || normalized.is_empty() {
         return Ok(img);
     }
@@ -88,9 +88,8 @@ pub fn render_wiggle(
     Ok(img)
 }
 
-/// Render combined wiggle + variable density
+/// Render combined wiggle + variable density.
 pub fn render_wiggle_vd(
-    traces: Vec<TraceData>,
     viewport: &ViewportConfig,
     colormap: &dyn super::colormap::Colormap,
     wiggle_config: &WiggleConfig,
@@ -100,7 +99,7 @@ pub fn render_wiggle_vd(
     let mut img = render_vd_base(normalized, viewport, colormap)?;
 
     // Overlay wiggle traces
-    let trace_count = traces.len();
+    let trace_count = normalized.len();
     if trace_count == 0 || normalized.is_empty() {
         return Ok(img);
     }
@@ -143,7 +142,7 @@ pub fn render_wiggle_vd(
     Ok(img)
 }
 
-/// Render VD base image without encoding
+/// Render variable density base image without encoding.
 fn render_vd_base(
     normalized: &[Vec<f32>],
     viewport: &ViewportConfig,
@@ -189,7 +188,7 @@ fn render_vd_base(
     }
 }
 
-/// Draw a line using Bresenham's algorithm
+/// Draw a line using Bresenham's algorithm.
 fn draw_line(img: &mut RgbImage, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8; 3], width: f32) {
     let (img_width, img_height) = img.dimensions();
     let x0 = x0.round() as i32;
@@ -265,7 +264,9 @@ fn draw_line(img: &mut RgbImage, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8;
     }
 }
 
-/// Fill a polygon (simple scanline algorithm for convex polygons)
+/// Fill a polygon using a simple scanline algorithm.
+///
+/// This is tuned for small convex polygons used when filling lobes.
 fn fill_polygon(img: &mut RgbImage, points: &[(f32, f32)], color: [u8; 3]) {
     if points.len() < 3 {
         return;

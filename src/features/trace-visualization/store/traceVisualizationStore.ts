@@ -1,3 +1,6 @@
+/**
+ * Zustand store for trace visualization state, viewport settings, and render results.
+ */
 import { create } from 'zustand';
 import {
   AmplitudeScaling,
@@ -7,6 +10,9 @@ import {
   WiggleConfig,
 } from '../types/rendering';
 
+/**
+ * Shape of the trace visualization store.
+ */
 interface TraceVisualizationState {
   // View configuration
   renderMode: RenderMode;
@@ -39,6 +45,9 @@ interface TraceVisualizationState {
   resetView: () => void;
 }
 
+/**
+ * Initial viewport used before the canvas is measured.
+ */
 const DEFAULT_VIEWPORT: ViewportConfig = {
   startTrace: 0,
   traceCount: 500,
@@ -46,6 +55,9 @@ const DEFAULT_VIEWPORT: ViewportConfig = {
   height: 600,
 };
 
+/**
+ * Default wiggle rendering parameters.
+ */
 const DEFAULT_WIGGLE_CONFIG: WiggleConfig = {
   lineWidth: 1.0,
   lineColor: [0, 0, 0],
@@ -55,6 +67,9 @@ const DEFAULT_WIGGLE_CONFIG: WiggleConfig = {
   negativeFillColor: [255, 0, 0],
 };
 
+/**
+ * Store accessor for trace visualization state and actions.
+ */
 export const useTraceVisualizationStore = create<TraceVisualizationState>(set => ({
   // Initial state
   renderMode: 'variable-density',

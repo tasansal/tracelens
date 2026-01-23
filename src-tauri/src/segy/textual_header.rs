@@ -110,7 +110,8 @@ impl TextualHeader {
 
 impl Default for TextualHeader {
     fn default() -> Self {
-        // Create a blank textual header filled with EBCDIC spaces (0x40)
+        // Create a blank textual header filled with EBCDIC spaces (0x40).
+        // This matches the SEG-Y expectation of space-padded card images.
         let raw_data = vec![0x40; Self::SIZE];
         let lines = vec![String::new(); Self::CARD_COUNT];
         Self {

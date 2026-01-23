@@ -1,10 +1,14 @@
-import { useAppStore } from '@/store.ts';
-import { useTraceVisualizationStore } from '@/store/traceVisualizationStore.ts';
+/**
+ * Control panel for trace visualization settings (render mode, colormap, scaling).
+ */
+import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import React, { useEffect, useRef, useState } from 'react';
-import { useTraceLoader } from './hooks/useTraceLoader';
+import { useTraceLoader } from '../hooks/useTraceLoader';
 
+/**
+ * UI controls for rendering and viewport settings.
+ */
 export const TraceControlPanel: React.FC = () => {
-  const { isDarkMode } = useAppStore();
   const {
     renderMode,
     colormap,
@@ -31,24 +35,20 @@ export const TraceControlPanel: React.FC = () => {
       return;
     }
 
-    // On first render (after dimensions are set), trigger with small delay
-    if (!hasRenderedOnce.current) {
-      hasRenderedOnce.current = true;
-      // We don't use setTimeout here to avoid race conditions with debounced renders
-      // and to ensure we "consume" this change.
-      loadAndRenderVariableDensity();
-      return;
-    }
-
     // Clear existing timeout
     if (renderTimeoutRef.current) {
       clearTimeout(renderTimeoutRef.current);
     }
 
-    // Set new timeout for debounced render
+    // Always debounce renders to avoid double-render on initial resize/measure.
+    const delay = hasRenderedOnce.current ? 600 : 250;
+    if (!hasRenderedOnce.current) {
+      hasRenderedOnce.current = true;
+    }
+
     renderTimeoutRef.current = setTimeout(() => {
       loadAndRenderVariableDensity();
-    }, 600); // Increased debounce to 600ms to better capture window resize events
+    }, delay);
 
     // Cleanup on unmount
     return () => {
@@ -58,6 +58,9 @@ export const TraceControlPanel: React.FC = () => {
     };
   }, [renderMode, colormap, amplitudeScaling, viewport, loadAndRenderVariableDensity]);
 
+  /**
+   * Human-readable label for the current amplitude scaling mode.
+   */
   const getScalingLabel = () => {
     switch (amplitudeScaling.type) {
       case 'per-trace':
@@ -74,14 +77,14 @@ export const TraceControlPanel: React.FC = () => {
   };
 
   return (
-    <div className={`${isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}`}>
+    <div className="text-[var(--text)]">
       {/* Compact Header Bar */}
-      <div
-        className={`flex items-center gap-3 px-4 py-2 ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}
-      >
+      <div className="flex flex-wrap items-center gap-4 px-4 py-3">
         {/* Render Mode */}
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold whitespace-nowrap">Mode:</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+            Mode
+          </label>
           <select
             value={renderMode}
             onChange={e =>
@@ -89,11 +92,7 @@ export const TraceControlPanel: React.FC = () => {
                 e.target.value as 'variable-density' | 'wiggle' | 'wiggle-variable-density'
               )
             }
-            className={`px-2 py-1 text-xs border ${
-              isDarkMode
-                ? 'bg-gray-800 border-gray-700 text-white'
-                : 'bg-white border-gray-300 text-gray-900'
-            }`}
+            className="select-surface"
           >
             <option value="variable-density">Variable Density</option>
             <option value="wiggle">Wiggle</option>
@@ -103,7 +102,9 @@ export const TraceControlPanel: React.FC = () => {
 
         {/* Colormap */}
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold whitespace-nowrap">Colormap:</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+            Colormap
+          </label>
           <select
             value={colormap}
             onChange={e =>
@@ -111,11 +112,7 @@ export const TraceControlPanel: React.FC = () => {
                 e.target.value as 'seismic' | 'grayscale' | 'grayscale-inverted' | 'viridis'
               )
             }
-            className={`px-2 py-1 text-xs border ${
-              isDarkMode
-                ? 'bg-gray-800 border-gray-700 text-white'
-                : 'bg-white border-gray-300 text-gray-900'
-            }`}
+            className="select-surface"
           >
             <option value="seismic">Seismic</option>
             <option value="grayscale">Grayscale</option>
@@ -126,18 +123,17 @@ export const TraceControlPanel: React.FC = () => {
 
         {/* Amplitude Scaling */}
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold whitespace-nowrap">Scaling:</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+            Scaling
+          </label>
           <button
+            type="button"
             onClick={() => setShowScalingSettings(!showScalingSettings)}
-            className={`px-2 py-1 text-xs border flex items-center gap-1.5 ${
-              isDarkMode
-                ? 'bg-gray-800 border-gray-700 text-white hover:bg-gray-750'
-                : 'bg-white border-gray-300 text-gray-900 hover:bg-gray-50'
-            }`}
+            className="input-surface flex items-center gap-2"
             title="Click to configure scaling"
           >
             <span>{getScalingLabel()}</span>
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -155,18 +151,17 @@ export const TraceControlPanel: React.FC = () => {
         </div>
 
         {/* Trace Range - Custom Stepper Controls */}
-        <div className="flex items-center gap-3 ml-auto">
-          <label className="text-xs font-semibold whitespace-nowrap">Start:</label>
+        <div className="ml-auto flex flex-wrap items-center gap-3">
+          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+            Start
+          </label>
 
           {/* Start Trace Stepper */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => updateViewport({ startTrace: Math.max(0, viewport.startTrace - 1) })}
-              className={`w-5 h-5 flex items-center justify-center text-xs font-bold transition-colors ${
-                isDarkMode
-                  ? 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-              }`}
+              className="stepper-btn text-xs font-bold"
             >
               ←
             </button>
@@ -177,35 +172,27 @@ export const TraceControlPanel: React.FC = () => {
                 const val = parseInt(e.target.value);
                 if (!isNaN(val)) updateViewport({ startTrace: Math.max(0, val) });
               }}
-              className={`w-14 px-2 py-1 text-xs text-center font-mono border-0 ${
-                isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-900'
-              } focus:outline-none focus:ring-1 ${
-                isDarkMode ? 'focus:ring-blue-500' : 'focus:ring-blue-400'
-              }`}
+              className="input-surface w-16 text-center font-mono"
             />
             <button
+              type="button"
               onClick={() => updateViewport({ startTrace: viewport.startTrace + 1 })}
-              className={`w-5 h-5 flex items-center justify-center text-xs font-bold transition-colors ${
-                isDarkMode
-                  ? 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-              }`}
+              className="stepper-btn text-xs font-bold"
             >
               →
             </button>
           </div>
 
-          <label className="text-xs font-semibold whitespace-nowrap">Count:</label>
+          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+            Count
+          </label>
 
           {/* Trace Count Stepper */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => updateViewport({ traceCount: Math.max(1, viewport.traceCount - 1) })}
-              className={`w-5 h-5 flex items-center justify-center text-xs font-bold transition-colors ${
-                isDarkMode
-                  ? 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-              }`}
+              className="stepper-btn text-xs font-bold"
             >
               ←
             </button>
@@ -216,19 +203,12 @@ export const TraceControlPanel: React.FC = () => {
                 const val = parseInt(e.target.value);
                 if (!isNaN(val)) updateViewport({ traceCount: Math.max(1, val) });
               }}
-              className={`w-14 px-2 py-1 text-xs text-center font-mono border-0 ${
-                isDarkMode ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-900'
-              } focus:outline-none focus:ring-1 ${
-                isDarkMode ? 'focus:ring-blue-500' : 'focus:ring-blue-400'
-              }`}
+              className="input-surface w-16 text-center font-mono"
             />
             <button
+              type="button"
               onClick={() => updateViewport({ traceCount: viewport.traceCount + 1 })}
-              className={`w-5 h-5 flex items-center justify-center text-xs font-bold transition-colors ${
-                isDarkMode
-                  ? 'text-gray-400 hover:text-white hover:bg-gray-800'
-                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
-              }`}
+              className="stepper-btn text-xs font-bold"
             >
               →
             </button>
@@ -239,20 +219,20 @@ export const TraceControlPanel: React.FC = () => {
       {/* Settings Modal */}
       {showScalingSettings && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+          className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center"
           onClick={() => setShowScalingSettings(false)}
         >
-          <div
-            className={`w-96 max-w-full mx-4 p-6 rounded-lg shadow-xl ${
-              isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-            }`}
-            onClick={e => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold mb-4">Amplitude Scaling Settings</h3>
+          <div className="modal-card mx-4 w-96 max-w-full p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="section-title text-base">Amplitude Scaling</h3>
+            <p className="mt-2 text-xs text-dim">
+              Tune how amplitudes are normalized before rendering.
+            </p>
 
             {/* Type Selector */}
-            <div className="mb-4">
-              <label className="block text-xs font-semibold mb-2">Scaling Type</label>
+            <div className="mb-4 mt-5">
+              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+                Scaling Type
+              </label>
               <select
                 value={amplitudeScaling.type}
                 onChange={e => {
@@ -265,11 +245,7 @@ export const TraceControlPanel: React.FC = () => {
                     setAmplitudeScaling({ type: 'manual', scale: 1.0 });
                   }
                 }}
-                className={`w-full px-3 py-2 text-sm border rounded ${
-                  isDarkMode
-                    ? 'bg-gray-700 border-gray-600 text-white'
-                    : 'bg-white border-gray-300 text-gray-900'
-                }`}
+                className="select-surface w-full"
               >
                 <option value="per-trace">Per-Trace AGC</option>
                 <option value="percentile">Percentile Clipping</option>
@@ -280,8 +256,8 @@ export const TraceControlPanel: React.FC = () => {
             {/* Per-Trace AGC Settings */}
             {amplitudeScaling.type === 'per-trace' && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold mb-2">
-                  AGC Window Size (samples)
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+                  AGC Window (samples)
                 </label>
                 <input
                   type="number"
@@ -296,20 +272,16 @@ export const TraceControlPanel: React.FC = () => {
                     });
                   }}
                   placeholder="None (full trace)"
-                  className={`w-full px-3 py-2 text-sm border rounded ${
-                    isDarkMode
-                      ? 'bg-gray-700 border-gray-600 text-white'
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                  className="input-surface w-full"
                 />
-                <p className="text-xs text-gray-500 mt-1">Leave empty for full-trace AGC</p>
+                <p className="mt-1 text-xs text-dim">Leave empty for full-trace AGC.</p>
               </div>
             )}
 
             {/* Percentile Settings */}
             {amplitudeScaling.type === 'percentile' && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold mb-2">
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
                   Percentile: {(amplitudeScaling.percentile * 100).toFixed(0)}%
                 </label>
                 <input
@@ -324,9 +296,9 @@ export const TraceControlPanel: React.FC = () => {
                       percentile: parseFloat(e.target.value),
                     })
                   }
-                  className="w-full"
+                  className="range-slider w-full"
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="mt-1 flex justify-between text-xs text-dim">
                   <span>50%</span>
                   <span>100%</span>
                 </div>
@@ -336,7 +308,9 @@ export const TraceControlPanel: React.FC = () => {
             {/* Manual Scale Settings */}
             {amplitudeScaling.type === 'manual' && (
               <div className="mb-4">
-                <label className="block text-xs font-semibold mb-2">Scale Factor</label>
+                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+                  Scale Factor
+                </label>
                 <input
                   type="number"
                   step="0.1"
@@ -344,11 +318,7 @@ export const TraceControlPanel: React.FC = () => {
                   onChange={e =>
                     setAmplitudeScaling({ type: 'manual', scale: parseFloat(e.target.value) })
                   }
-                  className={`w-full px-3 py-2 text-sm border rounded ${
-                    isDarkMode
-                      ? 'bg-gray-700 border-gray-600 text-white'
-                      : 'bg-white border-gray-300 text-gray-900'
-                  }`}
+                  className="input-surface w-full"
                 />
               </div>
             )}
@@ -356,11 +326,7 @@ export const TraceControlPanel: React.FC = () => {
             {/* Close Button */}
             <button
               onClick={() => setShowScalingSettings(false)}
-              className={`w-full px-4 py-2 text-sm font-semibold rounded transition-colors ${
-                isDarkMode
-                  ? 'bg-cyan-600 text-white hover:bg-cyan-700'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
+              className="btn-primary w-full text-sm"
             >
               Done
             </button>

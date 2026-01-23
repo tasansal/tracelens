@@ -39,7 +39,7 @@ impl DataSampleFormat {
         }
     }
 
-    /// Parse from raw i16 value
+    /// Parse from a raw SEG-Y format code.
     pub fn from_code(code: i16) -> Result<Self, String> {
         match code {
             1 => Ok(Self::IbmFloat32),
@@ -70,6 +70,7 @@ pub enum TraceSortingCode {
 }
 
 impl TraceSortingCode {
+    /// Parse from a raw SEG-Y sorting code.
     pub fn from_code(code: i16) -> Result<Self, String> {
         match code {
             0 => Ok(Self::Unknown),
@@ -95,6 +96,7 @@ pub enum MeasurementSystem {
 }
 
 impl MeasurementSystem {
+    /// Parse from a raw SEG-Y measurement system code.
     pub fn from_code(code: i16) -> Result<Self, String> {
         match code {
             0 => Ok(Self::Unknown),
@@ -220,7 +222,7 @@ enum Endianness {
     Little,
 }
 
-/// Detect endianness by checking if key binary header fields are reasonable
+/// Detect endianness by checking if key binary header fields are reasonable.
 ///
 /// Tries both big and little endian interpretations and picks the one
 /// where key fields (samples_per_trace, sample_interval_us) are more reasonable.
@@ -282,6 +284,8 @@ impl BinaryHeader {
     }
 
     /// Parse a binary header from a reader with specified endianness
+    ///
+    /// This is split out to allow an endianness probe before decoding fields.
     fn from_reader_with_endianness<R: Read>(
         mut reader: R,
         endianness: Endianness,
@@ -345,7 +349,7 @@ impl BinaryHeader {
         let impulse_polarity = read_i16!(reader);
         let vibratory_polarity = read_i16!(reader);
 
-        // Read unassigned bytes (3261-3600 = 340 bytes)
+        // Read unassigned bytes (3261-3600 = 340 bytes).
         let bytes_read = 60;
         let unassigned_size = Self::SIZE - bytes_read;
         let mut unassigned = vec![0u8; unassigned_size];

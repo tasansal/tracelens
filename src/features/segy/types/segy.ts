@@ -1,13 +1,23 @@
-// TypeScript types matching Rust SEG-Y structures
+/**
+ * TypeScript structures that mirror Rust SEG-Y data returned from the backend.
+ */
 
+/**
+ * Textual header is exposed as an array of 40 lines.
+ */
 export interface TextualHeader {
   lines: string[];
 }
 
-// Dynamic header types - fields are determined by backend spec
+/**
+ * Dynamic header maps keyed by backend field specs.
+ */
 export type BinaryHeader = Record<string, unknown>;
 export type TraceHeader = Record<string, unknown>;
 
+/**
+ * Aggregate SEG-Y metadata loaded from the backend.
+ */
 export interface SegyData {
   textual_header: TextualHeader;
   binary_header: BinaryHeader;
@@ -17,26 +27,42 @@ export interface SegyData {
   byte_order: ByteOrder;
 }
 
-// Enums
+/**
+ * Data sample format variants used in SEG-Y binary headers.
+ */
 export type DataSampleFormat =
   | { IbmFloat32: null }
   | { Int32: null }
   | { Int16: null }
   | { FixedPointWithGain: null };
 
+/**
+ * Text header encoding reported by the backend.
+ */
 export type TextEncoding = 'Ebcdic' | 'Ascii';
 
+/**
+ * Byte order reported by the backend parser.
+ */
 export type ByteOrder = 'BigEndian' | 'LittleEndian';
 
-// Helper functions for enum display
+/**
+ * Convert encoding enum to a UI-friendly label.
+ */
 export function formatTextEncoding(encoding: TextEncoding): string {
   return encoding === 'Ebcdic' ? 'EBCDIC' : 'ASCII';
 }
 
+/**
+ * Convert byte order enum to a UI-friendly label.
+ */
 export function formatByteOrder(order: ByteOrder): string {
   return order === 'BigEndian' ? 'Big Endian' : 'Little Endian';
 }
 
+/**
+ * Map a data sample format enum to its SEG-Y numeric code.
+ */
 export function getDataSampleFormatCode(format: DataSampleFormat): number {
   if (typeof format === 'string') {
     if (format === 'IbmFloat32') return 1;
