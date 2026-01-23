@@ -1,14 +1,20 @@
 # TraceLens Seismic Data Viewer
 
-A modern, cross-platform desktop application for viewing and analyzing SEG-Y seismic data files.
+A modern, cross-platform desktop application for viewing and inspecting SEG-Y seismic data files.
 
 ## Features
 
-- **Multi-Revision Support** - Full compatibility with SEG-Y rev0, rev1, rev2.0, and rev2.1
-- **Custom Byte Parsing** - Define and parse custom headers and fields
-- **Cloud Integration** - Read files from local storage, S3, GCS, Azure, and HTTPS
-- **Optimized Performance** - Efficient binary serialization and deserialization
-- **Modern UI** - Distinctive, production-grade interface built with React
+- **SEG-Y Rev 0 Parsing** - Textual (EBCDIC/ASCII), binary, and trace headers with multiple sample formats
+- **Spec-Driven Header Inspection** - Binary and trace header tables from the embedded Rev 0 JSON spec
+- **Trace Visualization** - Variable density, wiggle, and combined renders with colormaps and amplitude scaling
+- **Interactive Viewport** - Trace range controls, pan/zoom, and resizable panels
+- **Performance-Focused I/O** - Memory-mapped reads with on-demand trace loading and async rendering
+
+## Upcoming / Future Features
+
+- **Multi-Revision Support** - SEG-Y Rev 1, Rev 2.0, and Rev 2.1 compatibility
+- **Custom Header Definitions** - User-defined field specs and overrides
+- **Cloud Integration** - Read files from S3, GCS, Azure, and HTTPS
 
 ## Tech Stack
 
@@ -59,16 +65,16 @@ npm run tauri build
 # Run frontend dev server
 npm run dev
 
-# Format and code
+# Format and lint frontend code
 npm run format
 npm run lint
 
 # Format and lint Rust code
-cargo fmt
-cargo clippy
+cd src-tauri && cargo fmt
+cd src-tauri && cargo clippy
 
 # Run Rust tests
-cargo test
+cd src-tauri && cargo test
 ```
 
 ## Platform Support
