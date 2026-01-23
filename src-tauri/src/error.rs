@@ -1,3 +1,8 @@
+//! Error types shared across the SEG-Y parser and Tauri commands.
+//!
+//! Errors are serialized as tagged JSON objects to enable clean
+//! TypeScript discriminated unions on the frontend.
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -38,6 +43,7 @@ pub enum AppError {
     SegyError { message: String },
 }
 
+/// Convert standard IO errors into the app error type.
 impl From<std::io::Error> for AppError {
     fn from(error: std::io::Error) -> Self {
         AppError::IoError {
@@ -46,6 +52,7 @@ impl From<std::io::Error> for AppError {
     }
 }
 
+/// Convert JSON parsing errors into the app error type.
 impl From<serde_json::Error> for AppError {
     fn from(error: serde_json::Error) -> Self {
         AppError::ParseError {
@@ -54,7 +61,9 @@ impl From<serde_json::Error> for AppError {
     }
 }
 
-// Convert AppError to String for Tauri command results
+/// Convert AppError into a JSON string for Tauri command results.
+///
+/// If serialization fails, fall back to the Display output.
 impl From<AppError> for String {
     fn from(error: AppError) -> Self {
         serde_json::to_string(&error).unwrap_or_else(|_| error.to_string())

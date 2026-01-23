@@ -34,6 +34,10 @@ pub enum TraceIdentificationCode {
 }
 
 impl TraceIdentificationCode {
+    /// Parse a raw trace identification code.
+    ///
+    /// Unknown values are mapped to `Optional` when in range, otherwise the
+    /// default is `SeismicData` to keep parsing robust.
     pub fn from_code(code: i16) -> Self {
         match code {
             1 => Self::SeismicData,
@@ -63,6 +67,7 @@ pub enum CoordinateUnits {
 }
 
 impl CoordinateUnits {
+    /// Parse a raw coordinate unit code.
     pub fn from_code(code: i16) -> Result<Self, String> {
         match code {
             0 => Ok(Self::Unknown),
@@ -300,7 +305,7 @@ impl TraceHeader {
     /// Size of the trace header in bytes
     pub const SIZE: usize = 240;
 
-    /// Parse a trace header from a reader
+    /// Parse a trace header from a reader.
     ///
     /// All values are read in big-endian byte order per SEG-Y specification.
     ///
@@ -532,6 +537,7 @@ impl TraceBlock {
         Ok(Self { header, data })
     }
 
+    /// Downsample the trace to a maximum number of samples, updating the header.
     pub fn downsample(mut self, max_samples: usize) -> Self {
         if max_samples == 0 {
             return self;

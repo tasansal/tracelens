@@ -190,6 +190,9 @@ function getStringEnumCode(value: string): string | null {
   return null;
 }
 
+/**
+ * Map data sample format enum variants to labels.
+ */
 function formatDataSampleFormat(format: Record<string, unknown>): string {
   if ('IbmFloat32' in format) return 'IBM Float32';
   if ('Int32' in format) return '32-bit Integer';
@@ -200,6 +203,9 @@ function formatDataSampleFormat(format: Record<string, unknown>): string {
   return 'Unknown';
 }
 
+/**
+ * Map trace sorting enum variants to labels.
+ */
 function formatTraceSorting(sorting: Record<string, unknown>): string {
   if ('AsRecorded' in sorting) return 'As Recorded';
   if ('CdpEnsemble' in sorting) return 'CDP Ensemble';
@@ -209,6 +215,9 @@ function formatTraceSorting(sorting: Record<string, unknown>): string {
   return 'Unknown';
 }
 
+/**
+ * Map measurement system enum variants to labels.
+ */
 function formatMeasurementSystem(system: Record<string, unknown>): string {
   if ('Meters' in system) return 'Meters';
   if ('Feet' in system) return 'Feet';

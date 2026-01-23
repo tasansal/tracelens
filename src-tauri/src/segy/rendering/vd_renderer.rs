@@ -1,9 +1,14 @@
-use super::{colormap::Colormap, normalizer, types::*};
+//! Variable density renderer for SEG-Y traces.
+
+use super::{colormap::Colormap, encode_png_fast, normalizer, types::*};
 use crate::segy::TraceData;
 use image::{ImageBuffer, Rgb, RgbImage};
 use rayon::prelude::*;
 
-/// Render Variable Density image from traces
+/// Render a variable density image from normalized traces.
+///
+/// The output image is optionally resized to the requested viewport dimensions
+/// and encoded as PNG.
 pub fn render_variable_density(
     traces: Vec<TraceData>,
     viewport: &ViewportConfig,
@@ -50,29 +55,6 @@ pub fn render_variable_density(
         img
     };
 
-    // 5. Encode to specified format
-    encode_image(img, ImageFormat::Png)
-}
-
-/// Encode image to specified format
-fn encode_image(img: RgbImage, format: ImageFormat) -> Result<RenderedImage, String> {
-    let (width, height) = img.dimensions();
-
-    match format {
-        ImageFormat::Png => {
-            let mut png_bytes = Vec::new();
-            img.write_to(
-                &mut std::io::Cursor::new(&mut png_bytes),
-                image::ImageFormat::Png,
-            )
-            .map_err(|e| format!("PNG encoding failed: {}", e))?;
-
-            Ok(RenderedImage {
-                width,
-                height,
-                data: png_bytes,
-                format,
-            })
-        }
-    }
+    // 5. Encode with fast PNG settings
+    encode_png_fast(img)
 }

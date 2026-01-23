@@ -1,6 +1,12 @@
+/**
+ * Global app store for SEG-Y file state and UI flags.
+ */
+import type { SegyData } from '@/features/segy/types/segy';
 import { create } from 'zustand';
-import { SegyData } from './types/segy';
 
+/**
+ * App-wide state managed by Zustand.
+ */
 interface AppState {
   filePath: string | null;
   isDarkMode: boolean;
@@ -13,12 +19,17 @@ interface AppState {
   setError: (error: string | null) => void;
 }
 
-// Detect OS dark mode preference
+/**
+ * Detect OS dark mode preference for initial theme sync.
+ */
 const getSystemTheme = () => {
   if (typeof window === 'undefined') return false;
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 };
 
+/**
+ * Store accessor for application-level state.
+ */
 export const useAppStore = create<AppState>(set => ({
   filePath: null,
   isDarkMode: getSystemTheme(),

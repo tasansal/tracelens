@@ -1,11 +1,20 @@
-import { useTraceVisualizationStore } from '@/store/traceVisualizationStore.ts';
+/**
+ * Canvas renderer with zoom and pan for trace visualization images.
+ */
+import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import React, { useEffect, useRef, useState } from 'react';
 
+/**
+ * Props for TraceCanvas size.
+ */
 interface TraceCanvasProps {
   width: number;
   height: number;
 }
 
+/**
+ * Draws the current rendered trace image onto a canvas and handles pan/zoom.
+ */
 export const TraceCanvas: React.FC<TraceCanvasProps> = ({ width, height }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { currentImage, zoomLevel, panOffset, setZoomLevel, setPanOffset, setCanvasSize } =
@@ -14,11 +23,11 @@ export const TraceCanvas: React.FC<TraceCanvasProps> = ({ width, height }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // Update canvas size in store when dimensions change
+  // Update canvas size in store when dimensions change.
   useEffect(() => {
     setCanvasSize({ width, height });
   }, [width, height, setCanvasSize]);
-  // Render image to canvas whenever it changes
+  // Render image to canvas whenever it changes.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !currentImage) return;
@@ -26,19 +35,19 @@ export const TraceCanvas: React.FC<TraceCanvasProps> = ({ width, height }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Clear canvas
+    // Clear canvas.
     ctx.clearRect(0, 0, width, height);
 
-    // Apply zoom and pan transforms
+    // Apply zoom and pan transforms.
     ctx.save();
     ctx.translate(panOffset.x, panOffset.y);
     ctx.scale(zoomLevel, zoomLevel);
 
-    // Draw image
+    // Draw image.
     if (currentImage instanceof HTMLImageElement) {
       ctx.drawImage(currentImage, 0, 0, width, height);
     } else if (currentImage instanceof ImageData) {
-      // For ImageData, create temp canvas and draw
+      // For ImageData, create temp canvas and draw.
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = currentImage.width;
       tempCanvas.height = currentImage.height;
@@ -52,7 +61,7 @@ export const TraceCanvas: React.FC<TraceCanvasProps> = ({ width, height }) => {
     ctx.restore();
   }, [currentImage, width, height, panOffset, zoomLevel]);
 
-  // Mouse wheel zoom - using useEffect to add non-passive listener
+  // Mouse wheel zoom with a non-passive listener for preventDefault.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -68,7 +77,7 @@ export const TraceCanvas: React.FC<TraceCanvasProps> = ({ width, height }) => {
     return () => canvas.removeEventListener('wheel', handleWheel);
   }, [zoomLevel, setZoomLevel]);
 
-  // Mouse drag pan
+  // Mouse drag pan.
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });

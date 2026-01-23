@@ -295,6 +295,7 @@ impl TraceData {
         self.len() == 0
     }
 
+    /// Downsample to a maximum number of samples, keeping relative spacing.
     pub fn downsample(self, max_samples: usize) -> Self {
         if max_samples == 0 {
             return self;
@@ -313,6 +314,7 @@ impl TraceData {
     }
 }
 
+/// Downsample a vector using a fixed stride derived from the target length.
 fn downsample_vec<T>(samples: Vec<T>, max_samples: usize) -> Vec<T> {
     let len = samples.len();
     if len <= max_samples {

@@ -1,11 +1,16 @@
-import { useAppStore } from '@/store.ts';
-import { useTraceVisualizationStore } from '@/store/traceVisualizationStore.ts';
-import { RenderedImage } from '@/types/rendering.ts';
-import { DataSampleFormat, getDataSampleFormatCode } from '@/types/segy.ts';
-import { invoke } from '@tauri-apps/api/core';
+/**
+ * Hook for invoking backend render commands and converting results to images.
+ */
+import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
+import type { RenderedImage } from '@/features/trace-visualization/types/rendering';
+import { renderVariableDensity } from '@/services/tauri/segy';
+import { useAppStore } from '@/store/appStore';
 import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 
+/**
+ * Load trace data and trigger backend rendering based on the current store state.
+ */
 export function useTraceLoader() {
   const { filePath, segyData } = useAppStore();
   const {
@@ -31,20 +36,13 @@ export function useTraceLoader() {
 
     try {
       // Use viewport dimensions directly - don't adjust for zoom to avoid infinite loops
-      const rendered = await invoke<RenderedImage>('render_variable_density', {
+      const rendered = await renderVariableDensity({
         filePath,
         viewport,
         colormapType: colormap,
         scaling: amplitudeScaling,
         renderMode,
-        wiggleConfig: renderMode !== 'variable-density' ? wiggleConfig : null,
-        segyConfig: {
-          samplesPerTrace: segyData.binary_header.samples_per_trace,
-          dataSampleFormat: getDataSampleFormatCode(
-            segyData.binary_header.data_sample_format as DataSampleFormat
-          ),
-          byteOrder: segyData.byte_order,
-        },
+        wiggleConfig,
       });
 
       // Convert to displayable format
@@ -76,6 +74,9 @@ export function useTraceLoader() {
   };
 }
 
+/**
+ * Convert a backend-rendered PNG payload into an HTMLImageElement.
+ */
 async function createImageFromRendered(rendered: RenderedImage): Promise<HTMLImageElement> {
   // Create Image element from PNG bytes
   const blob = new Blob([new Uint8Array(rendered.data)], { type: 'image/png' });

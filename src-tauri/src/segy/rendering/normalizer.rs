@@ -1,8 +1,13 @@
+//! Amplitude normalization and gain control utilities.
+//!
+//! Normalization maps trace samples to a consistent range so rendering modes
+//! can assume values in approximately [-1.0, 1.0].
+
 use super::types::AmplitudeScaling;
 use crate::segy::TraceData;
 use rayon::prelude::*;
 
-/// Normalize trace amplitudes to [-1.0, 1.0] range
+/// Normalize trace amplitudes to the [-1.0, 1.0] range.
 pub fn normalize_traces(traces: &[TraceData], scaling: &AmplitudeScaling) -> Vec<Vec<f32>> {
     match scaling {
         AmplitudeScaling::Global { max_amplitude } => normalize_global(traces, *max_amplitude),
@@ -12,7 +17,7 @@ pub fn normalize_traces(traces: &[TraceData], scaling: &AmplitudeScaling) -> Vec
     }
 }
 
-/// Global normalization: all traces scaled by same factor
+/// Global normalization: all traces scaled by the same factor.
 fn normalize_global(traces: &[TraceData], max_amplitude: f32) -> Vec<Vec<f32>> {
     traces
         .par_iter()
@@ -25,7 +30,7 @@ fn normalize_global(traces: &[TraceData], max_amplitude: f32) -> Vec<Vec<f32>> {
         .collect()
 }
 
-/// Per-trace AGC: each trace independently normalized
+/// Per-trace AGC: each trace independently normalized.
 fn normalize_per_trace(traces: &[TraceData], window_size: Option<usize>) -> Vec<Vec<f32>> {
     traces
         .par_iter()
@@ -52,7 +57,7 @@ fn normalize_per_trace(traces: &[TraceData], window_size: Option<usize>) -> Vec<
         .collect()
 }
 
-/// Apply windowed AGC normalization to a trace
+/// Apply windowed AGC normalization to a trace.
 ///
 /// For each sample, computes the RMS (root mean square) amplitude in a window
 /// centered on that sample, then normalizes by that local RMS value.
@@ -79,7 +84,7 @@ fn apply_windowed_agc(samples: &[f32], window_size: usize) -> Vec<f32> {
     normalized.iter().map(|&v| v.clamp(-1.0, 1.0)).collect()
 }
 
-/// Compute root mean square (RMS) of samples
+/// Compute root mean square (RMS) of samples.
 #[inline]
 fn compute_rms(samples: &[f32]) -> f32 {
     if samples.is_empty() {
@@ -90,7 +95,7 @@ fn compute_rms(samples: &[f32]) -> f32 {
     (sum_squares / samples.len() as f32).sqrt()
 }
 
-/// Percentile clipping: robust to outliers (computed globally across all traces)
+/// Percentile clipping: robust to outliers (computed globally across all traces).
 fn normalize_percentile(traces: &[TraceData], percentile: f32) -> Vec<Vec<f32>> {
     // Collect all samples from all traces
     let all_samples: Vec<f32> = traces.iter().flat_map(trace_to_f32_slice).collect();
@@ -115,7 +120,7 @@ fn normalize_percentile(traces: &[TraceData], percentile: f32) -> Vec<Vec<f32>> 
         .collect()
 }
 
-/// Manual scaling
+/// Manual scaling.
 fn normalize_manual(traces: &[TraceData], scale: f32) -> Vec<Vec<f32>> {
     traces
         .par_iter()
@@ -128,7 +133,10 @@ fn normalize_manual(traces: &[TraceData], scale: f32) -> Vec<Vec<f32>> {
         .collect()
 }
 
-/// Convert TraceData enum to f32 slice
+/// Convert TraceData enum to an owned `Vec<f32>`.
+///
+/// This allocates a new buffer because trace data can be stored in multiple
+/// concrete formats.
 fn trace_to_f32_slice(trace: &TraceData) -> Vec<f32> {
     match trace {
         TraceData::IbmFloat32(samples) => samples.clone(),
