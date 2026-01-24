@@ -11,8 +11,10 @@ import { TraceVisualizationContainer } from '@/features/trace-visualization/comp
 import { loadSegyFile as loadSegyFileCommand } from '@/services/tauri/segy';
 import { useSystemTheme } from '@/shared/hooks/useSystemTheme';
 import { useAppStore } from '@/store/appStore';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { exit } from '@tauri-apps/plugin-process';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
@@ -22,16 +24,8 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'reac
 function App() {
   useSystemTheme();
 
-  const {
-    filePath,
-    isDarkMode,
-    isLoading,
-    segyData,
-    setLoading,
-    setSegyData,
-    setFilePath,
-    setError,
-  } = useAppStore();
+  const { filePath, isLoading, segyData, setLoading, setSegyData, setFilePath, setError } =
+    useAppStore();
 
   const {
     headerView,
@@ -42,34 +36,51 @@ function App() {
     loadingTrace,
     resetTraceState,
   } = useTraceHeader({ segyData, filePath });
+  const [isDragActive, setIsDragActive] = useState(false);
+  const isLoadingRef = useRef(isLoading);
+
+  useEffect(() => {
+    isLoadingRef.current = isLoading;
+  }, [isLoading]);
 
   /**
    * Load SEG-Y metadata from the backend and refresh trace state + notifications.
    */
-  const loadSegyData = async (path: string) => {
-    setLoading(true);
-    setError(null);
-    toast.loading('Loading SEG-Y file...', { id: 'loading' });
+  const loadSegyData = useCallback(
+    async (path: string) => {
+      setLoading(true);
+      setError(null);
+      toast.loading('Loading SEG-Y file...', { id: 'loading' });
 
-    try {
-      const data = await loadSegyFileCommand(path);
+      try {
+        const data = await loadSegyFileCommand(path);
 
-      setSegyData(data);
-      resetTraceState();
+        setSegyData(data);
+        resetTraceState();
 
-      toast.success(
-        `Loaded file with ${data.total_traces || '?'} traces (${(data.file_size / 1024 / 1024).toFixed(2)} MB)`,
-        { id: 'loading' }
-      );
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      setError(errorMsg);
-      toast.error(`Failed to load SEG-Y: ${errorMsg}`, { id: 'loading' });
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        toast.success(
+          `Loaded file with ${data.total_traces || '?'} traces (${(data.file_size / 1024 / 1024).toFixed(2)} MB)`,
+          { id: 'loading' }
+        );
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        setError(errorMsg);
+        toast.error(`Failed to load SEG-Y: ${errorMsg}`, { id: 'loading' });
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [resetTraceState, setError, setLoading, setSegyData]
+  );
+
+  const handleFileLoad = useCallback(
+    async (path: string) => {
+      setFilePath(path);
+      await loadSegyData(path);
+    },
+    [loadSegyData, setFilePath]
+  );
 
   /**
    * Open a native file picker and trigger data load for the chosen file.
@@ -87,8 +98,7 @@ function App() {
       });
 
       if (selected) {
-        setFilePath(selected);
-        await loadSegyData(selected);
+        await handleFileLoad(selected);
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
@@ -97,6 +107,76 @@ function App() {
       console.error(error);
     }
   };
+
+  /**
+   * Listen for file drops on the window and load valid SEG-Y files.
+   */
+  useEffect(() => {
+    if (segyData) {
+      return;
+    }
+
+    let unlisten: (() => void) | null = null;
+    let cancelled = false;
+
+    const setupFileDropListener = async () => {
+      try {
+        unlisten = await getCurrentWindow().onDragDropEvent(async event => {
+          if (event.payload.type === 'enter' || event.payload.type === 'over') {
+            setIsDragActive(true);
+            return;
+          }
+
+          if (event.payload.type === 'leave') {
+            setIsDragActive(false);
+            return;
+          }
+
+          if (event.payload.type !== 'drop') {
+            return;
+          }
+
+          setIsDragActive(false);
+
+          const [droppedPath] = event.payload.paths ?? [];
+          if (!droppedPath) {
+            return;
+          }
+
+          if (isLoadingRef.current) {
+            toast.error('A file is already loading. Please wait.');
+            return;
+          }
+
+          const lowerPath = droppedPath.toLowerCase();
+          if (!lowerPath.endsWith('.segy') && !lowerPath.endsWith('.sgy')) {
+            const errorMsg = 'Unsupported file type. Drop a .segy or .sgy file.';
+            setError(errorMsg);
+            toast.error(errorMsg);
+            return;
+          }
+
+          await handleFileLoad(droppedPath);
+        });
+
+        if (cancelled && unlisten) {
+          unlisten();
+        }
+      } catch (error) {
+        console.error('Failed to register file drop listener', error);
+      }
+    };
+
+    void setupFileDropListener();
+
+    return () => {
+      cancelled = true;
+      setIsDragActive(false);
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, [handleFileLoad, segyData, setError]);
 
   /**
    * Exit the Tauri process with a user-facing fallback if the call fails.
@@ -111,9 +191,7 @@ function App() {
   };
 
   return (
-    <div
-      className={`app-shell flex h-screen flex-col ${isDarkMode ? 'theme-dark' : 'theme-light'}`}
-    >
+    <div className="app-shell flex h-screen flex-col">
       <Toaster position="top-right" />
 
       <AppHeader onFileSelect={handleFileSelect} onExit={handleExit} />
@@ -121,7 +199,9 @@ function App() {
       <main className="app-main">
         {isLoading && <SegyLoadingState />}
 
-        {!isLoading && !segyData && <SegyEmptyState onFileSelect={handleFileSelect} />}
+        {!isLoading && !segyData && (
+          <SegyEmptyState onFileSelect={handleFileSelect} isDragActive={isDragActive} />
+        )}
 
         {!isLoading && segyData && (
           <div className="panel-frame flex-1">

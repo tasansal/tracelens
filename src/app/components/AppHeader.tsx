@@ -3,6 +3,7 @@
  */
 import { formatByteOrder, formatTextEncoding } from '@/features/segy/types/segy';
 import { useAppStore } from '@/store/appStore';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import React from 'react';
 import { createPortal } from 'react-dom';
 
@@ -16,7 +17,8 @@ export const AppHeader: React.FC<{
   onFileSelect: () => void;
   onExit: () => void;
 }> = ({ onFileSelect, onExit }) => {
-  const { segyData, isLoading, isDarkMode } = useAppStore();
+  const appWindow = getCurrentWindow();
+  const { segyData } = useAppStore();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [menuPosition, setMenuPosition] = React.useState<{
     top: number;
@@ -85,28 +87,46 @@ export const AppHeader: React.FC<{
     setIsMenuOpen(true);
   };
 
+  const toggleMaximize = async () => {
+    const isMaximized = await appWindow.isMaximized();
+    if (isMaximized) {
+      await appWindow.unmaximize();
+      return;
+    }
+    await appWindow.maximize();
+  };
+
   return (
-    <header className="app-header sticky top-0 z-[200] bg-panel-tint text-text relative overflow-visible">
-      <div className="flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
+    <header
+      className="app-header sticky top-0 z-[200] bg-panel-tint text-text relative overflow-visible"
+      data-tauri-drag-region
+    >
+      <div className="flex h-16 items-center justify-between px-4" data-tauri-drag-region>
+        <div className="flex items-center gap-6" data-tauri-drag-region>
+          <div className="flex items-center gap-3" data-tauri-drag-region>
             <img
               src={logoUrl}
               alt="TraceLens logo"
               className="h-8 w-8 rounded-md border border-border bg-panel-strong"
+              data-tauri-drag-region
             />
-            <div className="flex flex-col leading-none">
-              <span className="brand-mark text-sm">TraceLens</span>
-              <span className="brand-subtitle">SEG-Y Workbench</span>
+            <div className="flex flex-col leading-none" data-tauri-drag-region>
+              <span className="brand-mark text-sm" data-tauri-drag-region>
+                TraceLens
+              </span>
+              <span className="brand-subtitle" data-tauri-drag-region>
+                SEG-Y Workbench
+              </span>
             </div>
           </div>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-2" data-tauri-drag-region>
             {menuItems.map(item => (
               <button
                 key={item.id}
                 ref={item.id === 'file' ? menuButtonRef : undefined}
                 onClick={() => item.id === 'file' && toggleMenu()}
                 disabled={item.disabled}
+                data-tauri-drag-region="false"
                 className="btn-ghost"
               >
                 {item.label}
@@ -115,40 +135,78 @@ export const AppHeader: React.FC<{
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" data-tauri-drag-region>
           {segyData && (
             <>
               {/* Full status bar for large screens */}
-              <div className="status-pill hidden items-center gap-4 lg:flex">
-                <div className="flex items-center gap-2">
-                  <span className="status-dot"></span>
+              <div
+                className="status-pill hidden items-center gap-4 lg:inline-flex"
+                data-tauri-drag-region
+              >
+                <div className="flex items-center gap-2" data-tauri-drag-region>
+                  <span className="status-dot" data-tauri-drag-region></span>
                   {(segyData.file_size / 1024 / 1024).toFixed(2)} MB
                 </div>
-                <div className="h-3 w-px bg-border"></div>
-                <div>{segyData.total_traces ?? '?'} traces</div>
-                <div className="h-3 w-px bg-border"></div>
-                <div>{formatTextEncoding(segyData.text_encoding)}</div>
-                <div className="h-3 w-px bg-border"></div>
-                <div>{formatByteOrder(segyData.byte_order)}</div>
+                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <div data-tauri-drag-region>{segyData.total_traces ?? '?'} traces</div>
+                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <div data-tauri-drag-region>{formatTextEncoding(segyData.text_encoding)}</div>
+                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <div data-tauri-drag-region>{formatByteOrder(segyData.byte_order)}</div>
               </div>
 
               {/* Abbreviated status for mobile */}
-              <div className="status-pill flex items-center gap-2 lg:hidden">
-                <span className="status-dot"></span>
-                <div>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
-                <div className="h-3 w-px bg-border"></div>
-                <div>{segyData.total_traces ?? '?'} tr</div>
+              <div
+                className="status-pill inline-flex items-center gap-2 lg:hidden"
+                data-tauri-drag-region
+              >
+                <span className="status-dot" data-tauri-drag-region></span>
+                <div data-tauri-drag-region>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
+                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <div data-tauri-drag-region>{segyData.total_traces ?? '?'} tr</div>
               </div>
             </>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="titlebar-controls" data-tauri-drag-region="false">
             <button
-              onClick={onFileSelect}
-              disabled={isLoading}
-              className="btn-primary ml-2 text-sm"
+              type="button"
+              onClick={() => {
+                void appWindow.minimize();
+              }}
+              className="titlebar-btn"
+              data-tauri-drag-region="false"
+              aria-label="Minimize window"
             >
-              {isLoading ? 'Loading...' : 'Open SEG-Y'}
+              <svg viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M2 6h8"></path>
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                await toggleMaximize();
+              }}
+              className="titlebar-btn"
+              data-tauri-drag-region="false"
+              aria-label="Toggle maximize window"
+            >
+              <svg viewBox="0 0 12 12" aria-hidden="true">
+                <rect x="2.25" y="2.25" width="7.5" height="7.5" rx="1"></rect>
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                void appWindow.close();
+              }}
+              className="titlebar-btn close"
+              data-tauri-drag-region="false"
+              aria-label="Close window"
+            >
+              <svg viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M3 3l6 6M9 3L3 9"></path>
+              </svg>
             </button>
           </div>
         </div>
@@ -161,9 +219,7 @@ export const AppHeader: React.FC<{
         createPortal(
           <div
             ref={menuRef}
-            className={`shadow-panel fixed z-[999] overflow-hidden rounded-xl border border-border bg-panel text-text ${
-              isDarkMode ? 'theme-dark' : 'theme-light'
-            }`}
+            className="shadow-panel fixed z-[999] overflow-hidden rounded-xl border border-border bg-panel text-text"
             style={{
               top: menuPosition.top,
               left: menuPosition.left,
