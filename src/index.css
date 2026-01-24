@@ -143,6 +143,10 @@
   z-index: 1;
 }
 
+.app-header {
+  border-bottom: 1px solid var(--grid);
+}
+
 /* Layout primitives. */
 .app-main {
   display: flex;

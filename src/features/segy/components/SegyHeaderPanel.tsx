@@ -39,7 +39,7 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
   loadingTrace,
 }) => {
   return (
-    <div className="flex h-full flex-col border-r border-border bg-panel">
+    <div className="flex h-full flex-col bg-panel">
       <section className="panel-header px-4 py-3">
         <div className="tab-strip">
           {headerViews.map(view => (

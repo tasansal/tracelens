@@ -86,7 +86,7 @@ export const AppHeader: React.FC<{
   };
 
   return (
-    <header className="sticky top-0 z-[200] border-b border-border bg-panel-tint text-text relative overflow-visible">
+    <header className="app-header sticky top-0 z-[200] bg-panel-tint text-text relative overflow-visible">
       <div className="flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
