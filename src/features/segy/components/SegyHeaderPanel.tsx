@@ -39,7 +39,7 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
   loadingTrace,
 }) => {
   return (
-    <div className="flex h-full flex-col border-r border-[var(--border)] bg-[var(--panel)]">
+    <div className="flex h-full flex-col border-r border-border bg-panel">
       <section className="panel-header px-4 py-3">
         <div className="tab-strip">
           {headerViews.map(view => (
@@ -66,7 +66,7 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
             <span className="min-w-[110px] whitespace-nowrap font-mono text-xs text-muted">
               {sliderValue} / {segyData.total_traces}
             </span>
-            <div className="flex h-5 w-5 items-center justify-center text-[var(--accent)]">
+            <div className="flex h-5 w-5 items-center justify-center text-accent">
               {loadingTrace && (
                 <svg
                   className="h-4 w-4 animate-spin"

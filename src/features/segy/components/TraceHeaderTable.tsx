@@ -32,14 +32,14 @@ export const TraceHeaderTable: React.FC<TraceHeaderTableProps> = ({ header, trac
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-[var(--panel)]">
+      <div className="flex h-full items-center justify-center bg-panel">
         <div className="text-xs text-muted">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col bg-[var(--panel)]">
+    <div className="flex h-full flex-col bg-panel">
       <div className="panel-header px-4 py-3">
         <h2 className="section-title">Trace #{traceId} Header</h2>
       </div>

@@ -86,14 +86,14 @@ export const AppHeader: React.FC<{
   };
 
   return (
-    <header className="sticky top-0 z-[200] border-b border-[var(--border)] bg-[var(--panel-tint)] text-[var(--text)] relative overflow-visible">
+    <header className="sticky top-0 z-[200] border-b border-border bg-panel-tint text-text relative overflow-visible">
       <div className="flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <img
               src={logoUrl}
               alt="TraceLens logo"
-              className="h-8 w-8 rounded-md border border-[var(--border)] bg-[var(--panel-strong)]"
+              className="h-8 w-8 rounded-md border border-border bg-panel-strong"
             />
             <div className="flex flex-col leading-none">
               <span className="brand-mark text-sm">TraceLens</span>
@@ -124,11 +124,11 @@ export const AppHeader: React.FC<{
                   <span className="status-dot"></span>
                   {(segyData.file_size / 1024 / 1024).toFixed(2)} MB
                 </div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
+                <div className="h-3 w-px bg-border"></div>
                 <div>{segyData.total_traces ?? '?'} traces</div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
+                <div className="h-3 w-px bg-border"></div>
                 <div>{formatTextEncoding(segyData.text_encoding)}</div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
+                <div className="h-3 w-px bg-border"></div>
                 <div>{formatByteOrder(segyData.byte_order)}</div>
               </div>
 
@@ -136,7 +136,7 @@ export const AppHeader: React.FC<{
               <div className="status-pill flex items-center gap-2 lg:hidden">
                 <span className="status-dot"></span>
                 <div>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
+                <div className="h-3 w-px bg-border"></div>
                 <div>{segyData.total_traces ?? '?'} tr</div>
               </div>
             </>
@@ -161,7 +161,7 @@ export const AppHeader: React.FC<{
         createPortal(
           <div
             ref={menuRef}
-            className={`shadow-panel fixed z-[999] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--panel)] text-[var(--text)] ${
+            className={`shadow-panel fixed z-[999] overflow-hidden rounded-xl border border-border bg-panel text-text ${
               isDarkMode ? 'theme-dark' : 'theme-light'
             }`}
             style={{
@@ -176,20 +176,20 @@ export const AppHeader: React.FC<{
                   onFileSelect();
                   setIsMenuOpen(false);
                 }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-strong transition-colors hover:bg-[var(--panel-strong)]"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-strong transition-colors hover:bg-panel-strong"
               >
                 <span className="font-semibold">Open SEG-Y...</span>
                 <span className="ml-auto text-[10px] text-dim">Ctrl+O</span>
               </button>
 
-              <div className="my-1.5 border-t border-[var(--border)]"></div>
+              <div className="my-1.5 border-t border-border"></div>
 
               <button
                 onClick={() => {
                   onExit();
                   setIsMenuOpen(false);
                 }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--accent)] transition-colors hover:bg-[var(--panel-strong)]"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-accent transition-colors hover:bg-panel-strong"
               >
                 <span>Exit Application</span>
               </button>

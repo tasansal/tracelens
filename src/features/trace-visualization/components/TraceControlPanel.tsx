@@ -77,14 +77,12 @@ export const TraceControlPanel: React.FC = () => {
   };
 
   return (
-    <div className="text-[var(--text)]">
+    <div className="text-text">
       {/* Compact Header Bar */}
       <div className="flex flex-wrap items-center gap-4 px-4 py-3">
         {/* Render Mode */}
         <div className="flex items-center gap-2">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-            Mode
-          </label>
+          <label className="label-tight">Mode</label>
           <select
             value={renderMode}
             onChange={e =>
@@ -102,9 +100,7 @@ export const TraceControlPanel: React.FC = () => {
 
         {/* Colormap */}
         <div className="flex items-center gap-2">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-            Colormap
-          </label>
+          <label className="label-tight">Colormap</label>
           <select
             value={colormap}
             onChange={e =>
@@ -123,9 +119,7 @@ export const TraceControlPanel: React.FC = () => {
 
         {/* Amplitude Scaling */}
         <div className="flex items-center gap-2">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-            Scaling
-          </label>
+          <label className="label-tight">Scaling</label>
           <button
             type="button"
             onClick={() => setShowScalingSettings(!showScalingSettings)}
@@ -152,9 +146,7 @@ export const TraceControlPanel: React.FC = () => {
 
         {/* Trace Range - Custom Stepper Controls */}
         <div className="ml-auto flex flex-wrap items-center gap-3">
-          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-            Start
-          </label>
+          <label className="label-tight">Start</label>
 
           {/* Start Trace Stepper */}
           <div className="flex items-center gap-2">
@@ -183,9 +175,7 @@ export const TraceControlPanel: React.FC = () => {
             </button>
           </div>
 
-          <label className="text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-            Count
-          </label>
+          <label className="label-tight">Count</label>
 
           {/* Trace Count Stepper */}
           <div className="flex items-center gap-2">
@@ -230,9 +220,7 @@ export const TraceControlPanel: React.FC = () => {
 
             {/* Type Selector */}
             <div className="mb-4 mt-5">
-              <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-                Scaling Type
-              </label>
+              <label className="mb-2 block label-tight">Scaling Type</label>
               <select
                 value={amplitudeScaling.type}
                 onChange={e => {
@@ -256,9 +244,7 @@ export const TraceControlPanel: React.FC = () => {
             {/* Per-Trace AGC Settings */}
             {amplitudeScaling.type === 'per-trace' && (
               <div className="mb-4">
-                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-                  AGC Window (samples)
-                </label>
+                <label className="mb-2 block label-tight">AGC Window (samples)</label>
                 <input
                   type="number"
                   min="0"
@@ -281,7 +267,7 @@ export const TraceControlPanel: React.FC = () => {
             {/* Percentile Settings */}
             {amplitudeScaling.type === 'percentile' && (
               <div className="mb-4">
-                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
+                <label className="mb-2 block label-tight">
                   Percentile: {(amplitudeScaling.percentile * 100).toFixed(0)}%
                 </label>
                 <input
@@ -308,9 +294,7 @@ export const TraceControlPanel: React.FC = () => {
             {/* Manual Scale Settings */}
             {amplitudeScaling.type === 'manual' && (
               <div className="mb-4">
-                <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.24em] text-dim">
-                  Scale Factor
-                </label>
+                <label className="mb-2 block label-tight">Scale Factor</label>
                 <input
                   type="number"
                   step="0.1"

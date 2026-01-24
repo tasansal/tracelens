@@ -111,7 +111,7 @@ export const TraceVisualizationContainer: React.FC = () => {
   }, [updateViewport]);
 
   return (
-    <div className="flex h-full flex-col bg-[var(--panel)]">
+    <div className="flex h-full flex-col bg-panel">
       {/* Control Panel - Compact Header */}
       <div className="panel-header flex-shrink-0">
         <TraceControlPanel />
