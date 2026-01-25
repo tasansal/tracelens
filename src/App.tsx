@@ -26,7 +26,6 @@ function App() {
 
   const {
     filePath,
-    isDarkMode,
     isLoading,
     segyData,
     revisionOverride,
