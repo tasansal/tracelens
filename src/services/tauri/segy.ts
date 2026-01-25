@@ -45,15 +45,23 @@ export async function loadSingleTrace(params: {
 /**
  * Fetch backend spec for binary header fields.
  */
-export async function getBinaryHeaderSpec(): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_binary_header_spec');
+export async function getBinaryHeaderSpec(
+  segyRevision: number | null,
+): Promise<HeaderFieldSpec[]> {
+  return invoke<HeaderFieldSpec[]>('get_binary_header_spec', {
+    segyRevision: segyRevision ?? 0,
+  });
 }
 
 /**
  * Fetch backend spec for trace header fields.
  */
-export async function getTraceHeaderSpec(): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_trace_header_spec');
+export async function getTraceHeaderSpec(
+  segyRevision: number | null,
+): Promise<HeaderFieldSpec[]> {
+  return invoke<HeaderFieldSpec[]>('get_trace_header_spec', {
+    segyRevision: segyRevision ?? 0,
+  });
 }
 
 /**

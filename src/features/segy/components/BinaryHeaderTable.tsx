@@ -12,22 +12,26 @@ import React from 'react';
  */
 interface BinaryHeaderTableProps {
   header: BinaryHeader;
+  revision: number;
 }
 
 /**
  * Render a spec-backed table for the binary file header.
  */
-export const BinaryHeaderTable: React.FC<BinaryHeaderTableProps> = ({ header }) => {
+export const BinaryHeaderTable: React.FC<BinaryHeaderTableProps> = ({
+  header,
+  revision,
+}) => {
   const [fieldSpecs, setFieldSpecs] = React.useState<HeaderFieldSpec[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     // Pull the header field definitions from the backend spec.
-    getBinaryHeaderSpec()
+    getBinaryHeaderSpec(revision)
       .then(setFieldSpecs)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [revision]);
 
   if (loading) {
     return (

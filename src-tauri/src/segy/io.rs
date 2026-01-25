@@ -20,6 +20,8 @@ pub(crate) struct HeaderBundle {
     pub textual_header: TextualHeader,
     /// Parsed binary header.
     pub binary_header: BinaryHeader,
+    /// Total header size in bytes (textual + binary + extended textual headers).
+    pub file_header_size: usize,
     /// File size in bytes.
     pub file_size: u64,
 }
@@ -38,7 +40,7 @@ pub(crate) fn read_headers(file: &mut File) -> Result<HeaderBundle, AppError> {
             message: format!("Failed to seek to file start: {}", e),
         })?;
 
-    let textual_header = TextualHeader::from_reader(file).map_err(|e| AppError::SegyError {
+    let mut textual_header = TextualHeader::from_reader(file).map_err(|e| AppError::SegyError {
         message: format!("Failed to read textual header: {}", e),
     })?;
 
@@ -46,9 +48,28 @@ pub(crate) fn read_headers(file: &mut File) -> Result<HeaderBundle, AppError> {
         message: format!("Failed to parse binary header: {}", e),
     })?;
 
+    let extended_header_count = extended_textual_header_count(&binary_header)?;
+    let file_header_size = resolve_file_header_size(&binary_header)?;
+    if file_size < file_header_size as u64 {
+        return Err(AppError::SegyError {
+            message: format!(
+                "File too small for declared headers ({} bytes, need {} bytes)",
+                file_size, file_header_size
+            ),
+        });
+    }
+
+    for _ in 0..extended_header_count {
+        let extended_header = TextualHeader::from_reader(file).map_err(|e| AppError::SegyError {
+            message: format!("Failed to read extended textual header: {}", e),
+        })?;
+        textual_header.append_lines(extended_header.lines);
+    }
+
     Ok(HeaderBundle {
         textual_header,
         binary_header,
+        file_header_size,
         file_size,
     })
 }
@@ -56,12 +77,16 @@ pub(crate) fn read_headers(file: &mut File) -> Result<HeaderBundle, AppError> {
 /// Compute total trace count from file size and per-trace block size.
 ///
 /// Returns `None` when the size is invalid or the calculation would overflow.
-pub(crate) fn compute_total_traces(file_size: u64, trace_block_size: usize) -> Option<usize> {
+pub(crate) fn compute_total_traces(
+    file_size: u64,
+    trace_block_size: usize,
+    file_header_size: usize,
+) -> Option<usize> {
     if trace_block_size == 0 || trace_block_size as u64 > file_size {
         return None;
     }
 
-    let data_size = file_size.saturating_sub(constants::FILE_HEADER_SIZE as u64);
+    let data_size = file_size.saturating_sub(file_header_size as u64);
     Some((data_size / trace_block_size as u64) as usize)
 }
 
@@ -140,6 +165,36 @@ fn ensure_min_file_size(file_size: u64) -> Result<(), AppError> {
         });
     }
     Ok(())
+}
+
+fn resolve_file_header_size(header: &BinaryHeader) -> Result<usize, AppError> {
+    let extended_count = extended_textual_header_count(header)?;
+
+    constants::FILE_HEADER_SIZE
+        .checked_add(
+            constants::TEXTUAL_HEADER_SIZE
+                .checked_mul(extended_count)
+                .ok_or_else(|| AppError::ValidationError {
+                    message: "Extended textual header size overflow".to_string(),
+                })?,
+        )
+        .ok_or_else(|| AppError::ValidationError {
+            message: "File header size overflow".to_string(),
+        })
+}
+
+fn extended_textual_header_count(header: &BinaryHeader) -> Result<usize, AppError> {
+    let extended_textual_headers = header.extended_textual_headers;
+    if extended_textual_headers <= 0 {
+        return Ok(0);
+    }
+
+    usize::try_from(extended_textual_headers).map_err(|_| AppError::ValidationError {
+        message: format!(
+            "Invalid extended textual header count: {}",
+            extended_textual_headers
+        ),
+    })
 }
 
 /// Validate the requested trace range and ensure the configuration is usable.

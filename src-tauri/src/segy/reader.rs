@@ -37,8 +37,9 @@ impl SegyReader {
         let config = SegyFileConfig::from_binary_header(&header_bundle.binary_header)?;
 
         let trace_block_size = config.trace_block_size().ok();
-        let total_traces = trace_block_size
-            .and_then(|size| io::compute_total_traces(header_bundle.file_size, size));
+        let total_traces = trace_block_size.and_then(|size| {
+            io::compute_total_traces(header_bundle.file_size, size, header_bundle.file_header_size)
+        });
 
         let mmap = unsafe { memmap2::Mmap::map(&file) }.map_err(|e| AppError::IoError {
             message: format!("Failed to memory-map file: {}", e),

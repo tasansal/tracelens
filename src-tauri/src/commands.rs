@@ -22,7 +22,7 @@ type CommandResult<T> = Result<T, String>;
 /// Load and parse a SEG-Y file asynchronously
 ///
 /// Reads the file headers and caches a memory-mapped reader for subsequent trace loads.
-/// Supports SEG-Y Rev 0 format. Traces are loaded on-demand via load_single_trace.
+/// Supports SEG-Y Rev 0/1/2 formats. Traces are loaded on-demand via load_single_trace.
 ///
 /// # Arguments
 /// * `file_path` - Absolute path to the SEG-Y file
@@ -62,19 +62,19 @@ pub async fn load_segy_file(
 
 /// Get binary header field specifications
 ///
-/// Returns metadata dynamically loaded from canonical SEG-Y Rev 0 spec
+/// Returns metadata dynamically loaded from the revision-specific SEG-Y spec
 #[tauri::command]
-pub fn get_binary_header_spec() -> CommandResult<Vec<HeaderFieldSpec>> {
-    let spec = SegyFormatSpec::load_rev0()?;
+pub fn get_binary_header_spec(segy_revision: Option<u16>) -> CommandResult<Vec<HeaderFieldSpec>> {
+    let spec = SegyFormatSpec::load_for_revision(segy_revision.unwrap_or_default())?;
     Ok(spec.get_binary_header_fields())
 }
 
 /// Get trace header field specifications
 ///
-/// Returns metadata dynamically loaded from canonical SEG-Y Rev 0 spec
+/// Returns metadata dynamically loaded from the revision-specific SEG-Y spec
 #[tauri::command]
-pub fn get_trace_header_spec() -> CommandResult<Vec<HeaderFieldSpec>> {
-    let spec = SegyFormatSpec::load_rev0()?;
+pub fn get_trace_header_spec(segy_revision: Option<u16>) -> CommandResult<Vec<HeaderFieldSpec>> {
+    let spec = SegyFormatSpec::load_for_revision(segy_revision.unwrap_or_default())?;
     Ok(spec.get_trace_header_fields())
 }
 

@@ -38,6 +38,10 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
   currentTrace,
   loadingTrace,
 }) => {
+  const revisionValue = (segyData.binary_header as Record<string, unknown>)?.segy_revision;
+  const revision =
+    typeof revisionValue === 'number' ? revisionValue : Number(revisionValue ?? 0);
+
   return (
     <div className="flex h-full flex-col bg-panel">
       <section className="panel-header px-4 py-3">
@@ -108,14 +112,20 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
           </div>
         )}
 
-        {headerView === 'binary' && <BinaryHeaderTable header={segyData.binary_header} />}
+        {headerView === 'binary' && (
+          <BinaryHeaderTable header={segyData.binary_header} revision={revision} />
+        )}
 
         {headerView === 'trace' &&
           (currentTrace ? (
             <div
               className={`h-full ${loadingTrace ? 'opacity-60' : ''} transition-opacity duration-150`}
             >
-              <TraceHeaderTable header={currentTrace} traceId={sliderValue} />
+              <TraceHeaderTable
+                header={currentTrace}
+                traceId={sliderValue}
+                revision={revision}
+              />
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-muted">

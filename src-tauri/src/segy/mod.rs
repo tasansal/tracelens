@@ -1,6 +1,6 @@
 //! SEG-Y format data structures and parsing.
 //!
-//! This module implements the SEG-Y Rev 0 specification with support for:
+//! This module implements the SEG-Y format with support for:
 //! - Textual header (3200 bytes, EBCDIC or ASCII)
 //! - Binary header (400 bytes)
 //! - Trace header (240 bytes)

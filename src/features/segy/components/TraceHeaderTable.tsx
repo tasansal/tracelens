@@ -13,22 +13,27 @@ import React from 'react';
 interface TraceHeaderTableProps {
   header: TraceHeader;
   traceId: number;
+  revision: number;
 }
 
 /**
  * Render a trace header table for the selected trace index.
  */
-export const TraceHeaderTable: React.FC<TraceHeaderTableProps> = ({ header, traceId }) => {
+export const TraceHeaderTable: React.FC<TraceHeaderTableProps> = ({
+  header,
+  traceId,
+  revision,
+}) => {
   const [fieldSpecs, setFieldSpecs] = React.useState<HeaderFieldSpec[]>([]);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     // Pull the header field definitions from the backend spec.
-    getTraceHeaderSpec()
+    getTraceHeaderSpec(revision)
       .then(setFieldSpecs)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [revision]);
 
   if (loading) {
     return (
