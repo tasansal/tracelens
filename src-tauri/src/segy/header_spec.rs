@@ -123,15 +123,17 @@ impl SegyFormatSpec {
         Self::materialize_definition(definition)
     }
 
-    fn materialize_definition(definition: SegySpecDefinition) -> Result<Self, String> {
+    fn materialize_definition(mut definition: SegySpecDefinition) -> Result<Self, String> {
         let mut spec = if let Some(extends) = definition.extends.as_deref() {
             Self::load_spec_definition(extends)?
         } else {
             let binary_patch = definition
                 .binary_header
+                .take()
                 .ok_or_else(|| "Base SEG-Y spec missing binary header".to_string())?;
             let trace_patch = definition
                 .trace_header
+                .take()
                 .ok_or_else(|| "Base SEG-Y spec missing trace header".to_string())?;
 
             let binary_header = BinaryHeaderSpec {
@@ -166,11 +168,11 @@ impl SegyFormatSpec {
         spec.reference = definition.reference;
 
         if definition.extends.is_some() {
-            if let Some(binary_patch) = definition.binary_header {
+            if let Some(binary_patch) = definition.binary_header.take() {
                 apply_binary_patch(&mut spec.binary_header, binary_patch);
             }
 
-            if let Some(trace_patch) = definition.trace_header {
+            if let Some(trace_patch) = definition.trace_header.take() {
                 apply_trace_patch(&mut spec.trace_header, trace_patch);
             }
         }
