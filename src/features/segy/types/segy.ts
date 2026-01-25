@@ -47,6 +47,20 @@ export type TextEncoding = 'Ebcdic' | 'Ascii';
 export type ByteOrder = 'BigEndian' | 'LittleEndian';
 
 /**
+ * Convert SEG-Y revision code to a UI-friendly label.
+ */
+export function formatSegyRevision(revision: number | null | undefined): string {
+  if (revision === null || revision === undefined) return 'Auto';
+  if (revision === 0) return 'Rev 0 (1975)';
+  if (revision === 0x0100) return 'Rev 1.0 (2002)';
+  if (revision === 0x0200) return 'Rev 2.0 (2017)';
+  if (revision === 0x0201) return 'Rev 2.1 (2023)';
+  const major = revision >> 8;
+  const minor = revision & 0xff;
+  return `Rev ${major}.${minor}`;
+}
+
+/**
  * Convert encoding enum to a UI-friendly label.
  */
 export function formatTextEncoding(encoding: TextEncoding): string {

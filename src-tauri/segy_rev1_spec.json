@@ -1,0 +1,191 @@
+{
+  "version": "SEG-Y Rev 1.0 (2002)",
+  "reference": "SEG Technical Standards Committee, 2002",
+  "extends": "segy_rev0_spec.json",
+  "binary_header": {
+    "fields": [
+      {
+        "name": "SEG-Y Revision",
+        "field_key": "segy_revision",
+        "byte_start": 3501,
+        "byte_end": 3502,
+        "data_type": "uint16",
+        "description": "SEG-Y format revision number",
+        "code_mapping": {
+          "0": "Rev 0 (1975)",
+          "256": "Rev 1.0 (2002)",
+          "512": "Rev 2.0 (2017)",
+          "513": "Rev 2.1 (2023)"
+        }
+      },
+      {
+        "name": "Fixed Length Trace Flag",
+        "field_key": "fixed_length_trace_flag",
+        "byte_start": 3503,
+        "byte_end": 3504,
+        "data_type": "int16",
+        "description": "1 = all traces have the same number of samples, 0 = variable length",
+        "code_mapping": {
+          "0": "Variable Length",
+          "1": "Fixed Length"
+        }
+      },
+      {
+        "name": "Extended Textual Headers",
+        "field_key": "extended_textual_headers",
+        "byte_start": 3505,
+        "byte_end": 3506,
+        "data_type": "int16",
+        "description": "Number of extended textual headers following the binary header"
+      }
+    ]
+  },
+  "trace_header": {
+    "fields": [
+      {
+        "name": "CDP X",
+        "field_key": "cdp_x",
+        "byte_start": 181,
+        "byte_end": 184,
+        "data_type": "int32",
+        "description": "X coordinate of CDP ensemble position"
+      },
+      {
+        "name": "CDP Y",
+        "field_key": "cdp_y",
+        "byte_start": 185,
+        "byte_end": 188,
+        "data_type": "int32",
+        "description": "Y coordinate of CDP ensemble position"
+      },
+      {
+        "name": "Inline",
+        "field_key": "inline",
+        "byte_start": 189,
+        "byte_end": 192,
+        "data_type": "int32",
+        "description": "Inline number"
+      },
+      {
+        "name": "Crossline",
+        "field_key": "crossline",
+        "byte_start": 193,
+        "byte_end": 196,
+        "data_type": "int32",
+        "description": "Crossline number"
+      },
+      {
+        "name": "Shot Point",
+        "field_key": "shot_point",
+        "byte_start": 197,
+        "byte_end": 200,
+        "data_type": "int32",
+        "description": "Shot point number"
+      },
+      {
+        "name": "Shot Point Scalar",
+        "field_key": "shot_point_scalar",
+        "byte_start": 201,
+        "byte_end": 202,
+        "data_type": "int16",
+        "description": "Scalar to apply to shot point"
+      },
+      {
+        "name": "Trace Value Unit",
+        "field_key": "trace_value_unit",
+        "byte_start": 203,
+        "byte_end": 204,
+        "data_type": "int16",
+        "description": "Trace value measurement unit"
+      },
+      {
+        "name": "Transduction Constant Mantissa",
+        "field_key": "transduction_const_mantissa",
+        "byte_start": 205,
+        "byte_end": 208,
+        "data_type": "int32",
+        "description": "Transduction constant mantissa"
+      },
+      {
+        "name": "Transduction Constant Exponent",
+        "field_key": "transduction_const_exponent",
+        "byte_start": 209,
+        "byte_end": 210,
+        "data_type": "int16",
+        "description": "Transduction constant exponent"
+      },
+      {
+        "name": "Transduction Unit",
+        "field_key": "transduction_unit",
+        "byte_start": 211,
+        "byte_end": 212,
+        "data_type": "int16",
+        "description": "Transduction unit"
+      },
+      {
+        "name": "Device Trace ID",
+        "field_key": "device_trace_id",
+        "byte_start": 213,
+        "byte_end": 214,
+        "data_type": "int16",
+        "description": "Device/trace identifier"
+      },
+      {
+        "name": "Times Scalar",
+        "field_key": "times_scalar",
+        "byte_start": 215,
+        "byte_end": 216,
+        "data_type": "int16",
+        "description": "Times scalar"
+      },
+      {
+        "name": "Source Type Orientation",
+        "field_key": "source_type_orientation",
+        "byte_start": 217,
+        "byte_end": 218,
+        "data_type": "int16",
+        "description": "Source type/orientation"
+      },
+      {
+        "name": "Source Energy Direction Mantissa",
+        "field_key": "source_energy_dir_mantissa",
+        "byte_start": 219,
+        "byte_end": 222,
+        "data_type": "int32",
+        "description": "Source energy direction mantissa"
+      },
+      {
+        "name": "Source Energy Direction Exponent",
+        "field_key": "source_energy_dir_exponent",
+        "byte_start": 223,
+        "byte_end": 224,
+        "data_type": "int16",
+        "description": "Source energy direction exponent"
+      },
+      {
+        "name": "Source Measurement Mantissa",
+        "field_key": "source_measurement_mantissa",
+        "byte_start": 225,
+        "byte_end": 228,
+        "data_type": "int32",
+        "description": "Source measurement mantissa"
+      },
+      {
+        "name": "Source Measurement Exponent",
+        "field_key": "source_measurement_exponent",
+        "byte_start": 229,
+        "byte_end": 230,
+        "data_type": "int16",
+        "description": "Source measurement exponent"
+      },
+      {
+        "name": "Source Measurement Unit",
+        "field_key": "source_measurement_unit",
+        "byte_start": 231,
+        "byte_end": 232,
+        "data_type": "int16",
+        "description": "Source measurement unit"
+      }
+    ]
+  }
+}

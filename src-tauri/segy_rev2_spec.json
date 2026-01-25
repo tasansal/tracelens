@@ -1,0 +1,141 @@
+{
+  "version": "SEG-Y Rev 2.0 (2017)",
+  "reference": "SEG Technical Standards Committee, 2017",
+  "extends": "segy_rev1_spec.json",
+  "binary_header": {
+    "fields": [
+      {
+        "name": "Extended Data Traces per Ensemble",
+        "field_key": "extended_data_traces_per_ensemble",
+        "byte_start": 3261,
+        "byte_end": 3264,
+        "data_type": "int32",
+        "description": "Extended data traces per ensemble"
+      },
+      {
+        "name": "Extended Aux Traces per Ensemble",
+        "field_key": "extended_aux_traces_per_ensemble",
+        "byte_start": 3265,
+        "byte_end": 3268,
+        "data_type": "int32",
+        "description": "Extended aux traces per ensemble"
+      },
+      {
+        "name": "Extended Samples per Trace",
+        "field_key": "extended_samples_per_trace",
+        "byte_start": 3269,
+        "byte_end": 3272,
+        "data_type": "int32",
+        "description": "Extended samples per trace"
+      },
+      {
+        "name": "Extended Sample Interval",
+        "field_key": "extended_sample_interval",
+        "byte_start": 3273,
+        "byte_end": 3280,
+        "data_type": "float64",
+        "description": "Extended sample interval"
+      },
+      {
+        "name": "Extended Original Sample Interval",
+        "field_key": "extended_orig_sample_interval",
+        "byte_start": 3281,
+        "byte_end": 3288,
+        "data_type": "float64",
+        "description": "Extended original sample interval"
+      },
+      {
+        "name": "Extended Original Samples per Trace",
+        "field_key": "extended_orig_samples_per_trace",
+        "byte_start": 3289,
+        "byte_end": 3292,
+        "data_type": "int32",
+        "description": "Extended original samples per trace"
+      },
+      {
+        "name": "Extended Ensemble Fold",
+        "field_key": "extended_ensemble_fold",
+        "byte_start": 3293,
+        "byte_end": 3296,
+        "data_type": "int32",
+        "description": "Extended ensemble fold"
+      },
+      {
+        "name": "Byte Order",
+        "field_key": "byte_order",
+        "byte_start": 3297,
+        "byte_end": 3300,
+        "data_type": "int32",
+        "description": "Byte order"
+      },
+      {
+        "name": "SEG-Y Revision Major",
+        "field_key": "segy_revision_major",
+        "byte_start": 3501,
+        "byte_end": 3501,
+        "data_type": "uint8",
+        "description": "SEG-Y revision major"
+      },
+      {
+        "name": "SEG-Y Revision Minor",
+        "field_key": "segy_revision_minor",
+        "byte_start": 3502,
+        "byte_end": 3502,
+        "data_type": "uint8",
+        "description": "SEG-Y revision minor"
+      },
+      {
+        "name": "Max Extended Trace Headers",
+        "field_key": "max_extended_trace_headers",
+        "byte_start": 3507,
+        "byte_end": 3510,
+        "data_type": "int32",
+        "description": "Max extended trace headers"
+      },
+      {
+        "name": "Time Basis Code",
+        "field_key": "time_basis_code",
+        "byte_start": 3511,
+        "byte_end": 3512,
+        "data_type": "int16",
+        "description": "Time basis code"
+      },
+      {
+        "name": "Num Traces",
+        "field_key": "num_traces",
+        "byte_start": 3513,
+        "byte_end": 3520,
+        "data_type": "uint64",
+        "description": "Total number of traces"
+      },
+      {
+        "name": "Byte Offset First Trace",
+        "field_key": "byte_offset_first_trace",
+        "byte_start": 3521,
+        "byte_end": 3528,
+        "data_type": "uint64",
+        "description": "Byte offset of first trace"
+      },
+      {
+        "name": "Num Data Trailer Stanzas",
+        "field_key": "num_data_trailer_stanzas",
+        "byte_start": 3529,
+        "byte_end": 3532,
+        "data_type": "int32",
+        "description": "Number of data trailer stanzas"
+      }
+    ]
+  },
+  "trace_header": {
+    "fields": [
+      {
+        "name": "Trace Header Name",
+        "field_key": "trace_header_name",
+        "byte_start": 233,
+        "byte_end": 240,
+        "data_type": "string",
+        "description": "Trace header name"
+      }
+    ]
+  }
+}

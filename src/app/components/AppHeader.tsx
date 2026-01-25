@@ -18,7 +18,7 @@ export const AppHeader: React.FC<{
   onExit: () => void;
 }> = ({ onFileSelect, onExit }) => {
   const appWindow = getCurrentWindow();
-  const { segyData } = useAppStore();
+  const { segyData, revisionOverride, setRevisionOverride } = useAppStore();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [menuPosition, setMenuPosition] = React.useState<{
     top: number;
@@ -87,6 +87,14 @@ export const AppHeader: React.FC<{
     setIsMenuOpen(true);
   };
 
+  const revisionFromFile = React.useMemo(() => {
+    if (!segyData) return 0;
+    const revisionValue = (segyData.binary_header as Record<string, unknown>)?.segy_revision;
+    if (typeof revisionValue === 'number') {
+      return revisionValue;
+    }
+    return Number(revisionValue ?? 0);
+  }, [segyData]);
   const toggleMaximize = async () => {
     const isMaximized = await appWindow.isMaximized();
     if (isMaximized) {
@@ -134,40 +142,59 @@ export const AppHeader: React.FC<{
             ))}
           </nav>
         </div>
-
-        <div className="flex items-center gap-4" data-tauri-drag-region>
-          {segyData && (
-            <>
-              {/* Full status bar for large screens */}
-              <div
-                className="status-pill hidden items-center gap-4 lg:inline-flex"
-                data-tauri-drag-region
-              >
-                <div className="flex items-center gap-2" data-tauri-drag-region>
-                  <span className="status-dot" data-tauri-drag-region></span>
-                  {(segyData.file_size / 1024 / 1024).toFixed(2)} MB
-                </div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
-                <div data-tauri-drag-region>{segyData.total_traces ?? '?'} traces</div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
-                <div data-tauri-drag-region>{formatTextEncoding(segyData.text_encoding)}</div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
-                <div data-tauri-drag-region>{formatByteOrder(segyData.byte_order)}</div>
-              </div>
-
-              {/* Abbreviated status for mobile */}
-              <div
-                className="status-pill inline-flex items-center gap-2 lg:hidden"
-                data-tauri-drag-region
-              >
+      </div>
+      <div className="flex items-center gap-4" data-tauri-drag-region>
+        {segyData && (
+          <>
+            {/* Full status bar for large screens */}
+            <div
+              className="status-pill hidden items-center gap-4 lg:inline-flex"
+              data-tauri-drag-region
+            >
+              <div className="flex items-center gap-2" data-tauri-drag-region>
                 <span className="status-dot" data-tauri-drag-region></span>
-                <div data-tauri-drag-region>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
-                <div data-tauri-drag-region>{segyData.total_traces ?? '?'} tr</div>
+                {(segyData.file_size / 1024 / 1024).toFixed(2)} MB
               </div>
-            </>
-          )}
+              <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+              <div data-tauri-drag-region>{segyData.total_traces ?? '?'} traces</div>
+              <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+              <div data-tauri-drag-region>{formatTextEncoding(segyData.text_encoding)}</div>
+              <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+              <div data-tauri-drag-region>{formatByteOrder(segyData.byte_order)}</div>
+              <div data-tauri-drag-region>{revisionOverride ?? revisionFromFile}</div>
+            </div>
 
+            {/* Abbreviated status for mobile */}
+            <div
+              className="status-pill inline-flex items-center gap-2 lg:hidden"
+              data-tauri-drag-region
+            >
+              <span className="status-dot" data-tauri-drag-region></span>
+              <div data-tauri-drag-region>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
+              <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+              <div data-tauri-drag-region>{segyData.total_traces ?? '?'} tr</div>
+            </div>
+          </>
+        )}
+
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            Revision
+            <select
+              className="rounded-md border border-border bg-panel px-2 py-1 text-xs text-strong"
+              value={revisionOverride === null ? '' : String(revisionOverride)}
+              onChange={event => {
+                const value = event.target.value;
+                setRevisionOverride(value === '' ? null : Number(value));
+              }}
+            >
+              <option value="">Auto</option>
+              <option value="0">Rev 0 (1975)</option>
+              <option value="256">Rev 1.0 (2002)</option>
+              <option value="512">Rev 2.0 (2017)</option>
+              <option value="513">Rev 2.1 (2023)</option>
+            </select>
+          </label>
           <div className="titlebar-controls" data-tauri-drag-region="false">
             <button
               type="button"
