@@ -40,7 +40,11 @@ impl SegyReader {
 
         let trace_block_size = config.trace_block_size().ok();
         let total_traces = trace_block_size.and_then(|size| {
-            io::compute_total_traces(header_bundle.file_size, size, header_bundle.file_header_size)
+            io::compute_total_traces(
+                header_bundle.file_size,
+                size,
+                header_bundle.file_header_size,
+            )
         });
 
         let mmap = unsafe { memmap2::Mmap::map(&file) }.map_err(|e| AppError::IoError {

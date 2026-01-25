@@ -124,11 +124,7 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
             <div
               className={`h-full ${loadingTrace ? 'opacity-60' : ''} transition-opacity duration-150`}
             >
-              <TraceHeaderTable
-                header={currentTrace}
-                traceId={sliderValue}
-                revision={revision}
-              />
+              <TraceHeaderTable header={currentTrace} traceId={sliderValue} revision={revision} />
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-muted">

@@ -18,10 +18,7 @@ interface BinaryHeaderTableProps {
 /**
  * Render a spec-backed table for the binary file header.
  */
-export const BinaryHeaderTable: React.FC<BinaryHeaderTableProps> = ({
-  header,
-  revision,
-}) => {
+export const BinaryHeaderTable: React.FC<BinaryHeaderTableProps> = ({ header, revision }) => {
   const [fieldSpecs, setFieldSpecs] = React.useState<HeaderFieldSpec[]>([]);
   const [loading, setLoading] = React.useState(true);
 

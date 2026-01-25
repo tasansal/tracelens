@@ -52,9 +52,7 @@ export async function loadSingleTrace(params: {
 /**
  * Fetch backend spec for binary header fields.
  */
-export async function getBinaryHeaderSpec(
-  segyRevision: number | null,
-): Promise<HeaderFieldSpec[]> {
+export async function getBinaryHeaderSpec(segyRevision: number | null): Promise<HeaderFieldSpec[]> {
   const payload: Record<string, unknown> = {};
   if (segyRevision !== null && segyRevision !== undefined) {
     payload.segyRevision = segyRevision;
@@ -65,9 +63,7 @@ export async function getBinaryHeaderSpec(
 /**
  * Fetch backend spec for trace header fields.
  */
-export async function getTraceHeaderSpec(
-  segyRevision: number | null,
-): Promise<HeaderFieldSpec[]> {
+export async function getTraceHeaderSpec(segyRevision: number | null): Promise<HeaderFieldSpec[]> {
   const payload: Record<string, unknown> = {};
   if (segyRevision !== null && segyRevision !== undefined) {
     payload.segyRevision = segyRevision;

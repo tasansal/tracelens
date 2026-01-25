@@ -5,15 +5,15 @@
 
 use crate::error::AppError;
 use crate::segy::binary_header::DataSampleFormat;
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use crate::segy::{
     constants, BinaryHeader, ByteOrder, HeaderFieldSpec, SegyFileConfig, TextualHeader, TraceBlock,
     TraceData,
 };
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::Cursor;
 use std::fs::File;
+use std::io::Cursor;
 use std::io::{Seek, SeekFrom};
 
 /// Minimum file size for a valid SEG-Y file (textual + binary headers only).
@@ -68,8 +68,8 @@ pub(crate) fn read_headers(file: &mut File) -> Result<HeaderBundle, AppError> {
     for _ in 0..extended_header_count {
         let extended_header =
             TextualHeader::from_reader(&mut *file).map_err(|e| AppError::SegyError {
-            message: format!("Failed to read extended textual header: {}", e),
-        })?;
+                message: format!("Failed to read extended textual header: {}", e),
+            })?;
         textual_header.append_lines(extended_header.lines);
     }
 
@@ -138,10 +138,7 @@ pub(crate) fn parse_trace_header_map(
         let slice = header_bytes
             .get(start..end)
             .ok_or_else(|| AppError::SegyError {
-                message: format!(
-                    "Trace header slice out of bounds for {}",
-                    field.field_key
-                ),
+                message: format!("Trace header slice out of bounds for {}", field.field_key),
             })?;
 
         let value = parse_field_value(slice, &field.data_type, byte_order)?;
@@ -167,11 +164,15 @@ fn parse_field_value(
         "uint64" => Value::from(read_u64(&mut cursor, byte_order)?),
         "float64" => Value::from(read_f64(&mut cursor, byte_order)?),
         "string" | "s8" => {
-            let text = String::from_utf8_lossy(bytes).trim_matches(['\0', ' ']).to_string();
+            let text = String::from_utf8_lossy(bytes)
+                .trim_matches(['\0', ' '])
+                .to_string();
             Value::from(text)
         }
         _ => {
-            let text = String::from_utf8_lossy(bytes).trim_matches(['\0', ' ']).to_string();
+            let text = String::from_utf8_lossy(bytes)
+                .trim_matches(['\0', ' '])
+                .to_string();
             Value::from(text)
         }
     };

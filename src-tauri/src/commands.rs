@@ -112,11 +112,8 @@ pub async fn load_single_trace(
 
     run_blocking(move || {
         let header_bytes = reader.load_trace_header_bytes(trace_index)?;
-        let header_map = io::parse_trace_header_map(
-            &header_bytes,
-            &fields,
-            reader.config().byte_order,
-        )?;
+        let header_map =
+            io::parse_trace_header_map(&header_bytes, &fields, reader.config().byte_order)?;
         Ok(TraceHeaderResponse { header: header_map })
     })
     .await

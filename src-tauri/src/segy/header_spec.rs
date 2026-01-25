@@ -140,20 +140,20 @@ impl SegyFormatSpec {
                 size: binary_patch
                     .size
                     .ok_or_else(|| "Base SEG-Y spec missing binary header size".to_string())?,
-                byte_offset: binary_patch
-                    .byte_offset
-                    .ok_or_else(|| "Base SEG-Y spec missing binary header byte offset".to_string())?,
-                fields: binary_patch.fields.ok_or_else(|| {
-                    "Base SEG-Y spec missing binary header fields".to_string()
+                byte_offset: binary_patch.byte_offset.ok_or_else(|| {
+                    "Base SEG-Y spec missing binary header byte offset".to_string()
                 })?,
+                fields: binary_patch
+                    .fields
+                    .ok_or_else(|| "Base SEG-Y spec missing binary header fields".to_string())?,
             };
             let trace_header = TraceHeaderSpec {
                 size: trace_patch
                     .size
                     .ok_or_else(|| "Base SEG-Y spec missing trace header size".to_string())?,
-                fields: trace_patch.fields.ok_or_else(|| {
-                    "Base SEG-Y spec missing trace header fields".to_string()
-                })?,
+                fields: trace_patch
+                    .fields
+                    .ok_or_else(|| "Base SEG-Y spec missing trace header fields".to_string())?,
             };
 
             SegyFormatSpec {

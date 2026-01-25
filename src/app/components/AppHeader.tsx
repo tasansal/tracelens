@@ -1,7 +1,11 @@
 /**
  * Header bar with app branding, file actions, and quick SEG-Y metadata status.
  */
-import { formatByteOrder, formatSegyRevision, formatTextEncoding } from '@/features/segy/types/segy';
+import {
+  formatByteOrder,
+  formatSegyRevision,
+  formatTextEncoding,
+} from '@/features/segy/types/segy';
 import { useAppStore } from '@/store/appStore';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -16,8 +20,7 @@ export const AppHeader: React.FC<{
   onFileSelect: () => void;
   onExit: () => void;
 }> = ({ onFileSelect, onExit }) => {
-  const { segyData, isLoading, isDarkMode, revisionOverride, setRevisionOverride } =
-    useAppStore();
+  const { segyData, isLoading, isDarkMode, revisionOverride, setRevisionOverride } = useAppStore();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [menuPosition, setMenuPosition] = React.useState<{
     top: number;
@@ -141,9 +144,7 @@ export const AppHeader: React.FC<{
                 <div className="h-3 w-px bg-border"></div>
                 <div>{formatByteOrder(segyData.byte_order)}</div>
                 <div className="h-3 w-px bg-border"></div>
-                <div>
-                  {formatSegyRevision(revisionOverride ?? revisionFromFile)}
-                </div>
+                <div>{formatSegyRevision(revisionOverride ?? revisionFromFile)}</div>
               </div>
 
               {/* Abbreviated status for mobile */}
