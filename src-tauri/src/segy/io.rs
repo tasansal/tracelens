@@ -40,11 +40,12 @@ pub(crate) fn read_headers(file: &mut File) -> Result<HeaderBundle, AppError> {
             message: format!("Failed to seek to file start: {}", e),
         })?;
 
-    let mut textual_header = TextualHeader::from_reader(file).map_err(|e| AppError::SegyError {
-        message: format!("Failed to read textual header: {}", e),
-    })?;
+    let mut textual_header =
+        TextualHeader::from_reader(&mut *file).map_err(|e| AppError::SegyError {
+            message: format!("Failed to read textual header: {}", e),
+        })?;
 
-    let binary_header = BinaryHeader::from_reader(file).map_err(|e| AppError::SegyError {
+    let binary_header = BinaryHeader::from_reader(&mut *file).map_err(|e| AppError::SegyError {
         message: format!("Failed to parse binary header: {}", e),
     })?;
 
@@ -60,7 +61,8 @@ pub(crate) fn read_headers(file: &mut File) -> Result<HeaderBundle, AppError> {
     }
 
     for _ in 0..extended_header_count {
-        let extended_header = TextualHeader::from_reader(file).map_err(|e| AppError::SegyError {
+        let extended_header =
+            TextualHeader::from_reader(&mut *file).map_err(|e| AppError::SegyError {
             message: format!("Failed to read extended textual header: {}", e),
         })?;
         textual_header.append_lines(extended_header.lines);
