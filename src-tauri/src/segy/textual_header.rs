@@ -106,6 +106,11 @@ impl TextualHeader {
     pub fn encoding(&self) -> TextEncoding {
         self.encoding
     }
+
+    /// Append additional textual header lines (for extended textual headers).
+    pub fn append_lines(&mut self, mut lines: Vec<String>) {
+        self.lines.append(&mut lines);
+    }
 }
 
 impl Default for TextualHeader {

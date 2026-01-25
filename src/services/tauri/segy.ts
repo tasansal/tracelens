@@ -34,26 +34,41 @@ export async function loadSingleTrace(params: {
   filePath: string;
   traceIndex: number;
   maxSamples: number;
+  segyRevision?: number | null;
 }): Promise<SingleTrace> {
-  return invoke<SingleTrace>('load_single_trace', {
+  const payload: Record<string, unknown> = {
     filePath: params.filePath,
     traceIndex: params.traceIndex,
     maxSamples: params.maxSamples,
-  });
+  };
+
+  if (params.segyRevision !== null && params.segyRevision !== undefined) {
+    payload.segyRevision = params.segyRevision;
+  }
+
+  return invoke<SingleTrace>('load_single_trace', payload);
 }
 
 /**
  * Fetch backend spec for binary header fields.
  */
-export async function getBinaryHeaderSpec(): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_binary_header_spec');
+export async function getBinaryHeaderSpec(segyRevision: number | null): Promise<HeaderFieldSpec[]> {
+  const payload: Record<string, unknown> = {};
+  if (segyRevision !== null && segyRevision !== undefined) {
+    payload.segyRevision = segyRevision;
+  }
+  return invoke<HeaderFieldSpec[]>('get_binary_header_spec', payload);
 }
 
 /**
  * Fetch backend spec for trace header fields.
  */
-export async function getTraceHeaderSpec(): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_trace_header_spec');
+export async function getTraceHeaderSpec(segyRevision: number | null): Promise<HeaderFieldSpec[]> {
+  const payload: Record<string, unknown> = {};
+  if (segyRevision !== null && segyRevision !== undefined) {
+    payload.segyRevision = segyRevision;
+  }
+  return invoke<HeaderFieldSpec[]>('get_trace_header_spec', payload);
 }
 
 /**

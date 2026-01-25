@@ -24,8 +24,16 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'reac
 function App() {
   useSystemTheme();
 
-  const { filePath, isLoading, segyData, setLoading, setSegyData, setFilePath, setError } =
-    useAppStore();
+  const {
+    filePath,
+    isLoading,
+    segyData,
+    revisionOverride,
+    setLoading,
+    setSegyData,
+    setFilePath,
+    setError,
+  } = useAppStore();
 
   const {
     headerView,
@@ -35,7 +43,7 @@ function App() {
     currentTrace,
     loadingTrace,
     resetTraceState,
-  } = useTraceHeader({ segyData, filePath });
+  } = useTraceHeader({ segyData, filePath, revisionOverride });
   const [isDragActive, setIsDragActive] = useState(false);
   const isLoadingRef = useRef(isLoading);
 
@@ -215,6 +223,7 @@ function App() {
                   onSliderChange={setSliderValue}
                   currentTrace={currentTrace}
                   loadingTrace={loadingTrace}
+                  revisionOverride={revisionOverride}
                 />
               </Panel>
 

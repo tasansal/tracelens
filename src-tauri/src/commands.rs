@@ -5,12 +5,16 @@
 
 use crate::error::AppError;
 use crate::segy::{
+    io,
     rendering::{
         self, AmplitudeScaling, ColormapType, RenderMode, RenderedImage, ViewportConfig,
         WiggleConfig,
     },
     HeaderFieldSpec, SegyData, SegyFormatSpec, SegyReaderState, TraceBlock,
 };
+use serde::Serialize;
+use serde_json::Value;
+use std::collections::HashMap;
 use tauri::State;
 
 /// Standard command result type for Tauri invokes.
@@ -19,10 +23,16 @@ use tauri::State;
 /// `AppError` values (see `error.rs`).
 type CommandResult<T> = Result<T, String>;
 
+/// Header-only response for a single trace.
+#[derive(Debug, Serialize)]
+pub struct TraceHeaderResponse {
+    pub header: HashMap<String, Value>,
+}
+
 /// Load and parse a SEG-Y file asynchronously
 ///
 /// Reads the file headers and caches a memory-mapped reader for subsequent trace loads.
-/// Supports SEG-Y Rev 0 format. Traces are loaded on-demand via load_single_trace.
+/// Supports SEG-Y Rev 0/1/2 formats. Traces are loaded on-demand via load_single_trace.
 ///
 /// # Arguments
 /// * `file_path` - Absolute path to the SEG-Y file
@@ -62,19 +72,19 @@ pub async fn load_segy_file(
 
 /// Get binary header field specifications
 ///
-/// Returns metadata dynamically loaded from canonical SEG-Y Rev 0 spec
+/// Returns metadata dynamically loaded from the revision-specific SEG-Y spec
 #[tauri::command]
-pub fn get_binary_header_spec() -> CommandResult<Vec<HeaderFieldSpec>> {
-    let spec = SegyFormatSpec::load_rev0()?;
+pub fn get_binary_header_spec(segy_revision: Option<u16>) -> CommandResult<Vec<HeaderFieldSpec>> {
+    let spec = SegyFormatSpec::load_for_revision(segy_revision.unwrap_or_default())?;
     Ok(spec.get_binary_header_fields())
 }
 
 /// Get trace header field specifications
 ///
-/// Returns metadata dynamically loaded from canonical SEG-Y Rev 0 spec
+/// Returns metadata dynamically loaded from the revision-specific SEG-Y spec
 #[tauri::command]
-pub fn get_trace_header_spec() -> CommandResult<Vec<HeaderFieldSpec>> {
-    let spec = SegyFormatSpec::load_rev0()?;
+pub fn get_trace_header_spec(segy_revision: Option<u16>) -> CommandResult<Vec<HeaderFieldSpec>> {
+    let spec = SegyFormatSpec::load_for_revision(segy_revision.unwrap_or_default())?;
     Ok(spec.get_trace_header_fields())
 }
 
@@ -91,11 +101,22 @@ pub fn get_trace_header_spec() -> CommandResult<Vec<HeaderFieldSpec>> {
 pub async fn load_single_trace(
     file_path: String,
     trace_index: usize,
-    max_samples: Option<usize>,
+    _max_samples: Option<usize>,
+    segy_revision: Option<u16>,
     state: State<'_, SegyReaderState>,
-) -> CommandResult<TraceBlock> {
+) -> CommandResult<TraceHeaderResponse> {
     let reader = state.get_or_open(file_path).await.map_err(String::from)?;
-    run_blocking(move || reader.load_single_trace(trace_index, max_samples)).await
+    let revision = segy_revision.unwrap_or(reader.binary_header().segy_revision);
+    let spec = SegyFormatSpec::load_for_revision(revision)?;
+    let fields = spec.get_trace_header_fields();
+
+    run_blocking(move || {
+        let header_bytes = reader.load_trace_header_bytes(trace_index)?;
+        let header_map =
+            io::parse_trace_header_map(&header_bytes, &fields, reader.config().byte_order)?;
+        Ok(TraceHeaderResponse { header: header_map })
+    })
+    .await
 }
 
 /// Load a range of traces from a SEG-Y file

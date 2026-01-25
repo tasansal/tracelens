@@ -42,6 +42,8 @@ pub struct SegyFileConfig {
     pub data_sample_format: u16,
     /// Detected byte order for the file.
     pub byte_order: ByteOrder,
+    /// Total file header size in bytes (textual + binary + extended textual headers).
+    pub file_header_size: usize,
 }
 
 impl SegyFileConfig {
@@ -56,6 +58,7 @@ impl SegyFileConfig {
             samples_per_trace,
             data_sample_format: header.data_sample_format as i16 as u16,
             byte_order: header.byte_order,
+            file_header_size: resolve_file_header_size(header)?,
         })
     }
 
@@ -107,7 +110,7 @@ impl SegyFileConfig {
                     message: "Trace offset overflow".to_string(),
                 })?;
 
-        constants::FILE_HEADER_SIZE
+        self.file_header_size
             .checked_add(offset)
             .ok_or_else(|| AppError::ValidationError {
                 message: "Trace position overflow".to_string(),
@@ -122,4 +125,30 @@ impl SegyFileConfig {
             }
         })
     }
+}
+
+fn resolve_file_header_size(header: &BinaryHeader) -> Result<usize, AppError> {
+    let extended_textual_headers = header.extended_textual_headers;
+    let extended_count = if extended_textual_headers > 0 {
+        usize::try_from(extended_textual_headers).map_err(|_| AppError::ValidationError {
+            message: format!(
+                "Invalid extended textual header count: {}",
+                extended_textual_headers
+            ),
+        })?
+    } else {
+        0
+    };
+
+    constants::FILE_HEADER_SIZE
+        .checked_add(
+            constants::TEXTUAL_HEADER_SIZE
+                .checked_mul(extended_count)
+                .ok_or_else(|| AppError::ValidationError {
+                    message: "Extended textual header size overflow".to_string(),
+                })?,
+        )
+        .ok_or_else(|| AppError::ValidationError {
+            message: "File header size overflow".to_string(),
+        })
 }

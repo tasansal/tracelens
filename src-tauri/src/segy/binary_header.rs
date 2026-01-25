@@ -211,7 +211,16 @@ pub struct BinaryHeader {
     /// Vibratory polarity code (bytes 3259-3260)
     pub vibratory_polarity: i16,
 
-    /// Unassigned bytes (3261-3600)
+    /// SEG-Y revision number (bytes 3501-3502)
+    pub segy_revision: u16,
+
+    /// Fixed length trace flag (bytes 3503-3504)
+    pub fixed_length_trace_flag: i16,
+
+    /// Number of extended textual headers (bytes 3505-3506)
+    pub extended_textual_headers: i16,
+
+    /// Unassigned bytes (3261-3500 and 3507-3600)
     pub unassigned: Vec<u8>,
 }
 
@@ -309,6 +318,15 @@ impl BinaryHeader {
             };
         }
 
+        macro_rules! read_u16 {
+            ($reader:expr) => {
+                match endianness {
+                    Endianness::Big => $reader.read_u16::<BigEndian>()?,
+                    Endianness::Little => $reader.read_u16::<LittleEndian>()?,
+                }
+            };
+        }
+
         let job_id = read_i32!(reader);
         let line_number = read_i32!(reader);
         let reel_number = read_i32!(reader);
@@ -349,11 +367,21 @@ impl BinaryHeader {
         let impulse_polarity = read_i16!(reader);
         let vibratory_polarity = read_i16!(reader);
 
-        // Read unassigned bytes (3261-3600 = 340 bytes).
-        let bytes_read = 60;
-        let unassigned_size = Self::SIZE - bytes_read;
-        let mut unassigned = vec![0u8; unassigned_size];
-        reader.read_exact(&mut unassigned)?;
+        // Read unassigned bytes (3261-3500 = 240 bytes).
+        let mut unassigned = Vec::new();
+        let mut unassigned_pre_revision = vec![0u8; 240];
+        reader.read_exact(&mut unassigned_pre_revision)?;
+
+        let segy_revision = read_u16!(reader);
+        let fixed_length_trace_flag = read_i16!(reader);
+        let extended_textual_headers = read_i16!(reader);
+
+        // Read unassigned bytes (3507-3600 = 94 bytes).
+        let mut unassigned_post_revision = vec![0u8; 94];
+        reader.read_exact(&mut unassigned_post_revision)?;
+
+        unassigned.extend_from_slice(&unassigned_pre_revision);
+        unassigned.extend_from_slice(&unassigned_post_revision);
 
         let byte_order = match endianness {
             Endianness::Big => ByteOrder::BigEndian,
@@ -389,6 +417,9 @@ impl BinaryHeader {
             measurement_system,
             impulse_polarity,
             vibratory_polarity,
+            segy_revision,
+            fixed_length_trace_flag,
+            extended_textual_headers,
             unassigned,
         })
     }
@@ -437,7 +468,10 @@ impl Default for BinaryHeader {
             measurement_system: MeasurementSystem::Meters,
             impulse_polarity: 0,
             vibratory_polarity: 0,
-            unassigned: vec![0u8; 340],
+            segy_revision: 0,
+            fixed_length_trace_flag: 0,
+            extended_textual_headers: 0,
+            unassigned: vec![0u8; 334],
         }
     }
 }
