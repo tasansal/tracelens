@@ -86,6 +86,15 @@ export const AppHeader: React.FC<{
     setIsMenuOpen(true);
   };
 
+  const revisionFromFile = React.useMemo(() => {
+    if (!segyData) return 0;
+    const revisionValue = (segyData.binary_header as Record<string, unknown>)?.segy_revision;
+    if (typeof revisionValue === 'number') {
+      return revisionValue;
+    }
+    return Number(revisionValue ?? 0);
+  }, [segyData]);
+
   return (
     <header className="app-header sticky top-0 z-[200] bg-panel-tint text-text relative overflow-visible">
       <div className="flex h-16 items-center justify-between px-4">
@@ -133,10 +142,7 @@ export const AppHeader: React.FC<{
                 <div>{formatByteOrder(segyData.byte_order)}</div>
                 <div className="h-3 w-px bg-border"></div>
                 <div>
-                  {formatSegyRevision(
-                    revisionOverride ??
-                      (segyData.binary_header as Record<string, unknown>)?.segy_revision
-                  )}
+                  {formatSegyRevision(revisionOverride ?? revisionFromFile)}
                 </div>
               </div>
 
