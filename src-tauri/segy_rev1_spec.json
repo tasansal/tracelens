@@ -945,6 +945,22 @@
           "1": "Down/Behind",
           "2": "Up/Ahead"
         }
+      },
+      {
+        "name": "Inline Number",
+        "field_key": "inline_number",
+        "byte_start": 189,
+        "byte_end": 192,
+        "data_type": "int32",
+        "description": "Inline number (Rev 1+)"
+      },
+      {
+        "name": "Crossline Number",
+        "field_key": "crossline_number",
+        "byte_start": 193,
+        "byte_end": 196,
+        "data_type": "int32",
+        "description": "Crossline number (Rev 1+)"
       }
     ]
   }
