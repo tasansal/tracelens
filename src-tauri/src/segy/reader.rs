@@ -6,7 +6,9 @@
 
 use crate::error::AppError;
 use crate::segy::io;
-use crate::segy::{BinaryHeader, SegyData, SegyFileConfig, TextualHeader, TraceBlock, TraceData};
+use crate::segy::{
+    constants, BinaryHeader, SegyData, SegyFileConfig, TextualHeader, TraceBlock, TraceData,
+};
 use std::fs::File;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -86,6 +88,23 @@ impl SegyReader {
     /// Return the derived configuration used for trace access.
     pub fn config(&self) -> &SegyFileConfig {
         &self.config
+    }
+
+    /// Return the parsed binary header.
+    pub fn binary_header(&self) -> &BinaryHeader {
+        &self.binary_header
+    }
+
+    /// Load only the trace header bytes for a given trace index.
+    pub fn load_trace_header_bytes(&self, trace_index: usize) -> Result<Vec<u8>, AppError> {
+        let trace_bytes = self.trace_slice(trace_index)?;
+        let header_bytes = trace_bytes
+            .get(0..constants::TRACE_HEADER_SIZE)
+            .ok_or_else(|| AppError::SegyError {
+                message: "Trace header slice out of bounds".to_string(),
+            })?;
+
+        Ok(header_bytes.to_vec())
     }
 
     /// Load a single trace block (header + data) by index.

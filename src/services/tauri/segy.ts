@@ -34,11 +34,13 @@ export async function loadSingleTrace(params: {
   filePath: string;
   traceIndex: number;
   maxSamples: number;
+  segyRevision?: number | null;
 }): Promise<SingleTrace> {
   return invoke<SingleTrace>('load_single_trace', {
     filePath: params.filePath,
     traceIndex: params.traceIndex,
     maxSamples: params.maxSamples,
+    segyRevision: params.segyRevision ?? 0,
   });
 }
 

@@ -21,9 +21,10 @@ export type HeaderView = 'textual' | 'binary' | 'trace';
 export function useTraceHeader(params: {
   segyData: SegyData | null;
   filePath: string | null;
+  revisionOverride?: number | null;
   maxSamples?: number;
 }) {
-  const { segyData, filePath, maxSamples = MAX_TRACE_SAMPLES } = params;
+  const { segyData, filePath, revisionOverride, maxSamples = MAX_TRACE_SAMPLES } = params;
 
   const [headerView, setHeaderView] = useState<HeaderView>('binary');
   const [traceId, setTraceId] = useState<number>(1);
@@ -41,6 +42,7 @@ export function useTraceHeader(params: {
           filePath,
           traceIndex: traceIndex - 1,
           maxSamples,
+          segyRevision: revisionOverride,
         });
 
         setCurrentTrace(trace.header);
@@ -52,7 +54,7 @@ export function useTraceHeader(params: {
         setLoadingTrace(false);
       }
     },
-    [filePath, maxSamples, segyData]
+    [filePath, maxSamples, revisionOverride, segyData]
   );
 
   useEffect(() => {

@@ -42,7 +42,7 @@ function App() {
     currentTrace,
     loadingTrace,
     resetTraceState,
-  } = useTraceHeader({ segyData, filePath });
+  } = useTraceHeader({ segyData, filePath, revisionOverride });
 
   /**
    * Load SEG-Y metadata from the backend and refresh trace state + notifications.

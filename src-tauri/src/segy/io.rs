@@ -5,9 +5,14 @@
 
 use crate::error::AppError;
 use crate::segy::binary_header::DataSampleFormat;
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use crate::segy::{
-    constants, BinaryHeader, ByteOrder, SegyFileConfig, TextualHeader, TraceBlock, TraceData,
+    constants, BinaryHeader, ByteOrder, HeaderFieldSpec, SegyFileConfig, TextualHeader, TraceBlock,
+    TraceData,
 };
+use serde_json::Value;
+use std::collections::HashMap;
+use std::io::Cursor;
 use std::fs::File;
 use std::io::{Seek, SeekFrom};
 
@@ -112,6 +117,114 @@ pub(crate) fn parse_trace_block(
             message: format!("Trace parse failed: {}", e),
         }
     })
+}
+
+/// Parse a trace header into a field-keyed map using the provided spec.
+pub(crate) fn parse_trace_header_map(
+    header_bytes: &[u8],
+    fields: &[HeaderFieldSpec],
+    byte_order: ByteOrder,
+) -> Result<HashMap<String, Value>, AppError> {
+    if header_bytes.len() < constants::TRACE_HEADER_SIZE {
+        return Err(AppError::SegyError {
+            message: "Trace header bytes are incomplete".to_string(),
+        });
+    }
+
+    let mut values = HashMap::new();
+    for field in fields {
+        let start = field.byte_start.saturating_sub(1) as usize;
+        let end = field.byte_end as usize;
+        let slice = header_bytes
+            .get(start..end)
+            .ok_or_else(|| AppError::SegyError {
+                message: format!(
+                    "Trace header slice out of bounds for {}",
+                    field.field_key
+                ),
+            })?;
+
+        let value = parse_field_value(slice, &field.data_type, byte_order)?;
+        values.insert(field.field_key.clone(), value);
+    }
+
+    Ok(values)
+}
+
+fn parse_field_value(
+    bytes: &[u8],
+    data_type: &str,
+    byte_order: ByteOrder,
+) -> Result<Value, AppError> {
+    let kind = data_type.to_lowercase();
+    let mut cursor = Cursor::new(bytes);
+
+    let value = match kind.as_str() {
+        "int16" => Value::from(read_i16(&mut cursor, byte_order)? as i64),
+        "int32" => Value::from(read_i32(&mut cursor, byte_order)? as i64),
+        "uint16" => Value::from(read_u16(&mut cursor, byte_order)? as u64),
+        "uint32" => Value::from(read_u32(&mut cursor, byte_order)? as u64),
+        "uint64" => Value::from(read_u64(&mut cursor, byte_order)?),
+        "float64" => Value::from(read_f64(&mut cursor, byte_order)?),
+        "string" | "s8" => {
+            let text = String::from_utf8_lossy(bytes).trim_matches(['\0', ' ']).to_string();
+            Value::from(text)
+        }
+        _ => {
+            let text = String::from_utf8_lossy(bytes).trim_matches(['\0', ' ']).to_string();
+            Value::from(text)
+        }
+    };
+
+    Ok(value)
+}
+
+fn read_i16(cursor: &mut Cursor<&[u8]>, byte_order: ByteOrder) -> Result<i16, AppError> {
+    match byte_order {
+        ByteOrder::BigEndian => cursor.read_i16::<BigEndian>().map_err(to_io_error),
+        ByteOrder::LittleEndian => cursor.read_i16::<LittleEndian>().map_err(to_io_error),
+    }
+}
+
+fn read_i32(cursor: &mut Cursor<&[u8]>, byte_order: ByteOrder) -> Result<i32, AppError> {
+    match byte_order {
+        ByteOrder::BigEndian => cursor.read_i32::<BigEndian>().map_err(to_io_error),
+        ByteOrder::LittleEndian => cursor.read_i32::<LittleEndian>().map_err(to_io_error),
+    }
+}
+
+fn read_u16(cursor: &mut Cursor<&[u8]>, byte_order: ByteOrder) -> Result<u16, AppError> {
+    match byte_order {
+        ByteOrder::BigEndian => cursor.read_u16::<BigEndian>().map_err(to_io_error),
+        ByteOrder::LittleEndian => cursor.read_u16::<LittleEndian>().map_err(to_io_error),
+    }
+}
+
+fn read_u32(cursor: &mut Cursor<&[u8]>, byte_order: ByteOrder) -> Result<u32, AppError> {
+    match byte_order {
+        ByteOrder::BigEndian => cursor.read_u32::<BigEndian>().map_err(to_io_error),
+        ByteOrder::LittleEndian => cursor.read_u32::<LittleEndian>().map_err(to_io_error),
+    }
+}
+
+fn read_u64(cursor: &mut Cursor<&[u8]>, byte_order: ByteOrder) -> Result<u64, AppError> {
+    match byte_order {
+        ByteOrder::BigEndian => cursor.read_u64::<BigEndian>().map_err(to_io_error),
+        ByteOrder::LittleEndian => cursor.read_u64::<LittleEndian>().map_err(to_io_error),
+    }
+}
+
+fn read_f64(cursor: &mut Cursor<&[u8]>, byte_order: ByteOrder) -> Result<f64, AppError> {
+    match byte_order {
+        ByteOrder::BigEndian => cursor.read_f64::<BigEndian>().map_err(to_io_error),
+        ByteOrder::LittleEndian => cursor.read_f64::<LittleEndian>().map_err(to_io_error),
+    }
+}
+
+fn to_io_error(err: std::io::Error) -> AppError {
+    AppError::SegyError {
+        message: format!("Header parse failed: {}", err),
+    }
 }
 
 /// Parse trace samples only (skip header) from raw bytes.
