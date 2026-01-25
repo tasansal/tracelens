@@ -19,6 +19,7 @@ interface SegyHeaderPanelProps {
   onSliderChange: (value: number) => void;
   currentTrace: TraceHeader | null;
   loadingTrace: boolean;
+  revisionOverride: number | null;
 }
 
 /**
@@ -37,10 +38,12 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
   onSliderChange,
   currentTrace,
   loadingTrace,
+  revisionOverride,
 }) => {
   const revisionValue = (segyData.binary_header as Record<string, unknown>)?.segy_revision;
-  const revision =
+  const revisionFromFile =
     typeof revisionValue === 'number' ? revisionValue : Number(revisionValue ?? 0);
+  const revision = revisionOverride ?? revisionFromFile;
 
   return (
     <div className="flex h-full flex-col bg-panel">

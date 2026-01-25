@@ -27,6 +27,7 @@ function App() {
     isDarkMode,
     isLoading,
     segyData,
+    revisionOverride,
     setLoading,
     setSegyData,
     setFilePath,
@@ -135,6 +136,7 @@ function App() {
                   onSliderChange={setSliderValue}
                   currentTrace={currentTrace}
                   loadingTrace={loadingTrace}
+                  revisionOverride={revisionOverride}
                 />
               </Panel>
 

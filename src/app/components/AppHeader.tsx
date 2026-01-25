@@ -1,7 +1,7 @@
 /**
  * Header bar with app branding, file actions, and quick SEG-Y metadata status.
  */
-import { formatByteOrder, formatTextEncoding } from '@/features/segy/types/segy';
+import { formatByteOrder, formatSegyRevision, formatTextEncoding } from '@/features/segy/types/segy';
 import { useAppStore } from '@/store/appStore';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -16,7 +16,8 @@ export const AppHeader: React.FC<{
   onFileSelect: () => void;
   onExit: () => void;
 }> = ({ onFileSelect, onExit }) => {
-  const { segyData, isLoading, isDarkMode } = useAppStore();
+  const { segyData, isLoading, isDarkMode, revisionOverride, setRevisionOverride } =
+    useAppStore();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [menuPosition, setMenuPosition] = React.useState<{
     top: number;
@@ -130,6 +131,13 @@ export const AppHeader: React.FC<{
                 <div>{formatTextEncoding(segyData.text_encoding)}</div>
                 <div className="h-3 w-px bg-border"></div>
                 <div>{formatByteOrder(segyData.byte_order)}</div>
+                <div className="h-3 w-px bg-border"></div>
+                <div>
+                  {formatSegyRevision(
+                    revisionOverride ??
+                      (segyData.binary_header as Record<string, unknown>)?.segy_revision
+                  )}
+                </div>
               </div>
 
               {/* Abbreviated status for mobile */}
@@ -143,6 +151,23 @@ export const AppHeader: React.FC<{
           )}
 
           <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted">
+              Revision
+              <select
+                className="rounded-md border border-border bg-panel px-2 py-1 text-xs text-strong"
+                value={revisionOverride === null ? '' : String(revisionOverride)}
+                onChange={event => {
+                  const value = event.target.value;
+                  setRevisionOverride(value === '' ? null : Number(value));
+                }}
+              >
+                <option value="">Auto</option>
+                <option value="0">Rev 0 (1975)</option>
+                <option value="256">Rev 1.0 (2002)</option>
+                <option value="512">Rev 2.0 (2017)</option>
+                <option value="513">Rev 2.1 (2023)</option>
+              </select>
+            </label>
             <button
               onClick={onFileSelect}
               disabled={isLoading}

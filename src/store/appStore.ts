@@ -13,10 +13,12 @@ interface AppState {
   isLoading: boolean;
   segyData: SegyData | null;
   error: string | null;
+  revisionOverride: number | null;
   setFilePath: (path: string | null) => void;
   setLoading: (loading: boolean) => void;
   setSegyData: (data: SegyData | null) => void;
   setError: (error: string | null) => void;
+  setRevisionOverride: (revision: number | null) => void;
 }
 
 /**
@@ -36,8 +38,10 @@ export const useAppStore = create<AppState>(set => ({
   isLoading: false,
   segyData: null,
   error: null,
+  revisionOverride: null,
   setFilePath: path => set({ filePath: path }),
   setLoading: loading => set({ isLoading: loading }),
   setSegyData: data => set({ segyData: data }),
   setError: error => set({ error }),
+  setRevisionOverride: revisionOverride => set({ revisionOverride }),
 }));
