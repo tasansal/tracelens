@@ -15,7 +15,7 @@
 pub mod binary_header;
 mod constants;
 pub mod header_spec;
-mod io;
+pub(crate) mod io;
 mod model;
 mod reader;
 pub mod rendering;
