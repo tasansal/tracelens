@@ -38,11 +38,15 @@ export function useTraceHeader(params: {
 
       setLoadingTrace(true);
       try {
+        const revisionValue = (segyData.binary_header as Record<string, unknown>)?.segy_revision;
+        const revisionFromFile =
+          typeof revisionValue === 'number' ? revisionValue : Number(revisionValue ?? 0);
+
         const trace = await loadSingleTrace({
           filePath,
           traceIndex: traceIndex - 1,
           maxSamples,
-          segyRevision: revisionOverride,
+          segyRevision: revisionOverride ?? revisionFromFile,
         });
 
         setCurrentTrace(trace.header);

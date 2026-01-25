@@ -36,12 +36,17 @@ export async function loadSingleTrace(params: {
   maxSamples: number;
   segyRevision?: number | null;
 }): Promise<SingleTrace> {
-  return invoke<SingleTrace>('load_single_trace', {
+  const payload: Record<string, unknown> = {
     filePath: params.filePath,
     traceIndex: params.traceIndex,
     maxSamples: params.maxSamples,
-    segyRevision: params.segyRevision ?? 0,
-  });
+  };
+
+  if (params.segyRevision !== null && params.segyRevision !== undefined) {
+    payload.segyRevision = params.segyRevision;
+  }
+
+  return invoke<SingleTrace>('load_single_trace', payload);
 }
 
 /**
@@ -50,9 +55,11 @@ export async function loadSingleTrace(params: {
 export async function getBinaryHeaderSpec(
   segyRevision: number | null,
 ): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_binary_header_spec', {
-    segyRevision: segyRevision ?? 0,
-  });
+  const payload: Record<string, unknown> = {};
+  if (segyRevision !== null && segyRevision !== undefined) {
+    payload.segyRevision = segyRevision;
+  }
+  return invoke<HeaderFieldSpec[]>('get_binary_header_spec', payload);
 }
 
 /**
@@ -61,9 +68,11 @@ export async function getBinaryHeaderSpec(
 export async function getTraceHeaderSpec(
   segyRevision: number | null,
 ): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_trace_header_spec', {
-    segyRevision: segyRevision ?? 0,
-  });
+  const payload: Record<string, unknown> = {};
+  if (segyRevision !== null && segyRevision !== undefined) {
+    payload.segyRevision = segyRevision;
+  }
+  return invoke<HeaderFieldSpec[]>('get_trace_header_spec', payload);
 }
 
 /**
