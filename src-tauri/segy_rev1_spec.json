@@ -952,7 +952,7 @@
         "byte_start": 181,
         "byte_end": 184,
         "data_type": "int32",
-        "description": "X coordinate of CDP ensemble position (Rev 1+)"
+        "description": "X coordinate of CDP ensemble position"
       },
       {
         "name": "CDP Y",
@@ -960,151 +960,135 @@
         "byte_start": 185,
         "byte_end": 188,
         "data_type": "int32",
-        "description": "Y coordinate of CDP ensemble position (Rev 1+)"
+        "description": "Y coordinate of CDP ensemble position"
       },
       {
-        "name": "Inline Number",
-        "field_key": "inline_number",
+        "name": "Inline",
+        "field_key": "inline",
         "byte_start": 189,
         "byte_end": 192,
         "data_type": "int32",
-        "description": "Inline number (Rev 1+)"
+        "description": "Inline number"
       },
       {
-        "name": "Crossline Number",
-        "field_key": "crossline_number",
+        "name": "Crossline",
+        "field_key": "crossline",
         "byte_start": 193,
         "byte_end": 196,
         "data_type": "int32",
-        "description": "Crossline number (Rev 1+)"
+        "description": "Crossline number"
       },
       {
-        "name": "Shotpoint Number",
-        "field_key": "shotpoint_number",
+        "name": "Shot Point",
+        "field_key": "shot_point",
         "byte_start": 197,
         "byte_end": 200,
         "data_type": "int32",
-        "description": "Shotpoint number (Rev 1+)"
+        "description": "Shot point number"
       },
       {
-        "name": "Shotpoint Scalar",
-        "field_key": "shotpoint_scalar",
+        "name": "Shot Point Scalar",
+        "field_key": "shot_point_scalar",
         "byte_start": 201,
         "byte_end": 202,
         "data_type": "int16",
-        "description": "Scalar to be applied to shotpoint number (Rev 1+)"
+        "description": "Scalar to apply to shot point"
       },
       {
-        "name": "Trace Value Measurement Unit",
-        "field_key": "trace_value_measurement_unit",
+        "name": "Trace Value Unit",
+        "field_key": "trace_value_unit",
         "byte_start": 203,
         "byte_end": 204,
         "data_type": "int16",
-        "description": "Trace value measurement unit (Rev 1+)"
+        "description": "Trace value measurement unit"
       },
       {
-        "name": "Transduction Constant",
-        "field_key": "transduction_constant",
+        "name": "Transduction Constant Mantissa",
+        "field_key": "transduction_const_mantissa",
         "byte_start": 205,
-        "byte_end": 206,
-        "data_type": "int16",
-        "description": "Transduction constant (Rev 1+)"
-      },
-      {
-        "name": "Transduction Units",
-        "field_key": "transduction_units",
-        "byte_start": 207,
         "byte_end": 208,
-        "data_type": "int16",
-        "description": "Transduction units (Rev 1+)"
+        "data_type": "int32",
+        "description": "Transduction constant mantissa"
       },
       {
-        "name": "Device/Trace Identifier",
-        "field_key": "device_trace_identifier",
+        "name": "Transduction Constant Exponent",
+        "field_key": "transduction_const_exponent",
         "byte_start": 209,
         "byte_end": 210,
         "data_type": "int16",
-        "description": "Device/trace identifier (Rev 1+)"
+        "description": "Transduction constant exponent"
       },
       {
-        "name": "Time Scalar",
-        "field_key": "time_scalar",
+        "name": "Transduction Unit",
+        "field_key": "transduction_unit",
         "byte_start": 211,
         "byte_end": 212,
         "data_type": "int16",
-        "description": "Time scalar (Rev 1+)"
+        "description": "Transduction unit"
       },
       {
-        "name": "Source Type/Orientation",
-        "field_key": "source_type_orientation",
+        "name": "Device Trace ID",
+        "field_key": "device_trace_id",
         "byte_start": 213,
         "byte_end": 214,
         "data_type": "int16",
-        "description": "Source type/orientation (Rev 1+)"
+        "description": "Device/trace identifier"
       },
       {
-        "name": "Source Energy Direction",
-        "field_key": "source_energy_direction",
+        "name": "Times Scalar",
+        "field_key": "times_scalar",
         "byte_start": 215,
         "byte_end": 216,
         "data_type": "int16",
-        "description": "Source energy direction (Rev 1+)"
+        "description": "Times scalar"
       },
       {
-        "name": "Source Measurement",
-        "field_key": "source_measurement",
+        "name": "Source Type Orientation",
+        "field_key": "source_type_orientation",
         "byte_start": 217,
         "byte_end": 218,
         "data_type": "int16",
-        "description": "Source measurement (Rev 1+)"
+        "description": "Source type/orientation"
+      },
+      {
+        "name": "Source Energy Direction Mantissa",
+        "field_key": "source_energy_dir_mantissa",
+        "byte_start": 219,
+        "byte_end": 222,
+        "data_type": "int32",
+        "description": "Source energy direction mantissa"
+      },
+      {
+        "name": "Source Energy Direction Exponent",
+        "field_key": "source_energy_dir_exponent",
+        "byte_start": 223,
+        "byte_end": 224,
+        "data_type": "int16",
+        "description": "Source energy direction exponent"
+      },
+      {
+        "name": "Source Measurement Mantissa",
+        "field_key": "source_measurement_mantissa",
+        "byte_start": 225,
+        "byte_end": 228,
+        "data_type": "int32",
+        "description": "Source measurement mantissa"
+      },
+      {
+        "name": "Source Measurement Exponent",
+        "field_key": "source_measurement_exponent",
+        "byte_start": 229,
+        "byte_end": 230,
+        "data_type": "int16",
+        "description": "Source measurement exponent"
       },
       {
         "name": "Source Measurement Unit",
         "field_key": "source_measurement_unit",
-        "byte_start": 219,
-        "byte_end": 220,
-        "data_type": "int16",
-        "description": "Source measurement unit (Rev 1+)"
-      },
-      {
-        "name": "Unassigned (221-224)",
-        "field_key": "unassigned_221_224",
-        "byte_start": 221,
-        "byte_end": 224,
-        "data_type": "int32",
-        "description": "Unassigned (Rev 1+)"
-      },
-      {
-        "name": "Unassigned (225-228)",
-        "field_key": "unassigned_225_228",
-        "byte_start": 225,
-        "byte_end": 228,
-        "data_type": "int32",
-        "description": "Unassigned (Rev 1+)"
-      },
-      {
-        "name": "Unassigned (229-232)",
-        "field_key": "unassigned_229_232",
-        "byte_start": 229,
+        "byte_start": 231,
         "byte_end": 232,
-        "data_type": "int32",
-        "description": "Unassigned (Rev 1+)"
-      },
-      {
-        "name": "Unassigned (233-236)",
-        "field_key": "unassigned_233_236",
-        "byte_start": 233,
-        "byte_end": 236,
-        "data_type": "int32",
-        "description": "Unassigned (Rev 1+)"
-      },
-      {
-        "name": "Unassigned (237-240)",
-        "field_key": "unassigned_237_240",
-        "byte_start": 237,
-        "byte_end": 240,
-        "data_type": "int32",
-        "description": "Unassigned (Rev 1+)"
+        "data_type": "int16",
+        "description": "Source measurement unit"
       }
     ]
   }

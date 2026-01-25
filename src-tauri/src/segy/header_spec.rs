@@ -82,6 +82,12 @@ impl SegyFormatSpec {
         serde_json::from_str(SPEC_JSON).map_err(|e| format!("Failed to parse SEG-Y spec: {}", e))
     }
 
+    /// Load SEG-Y Rev 2.1 specification from embedded JSON.
+    pub fn load_rev21() -> Result<Self, String> {
+        const SPEC_JSON: &str = include_str!("../../segy_rev21_spec.json");
+        serde_json::from_str(SPEC_JSON).map_err(|e| format!("Failed to parse SEG-Y spec: {}", e))
+    }
+
     /// Load a SEG-Y specification based on the revision code in the binary header.
     pub fn load_for_revision(raw_revision: u16) -> Result<Self, String> {
         let major = (raw_revision >> 8) as u8;
@@ -93,7 +99,10 @@ impl SegyFormatSpec {
                 _ => Self::load_rev0(),
             },
             1 => Self::load_rev1(),
-            2 => Self::load_rev2(),
+            2 => match raw_revision {
+                0x0201 => Self::load_rev21(),
+                _ => Self::load_rev2(),
+            },
             _ => Self::load_rev0(),
         }
     }
@@ -155,6 +164,6 @@ mod tests {
         assert_eq!(rev1.version, "SEG-Y Rev 1.0 (2002)");
 
         let rev2 = SegyFormatSpec::load_for_revision(0x0201).unwrap();
-        assert_eq!(rev2.version, "SEG-Y Rev 2.0/2.1 (2017/2023)");
+        assert_eq!(rev2.version, "SEG-Y Rev 2.1 (2023)");
     }
 }

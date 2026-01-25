@@ -1,6 +1,6 @@
 {
-  "version": "SEG-Y Rev 2.0 (2017)",
-  "reference": "SEG Technical Standards Committee, 2017",
+  "version": "SEG-Y Rev 2.1 (2023)",
+  "reference": "SEG Technical Standards Committee, 2023",
   "binary_header": {
     "size": 400,
     "byte_offset": 3200,
@@ -390,9 +390,17 @@
         "name": "Max Extended Trace Headers",
         "field_key": "max_extended_trace_headers",
         "byte_start": 3507,
+        "byte_end": 3508,
+        "data_type": "int16",
+        "description": "Max extended trace headers (Rev 2.1)"
+      },
+      {
+        "name": "Survey Type",
+        "field_key": "survey_type",
+        "byte_start": 3509,
         "byte_end": 3510,
-        "data_type": "int32",
-        "description": "Max extended trace headers"
+        "data_type": "int16",
+        "description": "Survey type (Rev 2.1)"
       },
       {
         "name": "Time Basis Code",
