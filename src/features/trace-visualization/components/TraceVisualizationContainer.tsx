@@ -3,14 +3,17 @@
  */
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import { LoadingSpinner } from '@/shared/ui/loading-spinner';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TraceCanvas } from './TraceCanvas';
 import { TraceControlPanel } from './TraceControlPanel';
 
 /**
  * Trace visualization layout with resize-aware canvas and render status overlays.
+ * Manages canvas sizing using ResizeObserver and debounces viewport updates to optimize rendering.
+ *
+ * @returns Trace visualization container with controls and canvas
  */
-export const TraceVisualizationContainer: React.FC = () => {
+export const TraceVisualizationContainer = () => {
   const { isRendering, currentImage, updateViewport } = useTraceVisualizationStore();
   const mainRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });

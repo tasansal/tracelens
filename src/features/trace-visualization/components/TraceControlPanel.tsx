@@ -12,13 +12,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/ui/dialog';
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTraceLoader } from '../hooks/useTraceLoader';
 
 /**
  * UI controls for rendering and viewport settings.
+ * Provides controls for render mode, colormap, amplitude scaling, and trace range.
+ * Auto-renders visualization with debouncing when settings change.
+ *
+ * @returns Control panel component with settings UI
  */
-export const TraceControlPanel: React.FC = () => {
+export const TraceControlPanel = () => {
   const {
     renderMode,
     colormap,
@@ -282,8 +286,16 @@ export const TraceControlPanel: React.FC = () => {
               type="text"
               value={viewport.startTrace}
               onChange={e => {
-                const val = parseInt(e.target.value);
-                if (!isNaN(val)) updateViewport({ startTrace: Math.max(0, val) });
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val >= 0) {
+                  updateViewport({ startTrace: val });
+                }
+              }}
+              onBlur={e => {
+                const val = parseInt(e.target.value, 10);
+                if (isNaN(val) || val < 0) {
+                  updateViewport({ startTrace: 0 });
+                }
               }}
               className={`${surfaceClass} w-16 text-center font-mono`}
             />
@@ -311,8 +323,16 @@ export const TraceControlPanel: React.FC = () => {
               type="text"
               value={viewport.traceCount}
               onChange={e => {
-                const val = parseInt(e.target.value);
-                if (!isNaN(val)) updateViewport({ traceCount: Math.max(1, val) });
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val >= 1) {
+                  updateViewport({ traceCount: val });
+                }
+              }}
+              onBlur={e => {
+                const val = parseInt(e.target.value, 10);
+                if (isNaN(val) || val < 1) {
+                  updateViewport({ traceCount: 1 });
+                }
               }}
               className={`${surfaceClass} w-16 text-center font-mono`}
             />

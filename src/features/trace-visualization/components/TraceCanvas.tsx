@@ -2,20 +2,26 @@
  * Canvas renderer with zoom and pan for trace visualization images.
  */
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
- * Props for TraceCanvas size.
+ * Props for TraceCanvas component.
  */
 interface TraceCanvasProps {
+  /** Canvas width in pixels */
   width: number;
+  /** Canvas height in pixels */
   height: number;
 }
 
 /**
- * Draws the current rendered trace image onto a canvas and handles pan/zoom.
+ * Draws the current rendered trace image onto a canvas and handles pan/zoom interactions.
+ * Supports mouse wheel zoom and click-drag panning for exploring trace data.
+ *
+ * @param props - Component props
+ * @returns Interactive canvas component for trace visualization
  */
-export const TraceCanvas: React.FC<TraceCanvasProps> = ({ width, height }) => {
+export const TraceCanvas = ({ width, height }: TraceCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { currentImage, zoomLevel, panOffset, setZoomLevel, setPanOffset, setCanvasSize } =
     useTraceVisualizationStore();
