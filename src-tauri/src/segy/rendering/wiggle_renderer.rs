@@ -1,9 +1,27 @@
 //! Wiggle trace renderer and composite rendering helpers.
+//!
+//! This module implements wiggle trace rendering using Bresenham's line algorithm
+//! and scanline polygon filling. Wiggle traces show amplitude variations as
+//! oscillations around a central axis, optionally filling positive/negative lobes.
 
 use super::types::*;
 use image::{Rgb, RgbImage};
 
 /// Render wiggle traces on a white background.
+///
+/// # Arguments
+/// * `viewport` - Viewport dimensions and trace range
+/// * `wiggle_config` - Rendering configuration (colors, fill options, line width)
+/// * `normalized` - Normalized trace data in [-1.0, 1.0] range
+///
+/// # Returns
+/// An RGB image with wiggle traces rendered, or an error message
+///
+/// # Algorithm
+/// - Each trace is centered at `(trace_idx + 0.5) * trace_spacing`
+/// - Amplitude deflects horizontally up to 40% of trace spacing
+/// - Line segments are drawn using Bresenham's algorithm
+/// - Positive/negative lobes are filled using scanline polygon fill
 pub fn render_wiggle(
     viewport: &ViewportConfig,
     wiggle_config: &WiggleConfig,
@@ -189,6 +207,17 @@ fn render_vd_base(
 }
 
 /// Draw a line using Bresenham's algorithm.
+///
+/// # Arguments
+/// * `img` - Target image buffer
+/// * `x0, y0` - Start coordinates
+/// * `x1, y1` - End coordinates
+/// * `color` - RGB line color
+/// * `width` - Line width in pixels (uses circular brush for width > 1.0)
+///
+/// # Algorithm
+/// For thin lines (width ≤ 1.0), uses standard Bresenham line drawing.
+/// For thick lines, applies a circular brush at each Bresenham point.
 fn draw_line(img: &mut RgbImage, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8; 3], width: f32) {
     let (img_width, img_height) = img.dimensions();
     let x0 = x0.round() as i32;
@@ -264,9 +293,22 @@ fn draw_line(img: &mut RgbImage, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8;
     }
 }
 
-/// Fill a polygon using a simple scanline algorithm.
+/// Fill a polygon using a scanline algorithm.
 ///
-/// This is tuned for small convex polygons used when filling lobes.
+/// # Arguments
+/// * `img` - Target image buffer
+/// * `points` - Polygon vertices as (x, y) pairs
+/// * `color` - RGB fill color
+///
+/// # Algorithm
+/// Uses horizontal scanline filling:
+/// 1. Compute bounding box of polygon
+/// 2. For each scanline (y coordinate):
+///    - Find intersections with polygon edges
+///    - Sort intersections by x coordinate
+///    - Fill between pairs of intersections
+///
+/// Optimized for small convex quadrilaterals (typical wiggle fill case).
 fn fill_polygon(img: &mut RgbImage, points: &[(f32, f32)], color: [u8; 3]) {
     if points.len() < 3 {
         return;

@@ -1,4 +1,8 @@
 //! Variable density renderer for SEG-Y traces.
+//!
+//! Variable density (VD) rendering maps trace amplitudes to colors, creating
+//! a 2D heatmap visualization where x-axis represents trace number and y-axis
+//! represents sample depth/time.
 
 use super::{colormap::Colormap, encode_png_fast, normalizer, types::*};
 use crate::segy::TraceData;
@@ -7,8 +11,18 @@ use rayon::prelude::*;
 
 /// Render a variable density image from normalized traces.
 ///
-/// The output image is optionally resized to the requested viewport dimensions
-/// and encoded as PNG.
+/// # Arguments
+/// * `traces` - Raw trace data to be normalized and rendered
+/// * `viewport` - Output dimensions and trace range
+/// * `colormap` - Color mapping function for amplitudes
+/// * `scaling` - Normalization strategy
+///
+/// # Returns
+/// PNG-encoded image with variable density visualization
+///
+/// # Parallelization
+/// Uses `rayon::par_bridge()` to parallelize pixel generation across all CPU cores.
+/// Each pixel is computed independently, allowing near-linear speedup.
 pub fn render_variable_density(
     traces: Vec<TraceData>,
     viewport: &ViewportConfig,

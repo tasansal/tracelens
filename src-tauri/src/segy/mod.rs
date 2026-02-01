@@ -19,7 +19,7 @@ mod model;
 pub mod parser;
 mod reader;
 pub mod rendering;
-pub mod utils;
+mod utils;
 
 /// Size constants for SEG-Y structures.
 pub use constants::*;
