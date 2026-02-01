@@ -2,28 +2,44 @@ import type { HeaderFieldSpec } from '@/features/segy/types/headerSpec';
 import { SectionTitle } from '@/shared/ui/section-title';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
 import { formatValue, getRawCode } from '@/shared/utils/formatters';
-import React from 'react';
+import { useEffect, useState } from 'react';
 
+/**
+ * Props for the HeaderSpecTable component.
+ */
 interface HeaderSpecTableProps {
+  /** Section title displayed at the top of the table */
   title: React.ReactNode;
+  /** Header data object with field values */
   header: Record<string, unknown>;
+  /** Function to load field specifications from backend */
   loadSpec: () => Promise<HeaderFieldSpec[]>;
 }
 
-export const HeaderSpecTable: React.FC<HeaderSpecTableProps> = ({ title, header, loadSpec }) => {
-  const [fieldSpecs, setFieldSpecs] = React.useState<HeaderFieldSpec[]>([]);
-  const [loading, setLoading] = React.useState(true);
+/**
+ * Displays a formatted table of SEG-Y header fields with their specifications.
+ * Loads field specs asynchronously and renders field name, byte range, type, and value.
+ *
+ * @param props - Component props
+ * @returns Header specification table component
+ */
+export const HeaderSpecTable = ({ title, header, loadSpec }: HeaderSpecTableProps) => {
+  const [fieldSpecs, setFieldSpecs] = useState<HeaderFieldSpec[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
 
     loadSpec()
-      .then(specs => {
+      .then((specs: HeaderFieldSpec[]) => {
         if (isMounted) {
           setFieldSpecs(specs);
         }
       })
-      .catch(console.error)
+      .catch((error: unknown) => {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        console.error('Failed to load header field specifications:', errorMsg, error);
+      })
       .finally(() => {
         if (isMounted) {
           setLoading(false);
@@ -66,7 +82,7 @@ export const HeaderSpecTable: React.FC<HeaderSpecTableProps> = ({ title, header,
           </TableRow>
         </TableHeader>
         <TableBody>
-          {fieldSpecs.map((field, idx) => {
+          {fieldSpecs.map((field: HeaderFieldSpec, idx: number) => {
             const value = header[field.field_key];
             const rawCode = getRawCode(value);
 

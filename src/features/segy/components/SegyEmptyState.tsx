@@ -3,20 +3,25 @@
  */
 import { Button } from '@/shared/ui/button';
 import { SectionTitle } from '@/shared/ui/section-title';
-import React from 'react';
 
 /**
- * Props for SegyEmptyState.
+ * Props for SegyEmptyState component.
  */
 interface SegyEmptyStateProps {
+  /** Whether a file is currently being dragged over the drop zone */
   isDragActive: boolean;
+  /** Callback fired when the user clicks to select a file */
   onFileSelect: () => void;
 }
 
 /**
  * Call-to-action card that prompts the user to open a SEG-Y file.
+ * Displays an empty state with instructions and file selection button.
+ *
+ * @param props - Component props
+ * @returns Empty state component
  */
-export const SegyEmptyState: React.FC<SegyEmptyStateProps> = ({ isDragActive, onFileSelect }) => {
+export const SegyEmptyState = ({ isDragActive, onFileSelect }: SegyEmptyStateProps) => {
   return (
     <div className="flex flex-1 items-center justify-center p-6">
       <div

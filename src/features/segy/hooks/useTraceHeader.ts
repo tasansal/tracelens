@@ -13,16 +13,25 @@ import { MAX_TRACE_SAMPLES } from '../constants';
 export type HeaderView = 'textual' | 'binary' | 'trace';
 
 /**
- * Manage header view selection and on-demand trace header loading.
- * @param params.segyData Parsed SEG-Y metadata (or null while idle).
- * @param params.filePath Path to the loaded SEG-Y file.
- * @param params.maxSamples Optional cap for trace samples when fetching headers.
+ * Parameters for the useTraceHeader hook.
  */
-export function useTraceHeader(params: {
+interface UseTraceHeaderParams {
+  /** Parsed SEG-Y metadata (or null while idle) */
   segyData: SegyData | null;
+  /** Path to the loaded SEG-Y file */
   filePath: string | null;
+  /** Optional cap for trace samples when fetching headers */
   maxSamples?: number;
-}) {
+}
+
+/**
+ * Manages header view selection and on-demand trace header loading.
+ * Handles debounced loading of trace headers as the user interacts with the trace slider.
+ *
+ * @param params - Hook parameters
+ * @returns Header view state and control functions
+ */
+export function useTraceHeader(params: UseTraceHeaderParams) {
   const { segyData, filePath, maxSamples = MAX_TRACE_SAMPLES } = params;
 
   const [headerView, setHeaderView] = useState<HeaderView>('binary');
@@ -46,8 +55,8 @@ export function useTraceHeader(params: {
         setCurrentTrace(trace.header);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        toast.error(`Failed to load trace: ${errorMsg}`);
-        console.error(error);
+        toast.error(`Failed to load trace header at index ${traceIndex}: ${errorMsg}`);
+        console.error('Trace header loading error:', error);
       } finally {
         setLoadingTrace(false);
       }
