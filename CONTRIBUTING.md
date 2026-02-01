@@ -18,7 +18,7 @@ Thank you for your interest in contributing to TraceLens! This guide will help y
 TraceLens is a modern desktop application built with:
 
 - **Backend**: Rust (async with Tokio)
-- **Frontend**: React 18+ with TypeScript and Vite
+- **Frontend**: React 19 with TypeScript and Vite
 - **Framework**: Tauri 2.x
 
 Before contributing, familiarize yourself with:
@@ -66,7 +66,9 @@ Before contributing, familiarize yourself with:
 tracelens/
 ├── src/                              # React frontend
 │   ├── app/                          # App-level components/layout
-│   │   └── components/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── App.tsx                   # Root component
 │   ├── features/                     # Feature slices
 │   │   ├── segy/                     # SEG-Y metadata UI
 │   │   │   ├── components/
@@ -77,18 +79,18 @@ tracelens/
 │   │       ├── hooks/
 │   │       ├── store/
 │   │       └── types/
-│   ├── services/                     # External/service adapters
-│   │   └── tauri/                    # IPC bridge
 │   ├── shared/                       # Reusable UI + utilities
-│   │   ├── components/
-│   │   ├── hooks/
+│   │   ├── api/                      # External/service adapters
+│   │   │   └── tauri/                # IPC bridge
+│   │   ├── store/                    # App-level Zustand store
+│   │   ├── ui/                       # shadcn UI components
 │   │   └── utils/
-│   ├── store/                        # App-level Zustand store
-│   ├── App.tsx                       # Root component
 │   ├── index.css                     # Global styles
 │   └── main.tsx                      # App entry point
 └── src-tauri/                        # Rust backend (Tauri v2)
     ├── capabilities/                 # Tauri capability definitions
+    ├── config/                       # Configuration files
+    │   └── segy_rev0_spec.json       # SEG-Y Rev 0 specification
     ├── icons/                        # App icons
     ├── src/
     │   ├── commands.rs               # Tauri commands
@@ -96,6 +98,8 @@ tracelens/
     │   ├── lib.rs                    # Library exports
     │   ├── main.rs                   # Tauri entry point
     │   └── segy/                     # SEG-Y parser + rendering
+    │       ├── parser/               # Format parsing modules
+
     │       └── rendering/            # PNG renderers, colormaps
     ├── build.rs                      # Tauri build script
     ├── tauri.conf.json               # Tauri configuration
@@ -154,10 +158,31 @@ npm run tauri build
 - **Strict mode**: Enable TypeScript strict mode; avoid `any`
 - **Components**: Functional components with hooks
 - **State Management**: Zustand for global state, React Query for server data
+- **UI Components**: Use shadcn/ui components from `src/shared/ui/` (see below)
 - **Error Handling**: Use discriminated unions matching Rust error types
 - **Naming**: `camelCase` for functions/variables, `PascalCase` for components
 - **IPC**: Use `invoke('command', { camelCaseParams })`
 - **Linting**: Run `npm run lint` before committing
+
+### Working with shadcn/ui
+
+TraceLens uses [shadcn/ui](https://ui.shadcn.com/) for UI components. Components are installed
+locally in `src/shared/ui/` and can be customized.
+
+**Adding new components**:
+
+```bash
+npx shadcn@latest add <component-name>
+```
+
+**Available components**: Check `src/shared/ui/` for already installed components
+(button, dialog, dropdown-menu, table, tabs, etc.)
+
+**Customization**:
+
+- Components use Tailwind CSS and CSS variables defined in `src/index.css`
+- Theme configuration is in `components.json` (New York style, Lucide icons)
+- Import aliases: `@/shared/ui`, `@/shared/utils`
 
 ### Design Principles
 
