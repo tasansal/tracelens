@@ -9,7 +9,10 @@ import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 
 /**
- * Load trace data and trigger backend rendering based on the current store state.
+ * Loads trace data and triggers backend rendering based on the current store state.
+ * Handles conversion of backend-rendered images to displayable formats.
+ *
+ * @returns Object containing render functions
  */
 export function useTraceLoader() {
   const { filePath, segyData } = useAppStore();
@@ -25,7 +28,7 @@ export function useTraceLoader() {
 
   const loadAndRenderVariableDensity = useCallback(async () => {
     if (!filePath || !segyData) {
-      toast.error('No SEG-Y file loaded');
+      toast.error('Cannot render: No SEG-Y file loaded');
       return;
     }
 
@@ -52,8 +55,8 @@ export function useTraceLoader() {
       toast.success('Render complete', { id: toastId });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      toast.error(`Rendering failed: ${errorMsg}`, { id: toastId });
-      console.error('Render error:', error);
+      toast.error(`Rendering failed for ${modeLabel}: ${errorMsg}`, { id: toastId });
+      console.error(`Render error (${modeLabel} mode):`, error);
     } finally {
       setIsRendering(false);
     }
@@ -75,7 +78,12 @@ export function useTraceLoader() {
 }
 
 /**
- * Convert a backend-rendered PNG payload into an HTMLImageElement.
+ * Converts a backend-rendered PNG payload into an HTMLImageElement.
+ * Creates a blob from the image data and loads it as an image element.
+ *
+ * @param rendered - The rendered image data from the backend
+ * @returns Promise resolving to an HTML image element
+ * @throws Error if the image fails to load
  */
 async function createImageFromRendered(rendered: RenderedImage): Promise<HTMLImageElement> {
   // Create Image element from PNG bytes
@@ -90,7 +98,7 @@ async function createImageFromRendered(rendered: RenderedImage): Promise<HTMLIma
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error('Failed to load image'));
+      reject(new Error('Failed to load rendered image from backend data'));
     };
     img.src = url;
   });

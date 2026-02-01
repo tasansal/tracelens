@@ -5,21 +5,27 @@ import type { SegyData, TraceHeader } from '@/features/segy/types/segy';
 import { LoadingSpinner } from '@/shared/ui/loading-spinner';
 import { SectionTitle } from '@/shared/ui/section-title';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/tabs';
-import React from 'react';
 import type { HeaderView } from '../hooks/useTraceHeader';
 import { BinaryHeaderTable } from './BinaryHeaderTable';
 import { TraceHeaderTable } from './TraceHeaderTable';
 
 /**
- * Props for SegyHeaderPanel.
+ * Props for SegyHeaderPanel component.
  */
 interface SegyHeaderPanelProps {
+  /** Parsed SEG-Y file data including headers */
   segyData: SegyData;
+  /** Currently selected header view tab */
   headerView: HeaderView;
+  /** Callback fired when header view changes */
   onHeaderViewChange: (view: HeaderView) => void;
+  /** Current trace index for the slider */
   sliderValue: number;
+  /** Callback fired when trace slider value changes */
   onSliderChange: (value: number) => void;
+  /** Currently loaded trace header data */
   currentTrace: TraceHeader | null;
+  /** Whether a trace header is currently being loaded */
   loadingTrace: boolean;
 }
 
@@ -30,8 +36,12 @@ const headerViews: HeaderView[] = ['textual', 'binary', 'trace'];
 
 /**
  * Renders the selected header view with trace slider support.
+ * Provides a tabbed interface to view textual, binary, and trace headers.
+ *
+ * @param props - Component props
+ * @returns Header panel component with tabs and content
  */
-export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
+export const SegyHeaderPanel = ({
   segyData,
   headerView,
   onHeaderViewChange,
@@ -39,7 +49,7 @@ export const SegyHeaderPanel: React.FC<SegyHeaderPanelProps> = ({
   onSliderChange,
   currentTrace,
   loadingTrace,
-}) => {
+}: SegyHeaderPanelProps) => {
   return (
     <div className="flex h-full flex-col bg-panel">
       <section className="border-b border-border bg-panel-strong px-4 py-3">

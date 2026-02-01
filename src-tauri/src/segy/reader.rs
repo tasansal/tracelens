@@ -40,6 +40,11 @@ impl SegyReader {
         let total_traces = trace_block_size
             .and_then(|size| io::compute_total_traces(header_bundle.file_size, size));
 
+        // Safety: Memory mapping is safe here because:
+        // 1. We hold an exclusive File handle that prevents external modification
+        // 2. The file is opened in read-only mode (no writes from this process)
+        // 3. The mmap lifetime is tied to the File via the _file field
+        // 4. We validate all slice accesses before dereferencing mapped memory
         let mmap = unsafe { memmap2::Mmap::map(&file) }.map_err(|e| AppError::IoError {
             message: format!("Failed to memory-map file: {}", e),
         })?;

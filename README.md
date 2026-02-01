@@ -33,7 +33,7 @@ Minerals, supplied as a public dataset.
 - React 19 with TypeScript
 - Vite for fast development and builds
 - Zustand for state management
-- Tailwind CSS for styling
+- Tailwind CSS and shadcn/ui components for styling
 
 ## Getting Started
 

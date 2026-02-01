@@ -12,7 +12,8 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import React from 'react';
+import { useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 const logoUrl = new URL('../../../src-tauri/icons/64x64.png', import.meta.url).toString();
 const ghostButtonClass =
@@ -26,17 +27,25 @@ const titlebarButtonClass =
 const titlebarCloseButtonClass = `${titlebarButtonClass} hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink hover:shadow-[0_8px_18px_var(--accent-glow)]`;
 
 /**
- * Props for AppHeader actions.
+ * Props for AppHeader component.
  */
-export const AppHeader: React.FC<{
+interface AppHeaderProps {
+  /** Callback to trigger file selection dialog */
   onFileSelect: () => void;
+  /** Callback to exit the application */
   onExit: () => void;
-}> = ({ onFileSelect, onExit }) => {
+}
+
+/**
+ * Application header component with branding, file actions, and metadata status.
+ * Includes window controls and keyboard shortcuts.
+ */
+export const AppHeader = ({ onFileSelect, onExit }: AppHeaderProps) => {
   const appWindow = getCurrentWindow();
   const { segyData } = useAppStore();
 
-  // Keyboard shortcuts
-  React.useEffect(() => {
+  // Register keyboard shortcuts for file operations
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
         e.preventDefault();
@@ -47,13 +56,21 @@ export const AppHeader: React.FC<{
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onFileSelect]);
 
+  /**
+   * Toggles the window between maximized and normal state.
+   */
   const toggleMaximize = async () => {
-    const isMaximized = await appWindow.isMaximized();
-    if (isMaximized) {
-      await appWindow.unmaximize();
-      return;
+    try {
+      const isMaximized = await appWindow.isMaximized();
+      if (isMaximized) {
+        await appWindow.unmaximize();
+      } else {
+        await appWindow.maximize();
+      }
+    } catch (error) {
+      console.error('Failed to toggle window maximize state:', error);
+      toast.error('Failed to toggle window size');
     }
-    await appWindow.maximize();
   };
 
   return (
@@ -150,8 +167,13 @@ export const AppHeader: React.FC<{
           <div className="inline-flex items-center gap-1.5 ml-1.5" data-tauri-drag-region="false">
             <button
               type="button"
-              onClick={() => {
-                void appWindow.minimize();
+              onClick={async () => {
+                try {
+                  await appWindow.minimize();
+                } catch (error) {
+                  console.error('Failed to minimize window:', error);
+                  toast.error('Failed to minimize window');
+                }
               }}
               className={titlebarButtonClass}
               data-tauri-drag-region="false"
@@ -192,8 +214,13 @@ export const AppHeader: React.FC<{
             </button>
             <button
               type="button"
-              onClick={() => {
-                void appWindow.close();
+              onClick={async () => {
+                try {
+                  await appWindow.close();
+                } catch (error) {
+                  console.error('Failed to close window:', error);
+                  toast.error('Failed to close window');
+                }
               }}
               className={titlebarCloseButtonClass}
               data-tauri-drag-region="false"

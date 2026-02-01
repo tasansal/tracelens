@@ -2,12 +2,20 @@
 //!
 //! Normalization maps trace samples to a consistent range so rendering modes
 //! can assume values in approximately [-1.0, 1.0].
+//!
+//! All normalization functions use `rayon` for parallel processing across traces,
+//! providing significant speedup on multi-core systems.
 
 use super::types::AmplitudeScaling;
 use crate::segy::TraceData;
 use rayon::prelude::*;
 
 /// Normalize trace amplitudes to the [-1.0, 1.0] range.
+///
+/// # Parallelization
+/// Uses `rayon::par_iter()` to process traces in parallel, automatically
+/// utilizing available CPU cores. Each trace is converted and normalized
+/// independently with no shared state.
 pub fn normalize_traces(traces: &[TraceData], scaling: &AmplitudeScaling) -> Vec<Vec<f32>> {
     match scaling {
         AmplitudeScaling::Global { max_amplitude } => normalize_global(traces, *max_amplitude),

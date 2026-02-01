@@ -3,21 +3,21 @@
 //! This module converts trace sample data into raster images using different
 //! visualization modes and encodes the result as PNG for the frontend.
 
-pub mod colormap;
-pub mod normalizer;
+mod colormap;
+mod normalizer;
 pub mod types;
-pub mod vd_renderer;
-pub mod wiggle_renderer;
+mod vd_renderer;
+mod wiggle_renderer;
 
-// Re-exports
-pub use colormap::create_colormap;
-pub use normalizer::normalize_traces;
+// Re-exports - only expose high-level rendering function and types
 pub use types::*;
-pub use vd_renderer::render_variable_density;
-pub use wiggle_renderer::{render_wiggle, render_wiggle_vd};
 
 use crate::segy::TraceData;
+use colormap::create_colormap;
 use image::RgbImage;
+use normalizer::normalize_traces;
+use vd_renderer::render_variable_density;
+use wiggle_renderer::{render_wiggle, render_wiggle_vd};
 
 /// Render traces for a given mode and encode the result as PNG bytes.
 pub fn render_traces(
@@ -51,7 +51,7 @@ pub fn render_traces(
 }
 
 /// Encode an RGB image as PNG with fast compression settings.
-pub fn encode_png_fast(img: RgbImage) -> Result<RenderedImage, String> {
+pub(crate) fn encode_png_fast(img: RgbImage) -> Result<RenderedImage, String> {
     let (width, height) = img.dimensions();
     let raw_pixels = img.into_raw();
 

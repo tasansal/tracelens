@@ -3,20 +3,24 @@
  */
 import type { BinaryHeader } from '@/features/segy/types/segy';
 import { getBinaryHeaderSpec } from '@/shared/api/tauri/segy';
-import React from 'react';
 import { HeaderSpecTable } from './HeaderSpecTable';
 
 /**
- * Props for BinaryHeaderTable.
+ * Props for BinaryHeaderTable component.
  */
 interface BinaryHeaderTableProps {
+  /** SEG-Y binary file header data */
   header: BinaryHeader;
 }
 
 /**
- * Render a spec-backed table for the binary file header.
+ * Renders a spec-backed table for the SEG-Y binary file header.
+ * Displays structured field information from the header specification.
+ *
+ * @param props - Component props
+ * @returns Binary header table component
  */
-export const BinaryHeaderTable: React.FC<BinaryHeaderTableProps> = ({ header }) => {
+export const BinaryHeaderTable = ({ header }: BinaryHeaderTableProps) => {
   return (
     <HeaderSpecTable
       title="Binary File Header"

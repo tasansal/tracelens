@@ -3,21 +3,26 @@
  */
 import type { TraceHeader } from '@/features/segy/types/segy';
 import { getTraceHeaderSpec } from '@/shared/api/tauri/segy';
-import React from 'react';
 import { HeaderSpecTable } from './HeaderSpecTable';
 
 /**
- * Props for TraceHeaderTable.
+ * Props for TraceHeaderTable component.
  */
 interface TraceHeaderTableProps {
+  /** Trace header data to display */
   header: TraceHeader;
+  /** One-based trace index number for display */
   traceId: number;
 }
 
 /**
- * Render a trace header table for the selected trace index.
+ * Renders a trace header table for the selected trace index.
+ * Displays structured field information from the trace header specification.
+ *
+ * @param props - Component props
+ * @returns Trace header table component
  */
-export const TraceHeaderTable: React.FC<TraceHeaderTableProps> = ({ header, traceId }) => {
+export const TraceHeaderTable = ({ header, traceId }: TraceHeaderTableProps) => {
   return (
     <HeaderSpecTable
       title={`Trace #${traceId} Header`}
