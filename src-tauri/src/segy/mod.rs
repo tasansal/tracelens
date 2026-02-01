@@ -16,15 +16,18 @@ mod constants;
 pub mod header_spec;
 mod io;
 mod model;
+pub mod parser;
 mod reader;
 pub mod rendering;
-pub mod parser;
 pub mod utils;
 
-/// Binary header definition and byte-order detection.
-pub use parser::{BinaryHeader, ByteOrder, TextualHeader, TraceBlock, TraceHeader, TraceIdentificationCode, CoordinateUnits, SampleFormat, TraceData, DataSampleFormat, TraceSortingCode, MeasurementSystem};
 /// Size constants for SEG-Y structures.
 pub use constants::*;
+/// Binary header definition and byte-order detection.
+pub use parser::{
+    BinaryHeader, ByteOrder, CoordinateUnits, DataSampleFormat, MeasurementSystem, SampleFormat,
+    TextualHeader, TraceBlock, TraceData, TraceHeader, TraceIdentificationCode, TraceSortingCode,
+};
 
 /// Header specification structures loaded from the JSON spec.
 pub use header_spec::{HeaderFieldSpec, SegyFormatSpec};
