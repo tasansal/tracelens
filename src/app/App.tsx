@@ -20,8 +20,9 @@ import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'reac
 
 /**
  * Main application component. Coordinates file selection, data loading, and layout.
+ * Manages SEG-Y file loading, drag-and-drop, and orchestrates the header/visualization panels.
  */
-function App() {
+export const App = () => {
   useSystemTheme();
 
   const { filePath, isLoading, segyData, setLoading, setSegyData, setFilePath, setError } =
@@ -138,7 +139,8 @@ function App() {
 
           setIsDragActive(false);
 
-          const [droppedPath] = event.payload.paths ?? [];
+          const paths: string[] = event.payload.paths ?? [];
+          const [droppedPath] = paths;
           if (!droppedPath) {
             return;
           }
@@ -163,11 +165,13 @@ function App() {
           unlisten();
         }
       } catch (error) {
-        console.error('Failed to register file drop listener', error);
+        console.error('Failed to register file drop listener:', error);
       }
     };
 
-    void setupFileDropListener();
+    setupFileDropListener().catch((error: unknown) => {
+      console.error('Failed to setup file drop listener:', error);
+    });
 
     return () => {
       cancelled = true;
@@ -229,6 +233,4 @@ function App() {
       </main>
     </div>
   );
-}
-
-export default App;
+};
