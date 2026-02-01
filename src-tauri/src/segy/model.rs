@@ -59,16 +59,6 @@ impl SegyFileConfig {
         })
     }
 
-    /// Convert samples per trace into a signed integer for trace parsing APIs.
-    pub fn samples_per_trace_i16(&self) -> Result<i16, AppError> {
-        i16::try_from(self.samples_per_trace).map_err(|_| AppError::ValidationError {
-            message: format!(
-                "Samples per trace exceeds supported range: {}",
-                self.samples_per_trace
-            ),
-        })
-    }
-
     /// Calculate the total size of a trace block (header + data)
     pub fn trace_block_size(&self) -> Result<usize, AppError> {
         if self.samples_per_trace == 0 {
