@@ -1,7 +1,7 @@
 /**
  * Full-panel loading indicator for SEG-Y file loading.
  */
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui/loading-spinner';
 import React from 'react';
 
 /**

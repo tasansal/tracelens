@@ -66,7 +66,7 @@ pub struct SegyFormatSpec {
 impl SegyFormatSpec {
     /// Load SEG-Y Rev 0 specification from embedded JSON.
     pub fn load_rev0() -> Result<Self, String> {
-        const SPEC_JSON: &str = include_str!("../../segy_rev0_spec.json");
+        const SPEC_JSON: &str = include_str!("../../config/segy_rev0_spec.json");
         serde_json::from_str(SPEC_JSON).map_err(|e| format!("Failed to parse SEG-Y spec: {}", e))
     }
 

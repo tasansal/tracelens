@@ -2,7 +2,7 @@
  * Container that hosts the trace canvas and control panel with responsive sizing.
  */
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
-import { LoadingSpinner } from '@/shared/components/LoadingSpinner';
+import { LoadingSpinner } from '@/shared/ui/loading-spinner';
 import React, { useEffect, useRef, useState } from 'react';
 import { TraceCanvas } from './TraceCanvas';
 import { TraceControlPanel } from './TraceControlPanel';
@@ -113,13 +113,16 @@ export const TraceVisualizationContainer: React.FC = () => {
   return (
     <div className="flex h-full flex-col bg-panel">
       {/* Control Panel - Compact Header */}
-      <div className="panel-header flex-shrink-0">
+      <div className="flex-shrink-0 border-b border-border bg-panel-strong">
         <TraceControlPanel />
       </div>
 
       {/* Main Canvas Area */}
-      <main ref={mainRef} className="canvas-shell flex-1 overflow-hidden">
-        <div className="canvas-layer h-full w-full">
+      <main
+        ref={mainRef}
+        className="canvas-shell relative flex-1 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-[var(--canvas-bg)]"
+      >
+        <div className="relative z-[1] h-full w-full">
           {isRendering && (
             <div className="absolute inset-0 flex items-center justify-center">
               <LoadingSpinner />
@@ -127,10 +130,10 @@ export const TraceVisualizationContainer: React.FC = () => {
           )}
 
           {!isRendering && !currentImage && (
-            <div className="absolute inset-0 flex items-center justify-center text-center text-muted">
+            <div className="absolute inset-0 flex items-center justify-center text-center text-text-muted">
               <div>
                 <p className="text-sm">Adjust settings to render visualization</p>
-                <p className="mt-2 text-xs text-dim">Changes auto-render after 500ms</p>
+                <p className="mt-2 text-xs text-text-dim">Changes auto-render after 500ms</p>
               </div>
             </div>
           )}

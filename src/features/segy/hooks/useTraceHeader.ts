@@ -2,7 +2,7 @@
  * Hook for managing SEG-Y header view state and trace header loading.
  */
 import type { SegyData, TraceHeader } from '@/features/segy/types/segy';
-import { loadSingleTrace } from '@/services/tauri/segy';
+import { loadSingleTrace } from '@/shared/api/tauri/segy';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { MAX_TRACE_SAMPLES } from '../constants';

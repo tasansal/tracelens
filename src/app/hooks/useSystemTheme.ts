@@ -1,7 +1,7 @@
 /**
  * Hook that keeps app theme in sync with OS color scheme preference.
  */
-import { useAppStore } from '@/store/appStore';
+import { useAppStore } from '@/shared/store/appStore';
 import { useEffect } from 'react';
 
 /**

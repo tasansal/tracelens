@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read};
 
-use super::utils::{detect_text_encoding, text_to_ascii, TextEncoding};
+use crate::segy::utils::{detect_text_encoding, text_to_ascii, TextEncoding};
 
 /// Textual header consisting of 3200 bytes of EBCDIC or ASCII card images
 ///

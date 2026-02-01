@@ -4,7 +4,7 @@
 //! and sizes during on-demand loading.
 
 use crate::error::AppError;
-use crate::segy::binary_header::DataSampleFormat;
+use crate::segy::parser::binary_header::DataSampleFormat;
 use crate::segy::{constants, BinaryHeader, ByteOrder, TextEncoding, TextualHeader};
 
 /// SEG-Y file data structure containing headers only (no traces loaded eagerly)
@@ -56,16 +56,6 @@ impl SegyFileConfig {
             samples_per_trace,
             data_sample_format: header.data_sample_format as i16 as u16,
             byte_order: header.byte_order,
-        })
-    }
-
-    /// Convert samples per trace into a signed integer for trace parsing APIs.
-    pub fn samples_per_trace_i16(&self) -> Result<i16, AppError> {
-        i16::try_from(self.samples_per_trace).map_err(|_| AppError::ValidationError {
-            message: format!(
-                "Samples per trace exceeds supported range: {}",
-                self.samples_per_trace
-            ),
         })
     }
 

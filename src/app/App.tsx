@@ -3,14 +3,14 @@
  * Keeps high-level app state (loading/errors) in sync with stores and commands.
  */
 import { AppHeader } from '@/app/components/AppHeader';
+import { useSystemTheme } from '@/app/hooks/useSystemTheme';
 import { SegyEmptyState } from '@/features/segy/components/SegyEmptyState';
 import { SegyHeaderPanel } from '@/features/segy/components/SegyHeaderPanel';
 import { SegyLoadingState } from '@/features/segy/components/SegyLoadingState';
 import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
-import { loadSegyFile as loadSegyFileCommand } from '@/services/tauri/segy';
-import { useSystemTheme } from '@/shared/hooks/useSystemTheme';
-import { useAppStore } from '@/store/appStore';
+import { loadSegyFile as loadSegyFileCommand } from '@/shared/api/tauri/segy';
+import { useAppStore } from '@/shared/store/appStore';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { exit } from '@tauri-apps/plugin-process';
@@ -191,12 +191,12 @@ function App() {
   };
 
   return (
-    <div className="app-shell flex h-screen flex-col">
+    <div className="app-shell relative flex h-screen flex-col overflow-hidden bg-bg text-text isolate">
       <Toaster position="top-right" />
 
       <AppHeader onFileSelect={handleFileSelect} onExit={handleExit} />
 
-      <main className="app-main">
+      <main className="flex flex-1 overflow-hidden px-4 pb-4 pt-3">
         {isLoading && <SegyLoadingState />}
 
         {!isLoading && !segyData && (
@@ -204,7 +204,7 @@ function App() {
         )}
 
         {!isLoading && segyData && (
-          <div className="panel-frame flex-1">
+          <div className="h-full w-full flex-1 overflow-hidden rounded-[var(--radius-xl)] border border-border bg-panel-tint shadow-[var(--shadow)]">
             <PanelGroup orientation="horizontal" className="h-full w-full">
               <Panel id="header-panel" defaultSize="37%" minSize="10%" maxSize="45%">
                 <SegyHeaderPanel
@@ -218,7 +218,7 @@ function App() {
                 />
               </Panel>
 
-              <PanelResizeHandle className="panel-resize w-1.5 cursor-col-resize transition-transform hover:scale-x-125" />
+              <PanelResizeHandle className="relative w-1.5 cursor-col-resize bg-gradient-to-b from-transparent via-accent-2 to-transparent opacity-60 transition-transform hover:scale-x-125 motion-reduce:transition-none after:absolute after:inset-y-1.5 after:inset-x-0 after:bg-[var(--accent-2-muted)] after:opacity-80 after:content-['']" />
 
               <Panel id="visualization-panel" defaultSize="63%" minSize="40%">
                 <TraceVisualizationContainer />

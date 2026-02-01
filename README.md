@@ -2,7 +2,7 @@
 
 A modern, cross-platform desktop application for viewing and inspecting SEG-Y seismic data files.
 
-![TraceLens app snapshot](docs/screenshot.png)
+![TraceLens app snapshot](docs/assets/screenshot.png)
 Parihaka 3D seismic data courtesy of New Zealand Petroleum and Minerals (NZPM) / New Zealand Crown
 Minerals, supplied as a public dataset.
 
