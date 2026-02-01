@@ -290,22 +290,22 @@ impl BinaryHeader {
         mut reader: R,
         endianness: Endianness,
     ) -> io::Result<Self> {
-        // Helper macro to read with detected endianness
+        // Convert internal Endianness to public ByteOrder for macro usage
+        let byte_order = match endianness {
+            Endianness::Big => ByteOrder::BigEndian,
+            Endianness::Little => ByteOrder::LittleEndian,
+        };
+
+        // Use shared macros from byte_order_macros module
         macro_rules! read_i32 {
             ($reader:expr) => {
-                match endianness {
-                    Endianness::Big => $reader.read_i32::<BigEndian>()?,
-                    Endianness::Little => $reader.read_i32::<LittleEndian>()?,
-                }
+                read_i32_with_order!($reader, byte_order)
             };
         }
 
         macro_rules! read_i16 {
             ($reader:expr) => {
-                match endianness {
-                    Endianness::Big => $reader.read_i16::<BigEndian>()?,
-                    Endianness::Little => $reader.read_i16::<LittleEndian>()?,
-                }
+                read_i16_with_order!($reader, byte_order)
             };
         }
 

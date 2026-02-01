@@ -2,7 +2,7 @@
 //!
 //! A trace consists of a 240-byte header followed by trace data samples.
 
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
+use byteorder::ReadBytesExt;
 use serde::{Deserialize, Serialize};
 use std::io::{self, Read};
 
@@ -36,20 +36,25 @@ pub enum TraceIdentificationCode {
 impl TraceIdentificationCode {
     /// Parse a raw trace identification code.
     ///
-    /// Unknown values are mapped to `Optional` when in range, otherwise the
-    /// default is `SeismicData` to keep parsing robust.
-    pub fn from_code(code: i16) -> Self {
+    /// # Arguments
+    /// * `code` - Raw trace identification code from SEG-Y header
+    ///
+    /// # Returns
+    /// Returns `Ok(TraceIdentificationCode)` for valid codes, or `Err` for invalid codes.
+    ///
+    /// Valid codes are 1-8 (standard) and 9-32767 (optional use).
+    pub fn from_code(code: i16) -> Result<Self, String> {
         match code {
-            1 => Self::SeismicData,
-            2 => Self::Dead,
-            3 => Self::Dummy,
-            4 => Self::TimeBreak,
-            5 => Self::Uphole,
-            6 => Self::Sweep,
-            7 => Self::Timing,
-            8 => Self::WaterBreak,
-            n @ 9..=32767 => Self::Optional(n),
-            _ => Self::SeismicData, // Default to seismic data for invalid codes
+            1 => Ok(Self::SeismicData),
+            2 => Ok(Self::Dead),
+            3 => Ok(Self::Dummy),
+            4 => Ok(Self::TimeBreak),
+            5 => Ok(Self::Uphole),
+            6 => Ok(Self::Sweep),
+            7 => Ok(Self::Timing),
+            8 => Ok(Self::WaterBreak),
+            n @ 9..=32767 => Ok(Self::Optional(n)),
+            _ => Err(format!("Invalid trace identification code: {}", code)),
         }
     }
 }
@@ -321,22 +326,16 @@ impl TraceHeader {
     }
 
     fn from_reader_with_order<R: Read>(mut reader: R, byte_order: ByteOrder) -> io::Result<Self> {
-        // Helper macros for reading with byte order
+        // Use shared macros from byte_order_macros module
         macro_rules! read_i32 {
             ($reader:expr) => {
-                match byte_order {
-                    ByteOrder::BigEndian => $reader.read_i32::<BigEndian>()?,
-                    ByteOrder::LittleEndian => $reader.read_i32::<LittleEndian>()?,
-                }
+                read_i32_with_order!($reader, byte_order)
             };
         }
 
         macro_rules! read_i16 {
             ($reader:expr) => {
-                match byte_order {
-                    ByteOrder::BigEndian => $reader.read_i16::<BigEndian>()?,
-                    ByteOrder::LittleEndian => $reader.read_i16::<LittleEndian>()?,
-                }
+                read_i16_with_order!($reader, byte_order)
             };
         }
         let trace_seq_line = read_i32!(reader);
@@ -347,7 +346,8 @@ impl TraceHeader {
         let cdp_ensemble_number = read_i32!(reader);
         let trace_number_in_ensemble = read_i32!(reader);
 
-        let trace_id_code = TraceIdentificationCode::from_code(read_i16!(reader));
+        let trace_id_code = TraceIdentificationCode::from_code(read_i16!(reader))
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
 
         let num_vert_summed = read_i16!(reader);
         let num_horz_stacked = read_i16!(reader);
