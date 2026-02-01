@@ -12,33 +12,25 @@
 //! 3. Parse trace headers and data on demand.
 //! 4. Render traces into variable-density or wiggle views.
 
-pub mod binary_header;
 mod constants;
 pub mod header_spec;
 mod io;
 mod model;
 mod reader;
 pub mod rendering;
-pub mod textual_header;
-pub mod trace;
-pub mod trace_data;
+pub mod parser;
 pub mod utils;
 
 /// Binary header definition and byte-order detection.
-pub use binary_header::{BinaryHeader, ByteOrder};
+pub use parser::{BinaryHeader, ByteOrder, TextualHeader, TraceBlock, TraceHeader, TraceIdentificationCode, CoordinateUnits, SampleFormat, TraceData, DataSampleFormat, TraceSortingCode, MeasurementSystem};
 /// Size constants for SEG-Y structures.
 pub use constants::*;
+
 /// Header specification structures loaded from the JSON spec.
 pub use header_spec::{HeaderFieldSpec, SegyFormatSpec};
 /// High-level data models and derived file configuration.
 pub use model::{SegyData, SegyFileConfig};
 /// SEG-Y reader and cacheable state for Tauri commands.
 pub use reader::{SegyReader, SegyReaderState};
-/// Parsed textual header and encoding helpers.
-pub use textual_header::TextualHeader;
-/// Parsed trace header and combined trace blocks.
-pub use trace::{TraceBlock, TraceHeader};
-/// Trace data formats and runtime sample representation.
-pub use trace_data::{SampleFormat, TraceData};
 /// Detected textual header encoding.
 pub use utils::TextEncoding;

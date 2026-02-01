@@ -526,7 +526,7 @@ impl TraceBlock {
     /// * `byte_order` - Byte order for reading header values
     pub fn from_reader<R: Read>(
         reader: &mut R,
-        sample_format: crate::segy::binary_header::DataSampleFormat,
+        sample_format: super::binary_header::DataSampleFormat,
         num_samples: Option<i16>,
         byte_order: ByteOrder,
     ) -> io::Result<Self> {

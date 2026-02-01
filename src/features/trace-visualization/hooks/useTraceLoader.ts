@@ -3,8 +3,8 @@
  */
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import type { RenderedImage } from '@/features/trace-visualization/types/rendering';
-import { renderVariableDensity } from '@/services/tauri/segy';
-import { useAppStore } from '@/store/appStore';
+import { renderVariableDensity } from '@/shared/api/tauri/segy';
+import { useAppStore } from '@/shared/store/appStore';
 import { useCallback } from 'react';
 import toast from 'react-hot-toast';
 

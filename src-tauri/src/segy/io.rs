@@ -4,7 +4,7 @@
 //! helpers used by `SegyReader`.
 
 use crate::error::AppError;
-use crate::segy::binary_header::DataSampleFormat;
+use crate::segy::parser::binary_header::DataSampleFormat;
 use crate::segy::{
     constants, BinaryHeader, ByteOrder, SegyFileConfig, TextualHeader, TraceBlock, TraceData,
 };
