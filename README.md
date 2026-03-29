@@ -13,12 +13,14 @@ Minerals, supplied as a public dataset.
 - **Trace Visualization** - Variable density, wiggle, and combined renders with colormaps and amplitude scaling
 - **Interactive Viewport** - Trace range controls, pan/zoom, and resizable panels
 - **Performance-Focused I/O** - Memory-mapped reads with on-demand trace loading and async rendering
+- **Remote File Support** - Load SEG-Y files from local disk, S3, GCS, Azure Blob Storage, and HTTPS endpoints
+- **Tiled Rendering** - Efficient canvas rendering with viewport-based tile loading for smooth interaction
+- **Settings Persistence** - User preferences saved between sessions
 
 ## Upcoming / Future Features
 
 - **Multi-Revision Support** - SEG-Y Rev 1, Rev 2.0, and Rev 2.1 compatibility
 - **Custom Header Definitions** - User-defined field specs and overrides
-- **Cloud Integration** - Read files from S3, GCS, Azure, and HTTPS
 
 ## Tech Stack
 
@@ -27,6 +29,8 @@ Minerals, supplied as a public dataset.
 - Rust with Tokio for async operations
 - Tauri for native desktop integration
 - Efficient binary parsing with `byteorder`
+- Memory-mapped file I/O for local files
+- Cloud storage integrations (S3, GCS, Azure Blob Storage, HTTP)
 
 **Frontend**
 
@@ -34,6 +38,8 @@ Minerals, supplied as a public dataset.
 - Vite for fast development and builds
 - Zustand for state management
 - Tailwind CSS and shadcn/ui components for styling
+- Lucide React for icons
+- Tauri plugin system for dialogs, processes, and updates
 
 ## Getting Started
 
