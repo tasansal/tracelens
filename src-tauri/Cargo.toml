@@ -5,8 +5,8 @@ description = "TraceLens - A modern desktop app for viewing and analyzing SEG-Y 
 authors = ["Altay Sansal"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tasansal/tracelens"
-edition = "2021"
-rust-version = "1.77.2"
+edition = "2024"
+rust-version = "1.94.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -31,7 +31,17 @@ tokio = { version = "1.42", features = ["rt", "macros", "sync"] }
 byteorder = "1.5"
 memmap2 = "0.9"
 image = "0.25"
-tiny-skia = "0.11"
 rayon = "1.10"
 colorgrad = { version = "0.8.0", features = ["preset"] }
 png = "0.18.0"
+object_store = { version = "0.12.5", features = ["aws", "gcp", "azure", "http"] }
+url = "2.5.8"
+bytes = "1.11.0"
+dirs = "6.0.0"
+base64 = "0.22"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

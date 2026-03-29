@@ -111,6 +111,19 @@
   --grid: rgba(243, 240, 232, 0.05);
 }
 
+/* Remap Tailwind color tokens for scoped theme containers */
+#theme-preview-container.theme-light,
+#theme-preview-container.theme-dark {
+  --color-accent: var(--accent);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-dim: var(--text-dim);
+  --color-panel: var(--panel);
+  --color-panel-strong: var(--panel-strong);
+  --color-panel-muted: var(--panel-muted);
+  --color-border: var(--border);
+}
+
 /* Base typography + page background. */
 @layer base {
   body {

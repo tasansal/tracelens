@@ -10,8 +10,10 @@ import { SectionTitle } from '@/shared/ui/section-title';
 interface SegyEmptyStateProps {
   /** Whether a file is currently being dragged over the drop zone */
   isDragActive: boolean;
-  /** Callback fired when the user clicks to select a file */
+  /** Callback fired when the user clicks to select a local file */
   onFileSelect: () => void;
+  /** Callback fired when the user clicks to open a remote file */
+  onRemoteFileSelect: () => void;
 }
 
 /**
@@ -21,7 +23,11 @@ interface SegyEmptyStateProps {
  * @param props - Component props
  * @returns Empty state component
  */
-export const SegyEmptyState = ({ isDragActive, onFileSelect }: SegyEmptyStateProps) => {
+export const SegyEmptyState = ({
+  isDragActive,
+  onFileSelect,
+  onRemoteFileSelect,
+}: SegyEmptyStateProps) => {
   return (
     <div className="flex flex-1 items-center justify-center p-6">
       <div
@@ -33,13 +39,23 @@ export const SegyEmptyState = ({ isDragActive, onFileSelect }: SegyEmptyStatePro
       >
         <SectionTitle as="div">No File Loaded</SectionTitle>
         <p className="mt-2 text-[13px] text-text-muted">
-          Open or drag & drop a SEG-Y file to explore headers and traces.
+          Open a local file, drag & drop, or connect to remote SEG-Y data.
         </p>
-        <div className="mt-6 flex flex-col items-center gap-3">
-          <Button onClick={onFileSelect}>
-            {isDragActive ? 'Drop SEG-Y to load' : 'Open SEG-Y'}
-          </Button>
-          <div className="mt-3.5 text-[11px] uppercase tracking-[0.2em] text-text-dim">Ctrl+O</div>
+        <div className="mt-6 flex flex-col items-center">
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-2">
+              <Button onClick={onFileSelect}>
+                {isDragActive ? 'Drop SEG-Y to load' : 'Open Local File'}
+              </Button>
+              <div className="text-[11px] uppercase tracking-[0.2em] text-text-dim">Ctrl+O</div>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <Button onClick={onRemoteFileSelect}>Open Remote File</Button>
+              <div className="text-[11px] uppercase tracking-[0.2em] text-text-dim">
+                Ctrl+Shift+O
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

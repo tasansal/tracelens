@@ -1,3 +1,4 @@
+import { resolve } from 'path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
@@ -30,5 +31,12 @@ export default defineConfig({
     minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
     // Produce sourcemaps for debug builds
     sourcemap: !!process.env.TAURI_DEBUG,
+    // Multi-page build for main and settings windows
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, 'index.html'),
+        settings: resolve(__dirname, 'settings.html'),
+      },
+    },
   },
 });

@@ -87,23 +87,6 @@ impl SegyFileConfig {
             })
     }
 
-    /// Calculate the file position of a specific trace
-    pub fn calculate_trace_position(&self, trace_index: usize) -> Result<usize, AppError> {
-        let block_size = self.trace_block_size()?;
-        let offset =
-            trace_index
-                .checked_mul(block_size)
-                .ok_or_else(|| AppError::ValidationError {
-                    message: "Trace offset overflow".to_string(),
-                })?;
-
-        constants::FILE_HEADER_SIZE
-            .checked_add(offset)
-            .ok_or_else(|| AppError::ValidationError {
-                message: "Trace position overflow".to_string(),
-            })
-    }
-
     /// Get the parsed DataSampleFormat
     pub fn data_sample_format_parsed(&self) -> Result<DataSampleFormat, AppError> {
         DataSampleFormat::from_code(self.data_sample_format as i16).map_err(|e| {

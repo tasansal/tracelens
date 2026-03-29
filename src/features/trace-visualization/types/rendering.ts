@@ -3,11 +3,9 @@
  */
 
 /**
- * Subset of traces and canvas dimensions to render.
+ * Canvas dimensions for the viewport (no trace range — that's computed from pan/zoom).
  */
 export interface ViewportConfig {
-  startTrace: number;
-  traceCount: number;
   width: number;
   height: number;
 }
@@ -24,12 +22,14 @@ export type RenderMode = 'variable-density' | 'wiggle' | 'wiggle-variable-densit
 
 /**
  * Amplitude scaling strategies used prior to rendering.
+ *
+ * Global modes pass a pre-computed clip value so normalization is consistent
+ * across tiles.  AGC computes gain per-trace with a sliding window.
  */
 export type AmplitudeScaling =
-  | { type: 'global'; maxAmplitude: number }
-  | { type: 'per-trace'; windowSize?: number }
-  | { type: 'percentile'; percentile: number }
-  | { type: 'manual'; scale: number };
+  | { type: 'global-percentile'; clipValue: number }
+  | { type: 'global-fixed'; clipValue: number }
+  | { type: 'agc'; windowSize?: number };
 
 /**
  * Backend image encoding format.
@@ -37,12 +37,12 @@ export type AmplitudeScaling =
 export type ImageFormat = 'png';
 
 /**
- * Rendered image payload returned from the backend.
+ * Rendered image payload returned from the backend (base64-encoded).
  */
 export interface RenderedImage {
   width: number;
   height: number;
-  data: number[]; // u8 array
+  data: string; // base64-encoded PNG
   format: ImageFormat;
 }
 
@@ -56,4 +56,69 @@ export interface WiggleConfig {
   fillNegative: boolean;
   positiveFillColor: [number, number, number]; // RGB
   negativeFillColor: [number, number, number]; // RGB
+}
+
+/**
+ * Request for rendering a 2D tile (trace column × sample row).
+ */
+export interface TileRequest {
+  startTrace: number;
+  traceCount: number;
+  startSample: number;
+  sampleCount: number;
+  outputWidth: number;
+  outputHeight: number;
+  colormapType: ColormapType;
+  scaling: AmplitudeScaling;
+  renderMode: RenderMode;
+  wiggleConfig: WiggleConfig | null;
+}
+
+/**
+ * Rendered tile result with positioning metadata.
+ */
+export interface RenderedTile {
+  startSample: number;
+  sampleCount: number;
+  image: RenderedImage;
+}
+
+/**
+ * Unique key for a 2D tile: "col_row" where col is trace-column index, row is sample-row index.
+ */
+export type TileKey = string;
+
+/**
+ * Build a tile key from column and row indices.
+ */
+export function makeTileKey(col: number, row: number): TileKey {
+  return `${col}_${row}`;
+}
+
+/**
+ * Cached 2D tile with its image and positioning metadata.
+ */
+export interface TileLayer {
+  col: number;
+  row: number;
+  startTrace: number;
+  traceCount: number;
+  startSample: number;
+  sampleCount: number;
+  sourceX: number;
+  sourceY: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  image: HTMLImageElement | null;
+  isLoading: boolean;
+}
+
+/**
+ * Amplitude statistics from scanning traces.
+ */
+export interface AmplitudeStats {
+  maxAmplitude: number;
+  percentileClip: number;
+  percentileUsed: number;
+  tracesSampled: number;
 }

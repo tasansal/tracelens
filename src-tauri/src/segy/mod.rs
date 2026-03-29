@@ -19,7 +19,9 @@ mod model;
 pub mod parser;
 mod reader;
 pub mod rendering;
+mod storage;
 mod utils;
+mod window_cache;
 
 /// Size constants for SEG-Y structures.
 pub use constants::*;

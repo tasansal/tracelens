@@ -2,7 +2,6 @@
  * Container that hosts the trace canvas and control panel with responsive sizing.
  */
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
-import { LoadingSpinner } from '@/shared/ui/loading-spinner';
 import { useEffect, useRef, useState } from 'react';
 import { TraceCanvas } from './TraceCanvas';
 import { TraceControlPanel } from './TraceControlPanel';
@@ -14,7 +13,7 @@ import { TraceControlPanel } from './TraceControlPanel';
  * @returns Trace visualization container with controls and canvas
  */
 export const TraceVisualizationContainer = () => {
-  const { isRendering, currentImage, updateViewport } = useTraceVisualizationStore();
+  const { updateViewport } = useTraceVisualizationStore();
   const mainRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
 
@@ -125,25 +124,59 @@ export const TraceVisualizationContainer = () => {
         ref={mainRef}
         className="canvas-shell relative flex-1 overflow-hidden rounded-[var(--radius-lg)] border border-border bg-[var(--canvas-bg)]"
       >
+        <aside className="pointer-events-none absolute right-3 top-3 z-20">
+          <div className="group pointer-events-auto relative">
+            <button
+              type="button"
+              aria-label="Show visualization shortcuts"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-panel-strong text-sm font-extrabold text-text shadow-[var(--shadow)] transition duration-200 hover:border-transparent hover:bg-panel-muted focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_var(--accent-focus)] motion-reduce:transition-none"
+            >
+              ?
+            </button>
+
+            <div className="pointer-events-none absolute right-0 top-[calc(100%+0.4rem)] w-72 translate-y-1 rounded-[var(--radius-md)] border border-border bg-panel p-3 text-xs text-text opacity-0 shadow-[var(--shadow)] transition duration-200 group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:translate-y-0 group-focus-within:opacity-100 motion-reduce:transition-none">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-text-dim">
+                Navigation Help
+              </p>
+              <ul className="space-y-1.5">
+                <li className="flex items-center justify-between gap-3">
+                  <kbd className="rounded border border-border bg-panel-muted px-1.5 py-0.5 font-mono text-[11px] text-text">
+                    Scroll
+                  </kbd>
+                  <span className="text-right text-text-muted">Horizontal zoom</span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <kbd className="rounded border border-border bg-panel-muted px-1.5 py-0.5 font-mono text-[11px] text-text">
+                    Shift + Scroll
+                  </kbd>
+                  <span className="text-right text-text-muted">Vertical zoom</span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <kbd className="rounded border border-border bg-panel-muted px-1.5 py-0.5 font-mono text-[11px] text-text">
+                    Click + Drag
+                  </kbd>
+                  <span className="text-right text-text-muted">Pan canvas</span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <kbd className="rounded border border-border bg-panel-muted px-1.5 py-0.5 font-mono text-[11px] text-text">
+                    Ctrl/Cmd + O
+                  </kbd>
+                  <span className="text-right text-text-muted">Open local file</span>
+                </li>
+                <li className="flex items-center justify-between gap-3">
+                  <kbd className="rounded border border-border bg-panel-muted px-1.5 py-0.5 font-mono text-[11px] text-text">
+                    Ctrl/Cmd + Shift + O
+                  </kbd>
+                  <span className="text-right text-text-muted">Open remote file</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </aside>
+
         <div className="relative z-[1] h-full w-full">
-          {isRendering && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <LoadingSpinner />
-            </div>
-          )}
-
-          {!isRendering && !currentImage && (
-            <div className="absolute inset-0 flex items-center justify-center text-center text-text-muted">
-              <div>
-                <p className="text-sm">Adjust settings to render visualization</p>
-                <p className="mt-2 text-xs text-text-dim">Changes auto-render after 500ms</p>
-              </div>
-            </div>
-          )}
-
-          {!isRendering && currentImage && (
-            <TraceCanvas width={canvasSize.width} height={canvasSize.height} />
-          )}
+          {/* Tiled canvas renderer */}
+          <TraceCanvas width={canvasSize.width} height={canvasSize.height} />
         </div>
       </main>
     </div>

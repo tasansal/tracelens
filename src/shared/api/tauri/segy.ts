@@ -4,12 +4,9 @@
 import type { HeaderFieldSpec } from '@/features/segy/types/headerSpec';
 import type { SegyData } from '@/features/segy/types/segy';
 import type {
-  AmplitudeScaling,
-  ColormapType,
-  RenderedImage,
-  RenderMode,
-  ViewportConfig,
-  WiggleConfig,
+  AmplitudeStats,
+  RenderedTile,
+  TileRequest,
 } from '@/features/trace-visualization/types/rendering';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -57,22 +54,45 @@ export async function getTraceHeaderSpec(): Promise<HeaderFieldSpec[]> {
 }
 
 /**
- * Render trace visualization with the selected render mode and scaling.
+ * Render a 2D tile with Lanczos3 interpolation.
+ *
+ * This enables continuous tiled rendering for performance:
+ * - 2D tiles: trace columns × sample rows
+ * - Viewport-based fetching — only visible tiles are rendered
+ * - Always uses Lanczos3 for scientific accuracy
+ *
+ * @param filePath Path to the SEG-Y file
+ * @param tileRequest Tile configuration (trace range, sample range, output size)
+ * @returns Rendered tile with positioning metadata
  */
-export async function renderVariableDensity(params: {
-  filePath: string;
-  viewport: ViewportConfig;
-  colormapType: ColormapType;
-  scaling: AmplitudeScaling;
-  renderMode: RenderMode;
-  wiggleConfig: WiggleConfig;
-}): Promise<RenderedImage> {
-  return invoke<RenderedImage>('render_variable_density', {
-    filePath: params.filePath,
-    viewport: params.viewport,
-    colormapType: params.colormapType,
-    scaling: params.scaling,
-    renderMode: params.renderMode,
-    wiggleConfig: params.renderMode !== 'variable-density' ? params.wiggleConfig : null,
+export async function renderTile(
+  filePath: string,
+  tileRequest: TileRequest
+): Promise<RenderedTile> {
+  return invoke<RenderedTile>('render_tile', {
+    filePath,
+    tileRequest,
+  });
+}
+
+/**
+ * Scan traces to compute global amplitude statistics.
+ *
+ * Samples contiguous blocks from evenly spaced positions in the file and
+ * computes the clip value at the requested percentile.  Should be called
+ * once after file open so tile rendering can use pre-computed normalization
+ * values instead of recomputing per-tile.
+ *
+ * @param filePath Path to the SEG-Y file
+ * @param percentile Optional percentile (0.0–1.0). Defaults to 0.99.
+ * @returns Amplitude statistics with the percentile clip value
+ */
+export async function scanAmplitudeRange(
+  filePath: string,
+  percentile?: number
+): Promise<AmplitudeStats> {
+  return invoke<AmplitudeStats>('scan_amplitude_range', {
+    filePath,
+    percentile: percentile ?? null,
   });
 }

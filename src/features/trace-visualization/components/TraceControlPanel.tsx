@@ -2,6 +2,8 @@
  * Control panel for trace visualization settings (render mode, colormap, scaling).
  */
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
+import { scanAmplitudeRange } from '@/shared/api/tauri/segy';
+import { useAppStore } from '@/shared/store/appStore';
 import { Button } from '@/shared/ui/button';
 import {
   Dialog,
@@ -12,8 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/shared/ui/dialog';
-import { useEffect, useRef } from 'react';
-import { useTraceLoader } from '../hooks/useTraceLoader';
+import { useState } from 'react';
 
 /**
  * UI controls for rendering and viewport settings.
@@ -27,73 +28,74 @@ export const TraceControlPanel = () => {
     renderMode,
     colormap,
     amplitudeScaling,
-    viewport,
+    amplitudeStats,
     setRenderMode,
     setColormap,
     setAmplitudeScaling,
-    updateViewport,
+    setAmplitudeStats,
   } = useTraceVisualizationStore();
 
-  const { loadAndRenderVariableDensity } = useTraceLoader();
+  const { segyData, filePath } = useAppStore();
 
-  // Auto-render with debouncing
-  const renderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const hasRenderedOnce = useRef(false);
+  // Local state for percentile slider and dB gain input
+  const [percentile, setPercentile] = useState(0.99);
+  const [gainDb, setGainDb] = useState(-6);
+  const [isScanning, setIsScanning] = useState(false);
 
-  useEffect(() => {
-    // If it's the first render and the viewport dimensions are still the default ones (800x600),
-    // wait for TraceVisualizationContainer to measure the actual container size.
-    // We check if it's 800x600 because that's our placeholder default.
-    if (!hasRenderedOnce.current && viewport.width === 800 && viewport.height === 600) {
-      return;
-    }
-
-    // Clear existing timeout
-    if (renderTimeoutRef.current) {
-      clearTimeout(renderTimeoutRef.current);
-    }
-
-    // Always debounce renders to avoid double-render on initial resize/measure.
-    const delay = hasRenderedOnce.current ? 600 : 250;
-    if (!hasRenderedOnce.current) {
-      hasRenderedOnce.current = true;
-    }
-
-    renderTimeoutRef.current = setTimeout(() => {
-      loadAndRenderVariableDensity();
-    }, delay);
-
-    // Cleanup on unmount
-    return () => {
-      if (renderTimeoutRef.current) {
-        clearTimeout(renderTimeoutRef.current);
-      }
-    };
-  }, [renderMode, colormap, amplitudeScaling, viewport, loadAndRenderVariableDensity]);
+  // Get total traces from loaded file
+  const totalTraces = segyData?.total_traces ?? 0;
+  const maxAmp = amplitudeStats?.maxAmplitude ?? 1.0;
+  const gainFactor = Math.pow(10, gainDb / 20);
+  const appliedClipValue = maxAmp * gainFactor;
 
   /**
    * Human-readable label for the current amplitude scaling mode.
    */
   const getScalingLabel = () => {
     switch (amplitudeScaling.type) {
-      case 'per-trace':
-        return 'Per-Trace AGC';
-      case 'percentile':
-        return `Percentile (${(amplitudeScaling.percentile * 100).toFixed(0)}%)`;
-      case 'manual':
-        return `Manual (${amplitudeScaling.scale}x)`;
-      case 'global':
-        return 'Global';
+      case 'global-percentile':
+        return `Percentile (${(percentile * 100).toFixed(0)}%)`;
+      case 'global-fixed':
+        return `Fixed (${gainDb >= 0 ? '+' : ''}${gainDb} dB)`;
+      case 'agc':
+        return amplitudeScaling.windowSize ? `AGC (${amplitudeScaling.windowSize})` : 'AGC (full)';
       default:
         return 'Unknown';
     }
   };
 
+  /**
+   * Re-scan amplitude range at the given percentile and apply global-percentile scaling.
+   */
+  const handlePercentileChange = async (newPercentile: number) => {
+    setPercentile(newPercentile);
+    if (!filePath) return;
+
+    setIsScanning(true);
+    try {
+      const stats = await scanAmplitudeRange(filePath, newPercentile);
+      setAmplitudeStats(stats);
+      setAmplitudeScaling({ type: 'global-percentile', clipValue: stats.percentileClip });
+    } catch (err) {
+      console.warn('Amplitude scan failed:', err);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  /**
+   * Compute the clip value for global-fixed mode from max amplitude and dB gain.
+   * clip = maxAmplitude * 10^(gainDb / 20)
+   */
+  const handleGainDbChange = (newGainDb: number) => {
+    setGainDb(newGainDb);
+    const clipValue = maxAmp * Math.pow(10, newGainDb / 20);
+    setAmplitudeScaling({ type: 'global-fixed', clipValue });
+  };
+
   const labelClass = 'text-[10px] font-semibold uppercase tracking-[0.24em] text-text-dim';
   const surfaceClass =
     'rounded-[var(--radius-sm)] border border-border bg-panel-muted px-2.5 py-1.5 text-[12px] text-text transition duration-200 focus:outline-none focus:border-transparent focus:shadow-[0_0_0_2px_var(--accent-focus)] motion-reduce:transition-none';
-  const stepperButtonClass =
-    'flex h-[22px] w-[22px] items-center justify-center rounded-full border border-border bg-panel-strong text-text transition duration-200 ease-out hover:-translate-y-px hover:border-transparent hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink active:translate-y-0 motion-reduce:transition-none';
 
   return (
     <div className="text-text">
@@ -180,24 +182,79 @@ export const TraceControlPanel = () => {
                   value={amplitudeScaling.type}
                   onChange={e => {
                     const type = e.target.value;
-                    if (type === 'per-trace') {
-                      setAmplitudeScaling({ type: 'per-trace' });
-                    } else if (type === 'percentile') {
-                      setAmplitudeScaling({ type: 'percentile', percentile: 0.98 });
-                    } else if (type === 'manual') {
-                      setAmplitudeScaling({ type: 'manual', scale: 1.0 });
+                    if (type === 'global-percentile') {
+                      // Re-scan with current percentile
+                      handlePercentileChange(percentile);
+                    } else if (type === 'global-fixed') {
+                      handleGainDbChange(gainDb);
+                    } else if (type === 'agc') {
+                      setAmplitudeScaling({ type: 'agc' });
                     }
                   }}
                   className={`${surfaceClass} w-full`}
                 >
-                  <option value="per-trace">Per-Trace AGC</option>
-                  <option value="percentile">Percentile Clipping</option>
-                  <option value="manual">Manual Scale</option>
+                  <option value="global-percentile">Global Percentile</option>
+                  <option value="global-fixed">Global Fixed (dB Gain)</option>
+                  <option value="agc">AGC</option>
                 </select>
               </div>
 
-              {/* Per-Trace AGC Settings */}
-              {amplitudeScaling.type === 'per-trace' && (
+              {/* Global Percentile Settings */}
+              {amplitudeScaling.type === 'global-percentile' && (
+                <div className="mb-4">
+                  <label className={`mb-2 block ${labelClass}`}>
+                    Percentile: {(percentile * 100).toFixed(0)}%{isScanning && ' (scanning…)'}
+                  </label>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="1.0"
+                    step="0.01"
+                    value={percentile}
+                    onChange={e => handlePercentileChange(parseFloat(e.target.value))}
+                    disabled={isScanning}
+                    className="range-slider h-1 w-full accent-accent"
+                  />
+                  <div className="mt-1 flex justify-between text-xs text-text-dim">
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Global Fixed Settings */}
+              {amplitudeScaling.type === 'global-fixed' && (
+                <div className="mb-4">
+                  <label className={`mb-2 block ${labelClass}`}>
+                    Gain: {gainDb >= 0 ? '+' : ''}
+                    {gainDb} dB
+                  </label>
+                  <input
+                    type="range"
+                    min="-40"
+                    max="40"
+                    step="1"
+                    value={gainDb}
+                    onChange={e => handleGainDbChange(parseInt(e.target.value))}
+                    className="range-slider h-1 w-full accent-accent"
+                  />
+                  <div className="mt-1 flex justify-between text-xs text-text-dim">
+                    <span>-40 dB</span>
+                    <span>+40 dB</span>
+                  </div>
+                  {amplitudeStats && (
+                    <div className="mt-1 space-y-0.5 text-xs text-text-dim">
+                      <p>Max amplitude: {maxAmp.toExponential(2)}</p>
+                      <p>
+                        After gain: {appliedClipValue.toExponential(2)} ({gainFactor.toFixed(3)}x)
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* AGC Settings */}
+              {amplitudeScaling.type === 'agc' && (
                 <div className="mb-4">
                   <label className={`mb-2 block ${labelClass}`}>AGC Window (samples)</label>
                   <input
@@ -208,7 +265,7 @@ export const TraceControlPanel = () => {
                     onChange={e => {
                       const val = e.target.value;
                       setAmplitudeScaling({
-                        type: 'per-trace',
+                        type: 'agc',
                         windowSize: val ? parseInt(val) : undefined,
                       });
                     }}
@@ -219,49 +276,6 @@ export const TraceControlPanel = () => {
                 </div>
               )}
 
-              {/* Percentile Settings */}
-              {amplitudeScaling.type === 'percentile' && (
-                <div className="mb-4">
-                  <label className={`mb-2 block ${labelClass}`}>
-                    Percentile: {(amplitudeScaling.percentile * 100).toFixed(0)}%
-                  </label>
-                  <input
-                    type="range"
-                    min="0.5"
-                    max="1.0"
-                    step="0.01"
-                    value={amplitudeScaling.percentile}
-                    onChange={e =>
-                      setAmplitudeScaling({
-                        type: 'percentile',
-                        percentile: parseFloat(e.target.value),
-                      })
-                    }
-                    className="range-slider h-1 w-full accent-accent"
-                  />
-                  <div className="mt-1 flex justify-between text-xs text-text-dim">
-                    <span>50%</span>
-                    <span>100%</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Manual Scale Settings */}
-              {amplitudeScaling.type === 'manual' && (
-                <div className="mb-4">
-                  <label className={`mb-2 block ${labelClass}`}>Scale Factor</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={amplitudeScaling.scale}
-                    onChange={e =>
-                      setAmplitudeScaling({ type: 'manual', scale: parseFloat(e.target.value) })
-                    }
-                    className={`${surfaceClass} w-full`}
-                  />
-                </div>
-              )}
-
               <DialogClose asChild>
                 <Button className="w-full text-sm">Done</Button>
               </DialogClose>
@@ -269,81 +283,10 @@ export const TraceControlPanel = () => {
           </Dialog>
         </div>
 
-        {/* Trace Range - Custom Stepper Controls */}
-        <div className="ml-auto flex flex-wrap items-center gap-3">
-          <label className={labelClass}>Start</label>
-
-          {/* Start Trace Stepper */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => updateViewport({ startTrace: Math.max(0, viewport.startTrace - 1) })}
-              className={`${stepperButtonClass} text-xs font-bold`}
-            >
-              ←
-            </button>
-            <input
-              type="text"
-              value={viewport.startTrace}
-              onChange={e => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 0) {
-                  updateViewport({ startTrace: val });
-                }
-              }}
-              onBlur={e => {
-                const val = parseInt(e.target.value, 10);
-                if (isNaN(val) || val < 0) {
-                  updateViewport({ startTrace: 0 });
-                }
-              }}
-              className={`${surfaceClass} w-16 text-center font-mono`}
-            />
-            <button
-              type="button"
-              onClick={() => updateViewport({ startTrace: viewport.startTrace + 1 })}
-              className={`${stepperButtonClass} text-xs font-bold`}
-            >
-              →
-            </button>
-          </div>
-
-          <label className={labelClass}>Count</label>
-
-          {/* Trace Count Stepper */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => updateViewport({ traceCount: Math.max(1, viewport.traceCount - 1) })}
-              className={`${stepperButtonClass} text-xs font-bold`}
-            >
-              ←
-            </button>
-            <input
-              type="text"
-              value={viewport.traceCount}
-              onChange={e => {
-                const val = parseInt(e.target.value, 10);
-                if (!isNaN(val) && val >= 1) {
-                  updateViewport({ traceCount: val });
-                }
-              }}
-              onBlur={e => {
-                const val = parseInt(e.target.value, 10);
-                if (isNaN(val) || val < 1) {
-                  updateViewport({ traceCount: 1 });
-                }
-              }}
-              className={`${surfaceClass} w-16 text-center font-mono`}
-            />
-            <button
-              type="button"
-              onClick={() => updateViewport({ traceCount: viewport.traceCount + 1 })}
-              className={`${stepperButtonClass} text-xs font-bold`}
-            >
-              →
-            </button>
-          </div>
+        {/* Trace Info */}
+        <div className="ml-auto flex items-center gap-2">
+          <label className={labelClass}>Traces</label>
+          <span className={`${surfaceClass} font-mono`}>{totalTraces.toLocaleString()}</span>
         </div>
       </div>
     </div>

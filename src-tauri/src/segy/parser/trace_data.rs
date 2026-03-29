@@ -191,17 +191,6 @@ impl TraceData {
         f32::from_bits(ieee_bits)
     }
 
-    /// Convert IBM floating point to IEEE 754 floating point (legacy version)
-    ///
-    /// IBM format: SEEEEEEE MMMMMMMM MMMMMMMM MMMMMMMM
-    /// - S: sign bit (1 bit)
-    /// - E: exponent (7 bits, base 16, excess 64)
-    /// - M: mantissa (24 bits, normalized 0.1xxx... in base 16)
-    #[allow(dead_code)]
-    fn ibm_to_ieee(ibm: u32) -> f32 {
-        Self::ibm_to_ieee_fast(ibm)
-    }
-
     /// Read 32-bit two's complement integer samples (optimized with batch read)
     fn read_int32<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<i32>> {
         let byte_count = count * 4;
@@ -337,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_ibm_float_zero() {
-        let result = TraceData::ibm_to_ieee(0x00000000);
+        let result = TraceData::ibm_to_ieee_fast(0x00000000);
         assert_eq!(result, 0.0);
     }
 
@@ -345,7 +334,7 @@ mod tests {
     fn test_ibm_float_simple() {
         // Test a known IBM float value
         // For now, just test that the conversion doesn't panic
-        let result = TraceData::ibm_to_ieee(0x41100000);
+        let result = TraceData::ibm_to_ieee_fast(0x41100000);
         // The conversion algorithm produces a value
         assert!(result.is_finite());
     }
