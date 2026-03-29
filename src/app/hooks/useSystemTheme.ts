@@ -6,6 +6,8 @@ import { useEffect } from 'react';
 
 /**
  * Subscribe to `prefers-color-scheme` changes and update the app store.
+ *
+ * @returns Hook that applies OS theme changes and updates root class names.
  */
 export function useSystemTheme() {
   const isDarkMode = useAppStore(state => state.isDarkMode);

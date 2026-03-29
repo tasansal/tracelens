@@ -2,20 +2,6 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Viewport configuration for rendering
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ViewportConfig {
-    /// Starting trace index (0-based)
-    pub start_trace: usize,
-    /// Number of traces to render
-    pub trace_count: usize,
-    /// Output image width in pixels
-    pub width: u32,
-    /// Output image height in pixels
-    pub height: u32,
-}
-
 /// Colormap types
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -30,24 +16,33 @@ pub enum ColormapType {
     Viridis,
 }
 
-/// Amplitude scaling strategies
+/// Amplitude scaling strategies.
+///
+/// All global modes expect a pre-computed `clip_value` so that normalization
+/// is consistent across tiles.  AGC is the only mode that computes gain
+/// locally (per-trace, sliding window).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 pub enum AmplitudeScaling {
-    /// Scale all traces by global maximum
-    Global {
-        #[serde(rename = "maxAmplitude")]
-        max_amplitude: f32,
+    /// Global percentile clipping.
+    /// `clip_value` is the absolute amplitude at the chosen percentile,
+    /// pre-computed by `scan_amplitude_range`.
+    GlobalPercentile {
+        #[serde(rename = "clipValue")]
+        clip_value: f32,
     },
-    /// Per-trace AGC (Automatic Gain Control)
-    PerTrace {
+    /// Global fixed value scaling.
+    /// `clip_value` = max_amplitude * 10^(gain_db/20), pre-computed on the frontend.
+    GlobalFixed {
+        #[serde(rename = "clipValue")]
+        clip_value: f32,
+    },
+    /// Automatic Gain Control (per-trace, sliding window).
+    /// The window is expressed in samples.  When `None` the full trace is used.
+    Agc {
         #[serde(rename = "windowSize")]
         window_size: Option<usize>,
     },
-    /// Percentile clipping (robust to outliers)
-    Percentile { percentile: f32 },
-    /// Manual scale factor
-    Manual { scale: f32 },
 }
 
 /// Rendering mode
@@ -77,8 +72,8 @@ pub struct RenderedImage {
     pub width: u32,
     /// Pixel height of the encoded image.
     pub height: u32,
-    /// Image data (format depends on `format` field)
-    pub data: Vec<u8>,
+    /// Base64-encoded image data (format depends on `format` field)
+    pub data: String,
     /// Encoding format of `data`.
     pub format: ImageFormat,
 }
@@ -101,18 +96,40 @@ pub struct WiggleConfig {
     pub negative_fill_color: [u8; 3], // RGB
 }
 
-/// Complete rendering configuration combining all rendering parameters
+/// Request for rendering a vertical tile (full traces, specific sample range)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RenderConfig {
-    /// Viewport sizing and trace range.
-    pub viewport: ViewportConfig,
-    /// Colormap selection for variable density rendering.
+pub struct TileRequest {
+    /// Starting trace index
+    pub start_trace: usize,
+    /// Number of traces to render (always full traces)
+    pub trace_count: usize,
+    /// Starting sample index for this tile
+    pub start_sample: usize,
+    /// Number of samples in this tile
+    pub sample_count: usize,
+    /// Output width in pixels
+    pub output_width: u32,
+    /// Output height in pixels
+    pub output_height: u32,
+    /// Colormap selection
     pub colormap_type: ColormapType,
-    /// Amplitude normalization strategy.
+    /// Amplitude normalization strategy
     pub scaling: AmplitudeScaling,
-    /// Rendering mode selection.
+    /// Rendering mode
     pub render_mode: RenderMode,
-    /// Optional wiggle overlay settings.
+    /// Optional wiggle overlay settings
     pub wiggle_config: Option<WiggleConfig>,
+}
+
+/// Rendered tile result with positioning metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RenderedTile {
+    /// Starting sample index for this tile
+    pub start_sample: usize,
+    /// Number of samples in this tile
+    pub sample_count: usize,
+    /// The rendered image data
+    pub image: RenderedImage,
 }

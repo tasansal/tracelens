@@ -2,6 +2,7 @@
  * Header bar with app branding, file actions, and quick SEG-Y metadata status.
  */
 import { formatByteOrder, formatTextEncoding } from '@/features/segy/types/segy';
+import { openSettingsWindow } from '@/shared/api/tauri/settings';
 import { useAppStore } from '@/shared/store/appStore';
 import {
   DropdownMenu,
@@ -11,6 +12,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
+import { isTauri } from '@/shared/utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
 import toast from 'react-hot-toast';
@@ -32,6 +34,8 @@ const titlebarCloseButtonClass = `${titlebarButtonClass} hover:bg-[linear-gradie
 interface AppHeaderProps {
   /** Callback to trigger file selection dialog */
   onFileSelect: () => void;
+  /** Callback to trigger remote URI input dialog */
+  onRemoteFileSelect: () => void;
   /** Callback to exit the application */
   onExit: () => void;
 }
@@ -39,28 +43,35 @@ interface AppHeaderProps {
 /**
  * Application header component with branding, file actions, and metadata status.
  * Includes window controls and keyboard shortcuts.
+ *
+ * @returns Rendered header bar with file menu, shortcuts, and window controls.
  */
-export const AppHeader = ({ onFileSelect, onExit }: AppHeaderProps) => {
-  const appWindow = getCurrentWindow();
+export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeaderProps) => {
   const { segyData } = useAppStore();
+  const inTauri = isTauri();
 
   // Register keyboard shortcuts for file operations
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'O') {
+        e.preventDefault();
+        onRemoteFileSelect();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
         e.preventDefault();
         onFileSelect();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onFileSelect]);
+  }, [onFileSelect, onRemoteFileSelect]);
 
   /**
    * Toggles the window between maximized and normal state.
    */
   const toggleMaximize = async () => {
+    if (!inTauri) return;
     try {
+      const appWindow = getCurrentWindow();
       const isMaximized = await appWindow.isMaximized();
       if (isMaximized) {
         await appWindow.unmaximize();
@@ -115,8 +126,17 @@ export const AppHeader = ({ onFileSelect, onExit }: AppHeaderProps) => {
                     onFileSelect();
                   }}
                 >
-                  <span className="font-semibold">Open SEG-Y...</span>
+                  <span className="font-semibold">Open Local File...</span>
                   <DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onRemoteFileSelect();
+                  }}
+                >
+                  <span className="font-semibold">Open Remote File...</span>
+                  <DropdownMenuShortcut>Ctrl+Shift+O</DropdownMenuShortcut>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
@@ -131,6 +151,22 @@ export const AppHeader = ({ onFileSelect, onExit }: AppHeaderProps) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+            {inTauri && (
+              <button
+                data-tauri-drag-region="false"
+                className={ghostButtonClass}
+                onClick={async () => {
+                  try {
+                    await openSettingsWindow();
+                  } catch (error) {
+                    console.error('Failed to open settings window:', error);
+                    toast.error('Failed to open settings window');
+                  }
+                }}
+              >
+                Settings
+              </button>
+            )}
           </nav>
         </div>
 
@@ -164,81 +200,85 @@ export const AppHeader = ({ onFileSelect, onExit }: AppHeaderProps) => {
             </>
           )}
 
-          <div className="inline-flex items-center gap-1.5 ml-1.5" data-tauri-drag-region="false">
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await appWindow.minimize();
-                } catch (error) {
-                  console.error('Failed to minimize window:', error);
-                  toast.error('Failed to minimize window');
-                }
-              }}
-              className={titlebarButtonClass}
-              data-tauri-drag-region="false"
-              aria-label="Minimize window"
-            >
-              <svg
-                className="h-3 w-3 stroke-current"
-                viewBox="0 0 12 12"
-                fill="none"
-                strokeWidth={1.6}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+          {inTauri && (
+            <div className="inline-flex items-center gap-1.5 ml-1.5" data-tauri-drag-region="false">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const appWindow = getCurrentWindow();
+                    await appWindow.minimize();
+                  } catch (error) {
+                    console.error('Failed to minimize window:', error);
+                    toast.error('Failed to minimize window');
+                  }
+                }}
+                className={titlebarButtonClass}
+                data-tauri-drag-region="false"
+                aria-label="Minimize window"
               >
-                <path d="M2 6h8"></path>
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                await toggleMaximize();
-              }}
-              className={titlebarButtonClass}
-              data-tauri-drag-region="false"
-              aria-label="Toggle maximize window"
-            >
-              <svg
-                className="h-3 w-3 stroke-current"
-                viewBox="0 0 12 12"
-                fill="none"
-                strokeWidth={1.6}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+                <svg
+                  className="h-3 w-3 stroke-current"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M2 6h8"></path>
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await toggleMaximize();
+                }}
+                className={titlebarButtonClass}
+                data-tauri-drag-region="false"
+                aria-label="Toggle maximize window"
               >
-                <rect x="2.25" y="2.25" width="7.5" height="7.5" rx="1"></rect>
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                try {
-                  await appWindow.close();
-                } catch (error) {
-                  console.error('Failed to close window:', error);
-                  toast.error('Failed to close window');
-                }
-              }}
-              className={titlebarCloseButtonClass}
-              data-tauri-drag-region="false"
-              aria-label="Close window"
-            >
-              <svg
-                className="h-3 w-3 stroke-current"
-                viewBox="0 0 12 12"
-                fill="none"
-                strokeWidth={1.6}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
+                <svg
+                  className="h-3 w-3 stroke-current"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="2.25" y="2.25" width="7.5" height="7.5" rx="1"></rect>
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const appWindow = getCurrentWindow();
+                    await appWindow.close();
+                  } catch (error) {
+                    console.error('Failed to close window:', error);
+                    toast.error('Failed to close window');
+                  }
+                }}
+                className={titlebarCloseButtonClass}
+                data-tauri-drag-region="false"
+                aria-label="Close window"
               >
-                <path d="M3 3l6 6M9 3L3 9"></path>
-              </svg>
-            </button>
-          </div>
+                <svg
+                  className="h-3 w-3 stroke-current"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 3l6 6M9 3L3 9"></path>
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

@@ -4,53 +4,24 @@
 //! visualization modes and encodes the result as PNG for the frontend.
 
 mod colormap;
-mod normalizer;
+pub mod normalizer;
 pub mod types;
-mod vd_renderer;
-mod wiggle_renderer;
+pub mod vd_renderer; // Make public for tile rendering
+pub mod wiggle_renderer; // Make public for tile rendering
 
 // Re-exports - only expose high-level rendering function and types
 pub use types::*;
 
-use crate::segy::TraceData;
+use base64::{engine::general_purpose, Engine as _};
 use colormap::create_colormap;
 use image::RgbImage;
-use normalizer::normalize_traces;
-use vd_renderer::render_variable_density;
-use wiggle_renderer::{render_wiggle, render_wiggle_vd};
 
-/// Render traces for a given mode and encode the result as PNG bytes.
-pub fn render_traces(
-    traces: Vec<TraceData>,
-    viewport: &ViewportConfig,
-    colormap_type: ColormapType,
-    scaling: &AmplitudeScaling,
-    render_mode: RenderMode,
-    wiggle_config: Option<WiggleConfig>,
-) -> Result<RenderedImage, String> {
-    match render_mode {
-        RenderMode::VariableDensity => {
-            let colormap = create_colormap(colormap_type);
-            render_variable_density(traces, viewport, colormap.as_ref(), scaling)
-        }
-        RenderMode::Wiggle => {
-            let normalized = normalize_traces(&traces, scaling);
-            let config = wiggle_config.unwrap_or_else(|| default_wiggle_config(RenderMode::Wiggle));
-            let img = render_wiggle(viewport, &config, &normalized)?;
-            encode_png_fast(img)
-        }
-        RenderMode::WiggleVariableDensity => {
-            let normalized = normalize_traces(&traces, scaling);
-            let colormap = create_colormap(colormap_type);
-            let config = wiggle_config
-                .unwrap_or_else(|| default_wiggle_config(RenderMode::WiggleVariableDensity));
-            let img = render_wiggle_vd(viewport, colormap.as_ref(), &config, &normalized)?;
-            encode_png_fast(img)
-        }
-    }
+/// Get a colormap instance by type (exposed for tile rendering)
+pub fn get_colormap(colormap_type: ColormapType) -> Box<dyn colormap::Colormap> {
+    create_colormap(colormap_type)
 }
 
-/// Encode an RGB image as PNG with fast compression settings.
+/// Encode an RGB image as PNG with fast compression and return base64-encoded data.
 pub(crate) fn encode_png_fast(img: RgbImage) -> Result<RenderedImage, String> {
     let (width, height) = img.dimensions();
     let raw_pixels = img.into_raw();
@@ -72,40 +43,12 @@ pub(crate) fn encode_png_fast(img: RgbImage) -> Result<RenderedImage, String> {
     // Ensure the encoder flushes before returning the bytes.
     drop(writer);
 
+    let base64_data = general_purpose::STANDARD.encode(&png_bytes);
+
     Ok(RenderedImage {
         width,
         height,
-        data: png_bytes,
+        data: base64_data,
         format: ImageFormat::Png,
     })
-}
-
-/// Provide a default wiggle configuration tuned per render mode.
-fn default_wiggle_config(render_mode: RenderMode) -> WiggleConfig {
-    match render_mode {
-        RenderMode::Wiggle => WiggleConfig {
-            line_width: 1.0,
-            line_color: [0, 0, 0],
-            fill_positive: true,
-            fill_negative: false,
-            positive_fill_color: [0, 0, 0],
-            negative_fill_color: [255, 0, 0],
-        },
-        RenderMode::WiggleVariableDensity => WiggleConfig {
-            line_width: 1.0,
-            line_color: [0, 0, 0],
-            fill_positive: false,
-            fill_negative: false,
-            positive_fill_color: [0, 0, 0],
-            negative_fill_color: [255, 0, 0],
-        },
-        RenderMode::VariableDensity => WiggleConfig {
-            line_width: 1.0,
-            line_color: [0, 0, 0],
-            fill_positive: false,
-            fill_negative: false,
-            positive_fill_color: [0, 0, 0],
-            negative_fill_color: [255, 0, 0],
-        },
-    }
 }

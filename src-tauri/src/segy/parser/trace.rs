@@ -11,24 +11,25 @@ use super::trace_data::TraceData;
 
 /// Trace identification code
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[repr(i16)]
 pub enum TraceIdentificationCode {
+    /// Unknown or unspecified (code 0, non-standard but found in real files)
+    Unknown,
     /// Seismic data
-    SeismicData = 1,
+    SeismicData,
     /// Dead trace
-    Dead = 2,
+    Dead,
     /// Dummy trace
-    Dummy = 3,
+    Dummy,
     /// Time break
-    TimeBreak = 4,
+    TimeBreak,
     /// Uphole
-    Uphole = 5,
+    Uphole,
     /// Sweep
-    Sweep = 6,
+    Sweep,
     /// Timing
-    Timing = 7,
+    Timing,
     /// Water break
-    WaterBreak = 8,
+    WaterBreak,
     /// Optional use (9-32767)
     Optional(i16),
 }
@@ -43,8 +44,10 @@ impl TraceIdentificationCode {
     /// Returns `Ok(TraceIdentificationCode)` for valid codes, or `Err` for invalid codes.
     ///
     /// Valid codes are 1-8 (standard) and 9-32767 (optional use).
+    /// Code 0 is treated as Unknown for compatibility with non-compliant files.
     pub fn from_code(code: i16) -> Result<Self, String> {
         match code {
+            0 => Ok(Self::Unknown), // Not spec-compliant but found in real files
             1 => Ok(Self::SeismicData),
             2 => Ok(Self::Dead),
             3 => Ok(Self::Dummy),

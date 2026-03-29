@@ -3,6 +3,9 @@
 //! Normalization maps trace samples to a consistent range so rendering modes
 //! can assume values in approximately [-1.0, 1.0].
 //!
+//! Global modes (percentile, fixed) divide every sample by a single pre-computed
+//! clip value.  AGC computes a per-trace sliding-window gain.
+//!
 //! All normalization functions use `rayon` for parallel processing across traces,
 //! providing significant speedup on multi-core systems.
 
@@ -18,49 +21,98 @@ use rayon::prelude::*;
 /// independently with no shared state.
 pub fn normalize_traces(traces: &[TraceData], scaling: &AmplitudeScaling) -> Vec<Vec<f32>> {
     match scaling {
-        AmplitudeScaling::Global { max_amplitude } => normalize_global(traces, *max_amplitude),
-        AmplitudeScaling::PerTrace { window_size } => normalize_per_trace(traces, *window_size),
-        AmplitudeScaling::Percentile { percentile } => normalize_percentile(traces, *percentile),
-        AmplitudeScaling::Manual { scale } => normalize_manual(traces, *scale),
+        AmplitudeScaling::GlobalPercentile { clip_value } => normalize_by_clip(traces, *clip_value),
+        AmplitudeScaling::GlobalFixed { clip_value } => normalize_by_clip(traces, *clip_value),
+        AmplitudeScaling::Agc { window_size } => normalize_agc(traces, *window_size),
     }
 }
 
-/// Global normalization: all traces scaled by the same factor.
-fn normalize_global(traces: &[TraceData], max_amplitude: f32) -> Vec<Vec<f32>> {
+/// Global clip normalization: all traces scaled by the same clip value.
+/// Values beyond ±clip are clamped to [-1, 1].
+fn normalize_by_clip(traces: &[TraceData], clip_value: f32) -> Vec<Vec<f32>> {
+    let clip = clip_value.max(1e-10); // avoid division by zero
     traces
         .par_iter()
         .map(|trace| {
             trace_to_f32_slice(trace)
                 .iter()
-                .map(|&v| v / max_amplitude)
+                .map(|&v| (v / clip).clamp(-1.0, 1.0))
                 .collect()
         })
         .collect()
 }
 
-/// Per-trace AGC: each trace independently normalized.
-fn normalize_per_trace(traces: &[TraceData], window_size: Option<usize>) -> Vec<Vec<f32>> {
+/// AGC normalization: each trace independently normalized with a sliding window.
+///
+/// For tiled rendering the caller should supply traces that include context
+/// samples around the tile boundaries (see `normalize_agc_with_context`).
+fn normalize_agc(traces: &[TraceData], window_size: Option<usize>) -> Vec<Vec<f32>> {
     traces
         .par_iter()
         .map(|trace| {
             let samples = trace_to_f32_slice(trace);
 
             match window_size {
-                Some(window) if window > 0 => {
-                    // Windowed AGC: sliding window normalization
-                    apply_windowed_agc(&samples, window)
-                }
+                Some(window) if window > 0 => apply_windowed_agc(&samples, window),
                 _ => {
                     // Full-trace AGC: normalize by maximum amplitude
                     let max_abs = samples
                         .iter()
                         .map(|&v| v.abs())
                         .max_by(|a, b| a.partial_cmp(b).unwrap())
-                        .unwrap_or(1.0);
+                        .unwrap_or(1.0)
+                        .max(1e-10);
 
-                    samples.iter().map(|&v| v / max_abs).collect()
+                    samples
+                        .iter()
+                        .map(|&v| (v / max_abs).clamp(-1.0, 1.0))
+                        .collect()
                 }
             }
+        })
+        .collect()
+}
+
+/// Normalize traces using AGC with extra context samples that extend beyond
+/// the tile boundary.
+///
+/// Each element of `full_traces` contains the full sample range needed for
+/// AGC context (i.e. the tile samples plus padding on both sides).
+/// `context_before` is the number of extra samples prepended before the
+/// tile's actual start.  The returned vectors contain only the tile's own
+/// samples (length = full_trace_len - context_before - context_after), where
+/// context_after is inferred.
+pub fn normalize_agc_with_context(
+    full_traces: &[TraceData],
+    window_size: Option<usize>,
+    context_before: usize,
+    tile_sample_count: usize,
+) -> Vec<Vec<f32>> {
+    full_traces
+        .par_iter()
+        .map(|trace| {
+            let samples = trace_to_f32_slice(trace);
+
+            let normalized_full = match window_size {
+                Some(window) if window > 0 => apply_windowed_agc(&samples, window),
+                _ => {
+                    let max_abs = samples
+                        .iter()
+                        .map(|&v| v.abs())
+                        .max_by(|a, b| a.partial_cmp(b).unwrap())
+                        .unwrap_or(1.0)
+                        .max(1e-10);
+
+                    samples
+                        .iter()
+                        .map(|&v| (v / max_abs).clamp(-1.0, 1.0))
+                        .collect::<Vec<f32>>()
+                }
+            };
+
+            // Trim to the tile's actual sample range
+            let end = (context_before + tile_sample_count).min(normalized_full.len());
+            normalized_full[context_before..end].to_vec()
         })
         .collect()
 }
@@ -103,49 +155,11 @@ fn compute_rms(samples: &[f32]) -> f32 {
     (sum_squares / samples.len() as f32).sqrt()
 }
 
-/// Percentile clipping: robust to outliers (computed globally across all traces).
-fn normalize_percentile(traces: &[TraceData], percentile: f32) -> Vec<Vec<f32>> {
-    // Collect all samples from all traces
-    let all_samples: Vec<f32> = traces.iter().flat_map(trace_to_f32_slice).collect();
-
-    // Sort by absolute value to find the percentile
-    let mut sorted: Vec<f32> = all_samples.iter().map(|&v| v.abs()).collect();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-    // Find the percentile value
-    let idx = ((sorted.len() as f32) * percentile).min((sorted.len() - 1) as f32) as usize;
-    let p_value = sorted.get(idx).copied().unwrap_or(1.0).max(1e-10); // Avoid division by zero
-
-    // Normalize all traces using the global percentile value
-    traces
-        .par_iter()
-        .map(|trace| {
-            trace_to_f32_slice(trace)
-                .iter()
-                .map(|&v| (v / p_value).clamp(-1.0, 1.0))
-                .collect()
-        })
-        .collect()
-}
-
-/// Manual scaling.
-fn normalize_manual(traces: &[TraceData], scale: f32) -> Vec<Vec<f32>> {
-    traces
-        .par_iter()
-        .map(|trace| {
-            trace_to_f32_slice(trace)
-                .iter()
-                .map(|&v| v * scale)
-                .collect()
-        })
-        .collect()
-}
-
 /// Convert TraceData enum to an owned `Vec<f32>`.
 ///
 /// This allocates a new buffer because trace data can be stored in multiple
 /// concrete formats.
-fn trace_to_f32_slice(trace: &TraceData) -> Vec<f32> {
+pub(crate) fn trace_to_f32_slice(trace: &TraceData) -> Vec<f32> {
     match trace {
         TraceData::IbmFloat32(samples) => samples.clone(),
         TraceData::IeeeFloat32(samples) => samples.clone(),

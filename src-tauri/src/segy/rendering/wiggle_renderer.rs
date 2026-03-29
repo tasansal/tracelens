@@ -7,205 +7,6 @@
 use super::types::*;
 use image::{Rgb, RgbImage};
 
-/// Render wiggle traces on a white background.
-///
-/// # Arguments
-/// * `viewport` - Viewport dimensions and trace range
-/// * `wiggle_config` - Rendering configuration (colors, fill options, line width)
-/// * `normalized` - Normalized trace data in [-1.0, 1.0] range
-///
-/// # Returns
-/// An RGB image with wiggle traces rendered, or an error message
-///
-/// # Algorithm
-/// - Each trace is centered at `(trace_idx + 0.5) * trace_spacing`
-/// - Amplitude deflects horizontally up to 40% of trace spacing
-/// - Line segments are drawn using Bresenham's algorithm
-/// - Positive/negative lobes are filled using scanline polygon fill
-pub fn render_wiggle(
-    viewport: &ViewportConfig,
-    wiggle_config: &WiggleConfig,
-    normalized: &[Vec<f32>],
-) -> Result<RgbImage, String> {
-    let width = viewport.width;
-    let height = viewport.height;
-    let mut img = RgbImage::from_pixel(width, height, Rgb([255, 255, 255])); // White background
-
-    let trace_count = normalized.len();
-    if trace_count == 0 || normalized.is_empty() {
-        return Ok(img);
-    }
-
-    let samples_per_trace = normalized[0].len();
-    if samples_per_trace == 0 {
-        return Ok(img);
-    }
-
-    // Calculate pixel spacing
-    let trace_spacing = width as f32 / trace_count as f32;
-    let sample_spacing = height as f32 / samples_per_trace as f32;
-
-    // Maximum wiggle amplitude in pixels (half of trace spacing)
-    let max_wiggle_width = trace_spacing * 0.4;
-
-    // Render each trace
-    for (trace_idx, trace_data) in normalized.iter().enumerate() {
-        let trace_center_x = (trace_idx as f32 + 0.5) * trace_spacing;
-
-        // Draw wiggle trace
-        for sample_idx in 0..samples_per_trace.saturating_sub(1) {
-            let y1 = sample_idx as f32 * sample_spacing;
-            let y2 = (sample_idx + 1) as f32 * sample_spacing;
-
-            let amp1 = trace_data[sample_idx];
-            let amp2 = trace_data[sample_idx + 1];
-
-            let x1 = trace_center_x + amp1 * max_wiggle_width;
-            let x2 = trace_center_x + amp2 * max_wiggle_width;
-
-            // Draw line segment
-            draw_line(
-                &mut img,
-                x1,
-                y1,
-                x2,
-                y2,
-                wiggle_config.line_color,
-                wiggle_config.line_width,
-            );
-
-            // Fill positive/negative areas
-            if wiggle_config.fill_positive && amp1 > 0.0 && amp2 > 0.0 {
-                fill_polygon(
-                    &mut img,
-                    &[
-                        (trace_center_x, y1),
-                        (x1, y1),
-                        (x2, y2),
-                        (trace_center_x, y2),
-                    ],
-                    wiggle_config.positive_fill_color,
-                );
-            }
-
-            if wiggle_config.fill_negative && amp1 < 0.0 && amp2 < 0.0 {
-                fill_polygon(
-                    &mut img,
-                    &[
-                        (trace_center_x, y1),
-                        (x1, y1),
-                        (x2, y2),
-                        (trace_center_x, y2),
-                    ],
-                    wiggle_config.negative_fill_color,
-                );
-            }
-        }
-    }
-
-    Ok(img)
-}
-
-/// Render combined wiggle + variable density.
-pub fn render_wiggle_vd(
-    viewport: &ViewportConfig,
-    colormap: &dyn super::colormap::Colormap,
-    wiggle_config: &WiggleConfig,
-    normalized: &[Vec<f32>],
-) -> Result<RgbImage, String> {
-    // First render VD as base
-    let mut img = render_vd_base(normalized, viewport, colormap)?;
-
-    // Overlay wiggle traces
-    let trace_count = normalized.len();
-    if trace_count == 0 || normalized.is_empty() {
-        return Ok(img);
-    }
-
-    let samples_per_trace = normalized[0].len();
-    if samples_per_trace == 0 {
-        return Ok(img);
-    }
-
-    let trace_spacing = viewport.width as f32 / trace_count as f32;
-    let sample_spacing = viewport.height as f32 / samples_per_trace as f32;
-    let max_wiggle_width = trace_spacing * 0.3;
-
-    // Render wiggle overlay
-    for (trace_idx, trace_data) in normalized.iter().enumerate() {
-        let trace_center_x = (trace_idx as f32 + 0.5) * trace_spacing;
-
-        for sample_idx in 0..samples_per_trace.saturating_sub(1) {
-            let y1 = sample_idx as f32 * sample_spacing;
-            let y2 = (sample_idx + 1) as f32 * sample_spacing;
-
-            let amp1 = trace_data[sample_idx];
-            let amp2 = trace_data[sample_idx + 1];
-
-            let x1 = trace_center_x + amp1 * max_wiggle_width;
-            let x2 = trace_center_x + amp2 * max_wiggle_width;
-
-            draw_line(
-                &mut img,
-                x1,
-                y1,
-                x2,
-                y2,
-                wiggle_config.line_color,
-                wiggle_config.line_width,
-            );
-        }
-    }
-
-    Ok(img)
-}
-
-/// Render variable density base image without encoding.
-fn render_vd_base(
-    normalized: &[Vec<f32>],
-    viewport: &ViewportConfig,
-    colormap: &dyn super::colormap::Colormap,
-) -> Result<RgbImage, String> {
-    use image::ImageBuffer;
-    use rayon::prelude::*;
-
-    let width = normalized.len() as u32;
-    let height = if !normalized.is_empty() {
-        normalized[0].len() as u32
-    } else {
-        0
-    };
-
-    let mut img: RgbImage = ImageBuffer::new(width, height);
-
-    img.enumerate_pixels_mut()
-        .par_bridge()
-        .for_each(|(x, y, pixel)| {
-            let trace_idx = x as usize;
-            let sample_idx = y as usize;
-
-            if trace_idx < normalized.len() && sample_idx < normalized[trace_idx].len() {
-                let amplitude = normalized[trace_idx][sample_idx];
-                let rgb = colormap.to_rgb(amplitude);
-                *pixel = Rgb(rgb);
-            } else {
-                *pixel = Rgb([0, 0, 0]);
-            }
-        });
-
-    // Scale to output dimensions if needed
-    if width != viewport.width || height != viewport.height {
-        Ok(image::imageops::resize(
-            &img,
-            viewport.width,
-            viewport.height,
-            image::imageops::FilterType::Lanczos3,
-        ))
-    } else {
-        Ok(img)
-    }
-}
-
 /// Draw a line using Bresenham's algorithm.
 ///
 /// # Arguments
@@ -293,6 +94,78 @@ fn draw_line(img: &mut RgbImage, x0: f32, y0: f32, x1: f32, y1: f32, color: [u8;
     }
 }
 
+/// Fill the positive or negative lobe section of a single sample-to-sample segment.
+///
+/// When a segment crosses zero, this computes the crossing point and fills only
+/// the signed sub-segment so lobe edges connect cleanly to the trace centerline.
+struct LobeSegment {
+    trace_center_x: f32,
+    y1: f32,
+    y2: f32,
+    amp1: f32,
+    amp2: f32,
+    max_wiggle_width: f32,
+}
+
+fn fill_signed_lobe_segment(
+    img: &mut RgbImage,
+    segment: &LobeSegment,
+    is_positive: bool,
+    color: [u8; 3],
+) {
+    let (signed_amp1, signed_amp2) = if is_positive {
+        (segment.amp1, segment.amp2)
+    } else {
+        (-segment.amp1, -segment.amp2)
+    };
+
+    if signed_amp1 <= 0.0 && signed_amp2 <= 0.0 {
+        return;
+    }
+
+    let (t_start, t_end) = if signed_amp1 > 0.0 && signed_amp2 > 0.0 {
+        (0.0, 1.0)
+    } else {
+        let denom = signed_amp1 - signed_amp2;
+        if denom.abs() <= f32::EPSILON {
+            return;
+        }
+
+        let t_cross = (signed_amp1 / denom).clamp(0.0, 1.0);
+        if signed_amp1 > 0.0 {
+            (0.0, t_cross)
+        } else {
+            (t_cross, 1.0)
+        }
+    };
+
+    if (t_end - t_start).abs() <= f32::EPSILON {
+        return;
+    }
+
+    let y_delta = segment.y2 - segment.y1;
+    let y_start = segment.y1 + y_delta * t_start;
+    let y_end = segment.y1 + y_delta * t_end;
+
+    let amp_delta = segment.amp2 - segment.amp1;
+    let amp_start = segment.amp1 + amp_delta * t_start;
+    let amp_end = segment.amp1 + amp_delta * t_end;
+
+    let x_start = segment.trace_center_x + amp_start * segment.max_wiggle_width;
+    let x_end = segment.trace_center_x + amp_end * segment.max_wiggle_width;
+
+    fill_polygon(
+        img,
+        &[
+            (segment.trace_center_x, y_start),
+            (x_start, y_start),
+            (x_end, y_end),
+            (segment.trace_center_x, y_end),
+        ],
+        color,
+    );
+}
+
 /// Fill a polygon using a scanline algorithm.
 ///
 /// # Arguments
@@ -361,4 +234,195 @@ fn fill_polygon(img: &mut RgbImage, points: &[(f32, f32)], color: [u8; 3]) {
             }
         }
     }
+}
+
+/// Render a wiggle tile directly at output dimensions.
+///
+/// This function renders wiggle traces directly at the requested output size,
+/// using the actual pixel dimensions to calculate proper trace spacing and amplitude.
+///
+/// # Arguments
+/// * `normalized` - Pre-normalized trace data in [-1.0, 1.0] range
+/// * `output_width` - Output image width in pixels
+/// * `output_height` - Output image height in pixels
+/// * `wiggle_config` - Rendering configuration (colors, fill options, line width)
+///
+/// # Returns
+/// PNG-encoded tile image
+pub fn render_wiggle_tile(
+    normalized: Vec<Vec<f32>>,
+    output_width: u32,
+    output_height: u32,
+    wiggle_config: &WiggleConfig,
+) -> Result<super::RenderedImage, String> {
+    let trace_count = normalized.len();
+    let samples_per_trace = if !normalized.is_empty() {
+        normalized[0].len()
+    } else {
+        0
+    };
+
+    if trace_count == 0 || samples_per_trace == 0 {
+        return Err("Cannot render empty trace set".to_string());
+    }
+
+    // Render directly at output dimensions
+    let mut img = RgbImage::from_pixel(output_width, output_height, Rgb([255, 255, 255]));
+
+    // Calculate pixel spacing based on output dimensions
+    let trace_spacing = output_width as f32 / trace_count as f32;
+    let sample_spacing = output_height as f32 / samples_per_trace as f32;
+    let max_wiggle_width = trace_spacing * 0.4;
+
+    // Render each trace
+    for (trace_idx, trace_data) in normalized.iter().enumerate() {
+        let trace_center_x = (trace_idx as f32 + 0.5) * trace_spacing;
+
+        for sample_idx in 0..samples_per_trace.saturating_sub(1) {
+            let y1 = sample_idx as f32 * sample_spacing;
+            let y2 = (sample_idx + 1) as f32 * sample_spacing;
+
+            let amp1 = trace_data[sample_idx];
+            let amp2 = trace_data[sample_idx + 1];
+
+            let x1 = trace_center_x + amp1 * max_wiggle_width;
+            let x2 = trace_center_x + amp2 * max_wiggle_width;
+            let lobe_segment = LobeSegment {
+                trace_center_x,
+                y1,
+                y2,
+                amp1,
+                amp2,
+                max_wiggle_width,
+            };
+
+            draw_line(
+                &mut img,
+                x1,
+                y1,
+                x2,
+                y2,
+                wiggle_config.line_color,
+                wiggle_config.line_width,
+            );
+
+            if wiggle_config.fill_positive {
+                fill_signed_lobe_segment(
+                    &mut img,
+                    &lobe_segment,
+                    true,
+                    wiggle_config.positive_fill_color,
+                );
+            }
+
+            if wiggle_config.fill_negative {
+                fill_signed_lobe_segment(
+                    &mut img,
+                    &lobe_segment,
+                    false,
+                    wiggle_config.negative_fill_color,
+                );
+            }
+        }
+    }
+
+    super::encode_png_fast(img)
+}
+
+/// Render a combined wiggle + variable density tile directly at output dimensions.
+///
+/// # Arguments
+/// * `normalized` - Pre-normalized trace data in [-1.0, 1.0] range
+/// * `output_width` - Output image width in pixels
+/// * `output_height` - Output image height in pixels
+/// * `colormap` - Color mapping function for VD background
+/// * `wiggle_config` - Rendering configuration for wiggle overlay
+///
+/// # Returns
+/// PNG-encoded tile image
+pub fn render_wiggle_vd_tile(
+    normalized: Vec<Vec<f32>>,
+    output_width: u32,
+    output_height: u32,
+    colormap: &dyn super::colormap::Colormap,
+    wiggle_config: &WiggleConfig,
+) -> Result<super::RenderedImage, String> {
+    use image::ImageBuffer;
+    use rayon::prelude::*;
+
+    let trace_count = normalized.len();
+    let samples_per_trace = if !normalized.is_empty() {
+        normalized[0].len()
+    } else {
+        0
+    };
+
+    if trace_count == 0 || samples_per_trace == 0 {
+        return Err("Cannot render empty trace set".to_string());
+    }
+
+    // First render VD base at native resolution for quality
+    let native_width = trace_count as u32;
+    let native_height = samples_per_trace as u32;
+    let mut vd_img: RgbImage = ImageBuffer::new(native_width, native_height);
+
+    vd_img
+        .enumerate_pixels_mut()
+        .par_bridge()
+        .for_each(|(x, y, pixel)| {
+            let trace_idx = x as usize;
+            let sample_idx = y as usize;
+
+            if trace_idx < normalized.len() && sample_idx < normalized[trace_idx].len() {
+                let amplitude = normalized[trace_idx][sample_idx];
+                let rgb = colormap.to_rgb(amplitude);
+                *pixel = Rgb(rgb);
+            } else {
+                *pixel = Rgb([0, 0, 0]);
+            }
+        });
+
+    // Resize VD base to output dimensions with Lanczos3
+    let mut img = if native_width != output_width || native_height != output_height {
+        image::imageops::resize(
+            &vd_img,
+            output_width,
+            output_height,
+            image::imageops::FilterType::Lanczos3,
+        )
+    } else {
+        vd_img
+    };
+
+    // Overlay wiggle traces at output dimensions
+    let trace_spacing = output_width as f32 / trace_count as f32;
+    let sample_spacing = output_height as f32 / samples_per_trace as f32;
+    let max_wiggle_width = trace_spacing * 0.3;
+
+    for (trace_idx, trace_data) in normalized.iter().enumerate() {
+        let trace_center_x = (trace_idx as f32 + 0.5) * trace_spacing;
+
+        for sample_idx in 0..samples_per_trace.saturating_sub(1) {
+            let y1 = sample_idx as f32 * sample_spacing;
+            let y2 = (sample_idx + 1) as f32 * sample_spacing;
+
+            let amp1 = trace_data[sample_idx];
+            let amp2 = trace_data[sample_idx + 1];
+
+            let x1 = trace_center_x + amp1 * max_wiggle_width;
+            let x2 = trace_center_x + amp2 * max_wiggle_width;
+
+            draw_line(
+                &mut img,
+                x1,
+                y1,
+                x2,
+                y2,
+                wiggle_config.line_color,
+                wiggle_config.line_width,
+            );
+        }
+    }
+
+    super::encode_png_fast(img)
 }

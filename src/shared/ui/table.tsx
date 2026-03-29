@@ -27,14 +27,6 @@ const TableBody = ({ className, ...props }: React.ComponentProps<'tbody'>) => (
   />
 );
 
-const TableFooter = ({ className, ...props }: React.ComponentProps<'tfoot'>) => (
-  <tfoot
-    data-slot="table-footer"
-    className={cn('border-t border-border bg-panel-strong font-medium', className)}
-    {...props}
-  />
-);
-
 const TableRow = ({ className, ...props }: React.ComponentProps<'tr'>) => (
   <tr data-slot="table-row" className={cn('transition-colors', className)} {...props} />
 );
@@ -61,12 +53,4 @@ const TableCell = ({ className, ...props }: React.ComponentProps<'td'>) => (
   />
 );
 
-const TableCaption = ({ className, ...props }: React.ComponentProps<'caption'>) => (
-  <caption
-    data-slot="table-caption"
-    className={cn('mt-4 text-sm text-text-dim', className)}
-    {...props}
-  />
-);
-
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell };

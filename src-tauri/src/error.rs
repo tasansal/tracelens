@@ -41,6 +41,14 @@ pub enum AppError {
     /// SEG-Y specific parsing errors
     #[error("SEG-Y error: {message}")]
     SegyError { message: String },
+
+    /// Invalid URI or URL format
+    #[error("Invalid URI: {0}")]
+    InvalidUri(String),
+
+    /// Invalid byte range
+    #[error("Invalid range: {0}")]
+    InvalidRange(String),
 }
 
 /// Convert standard IO errors into the app error type.
