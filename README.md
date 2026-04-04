@@ -8,8 +8,10 @@ Minerals, supplied as a public dataset.
 
 ## Features
 
-- **SEG-Y Rev 0 Parsing** - Textual (EBCDIC/ASCII), binary, and trace headers with multiple sample formats
-- **Spec-Driven Header Inspection** - Binary and trace header tables from the embedded Rev 0 JSON spec
+- **Multi-Revision SEG-Y Parsing** - Automatic revision detection (Rev 0 / Rev 1) with manual override when detection is ambiguous
+- **Schema-Driven Header Inspection** - Binary and trace header tables loaded from embedded JSON specs per revision; schema metadata (field counts, byte ranges) visible in the Schema tab
+- **Dynamic Header Parsing** - Spec-driven field extraction at runtime — no hardcoded struct rewrites needed for new revisions
+- **Spec Validation** - All embedded specs are validated at startup for overlapping byte ranges, duplicate keys, and structural integrity
 - **Trace Visualization** - Variable density, wiggle, and combined renders with colormaps and amplitude scaling
 - **Interactive Viewport** - Trace range controls, pan/zoom, and resizable panels
 - **Performance-Focused I/O** - Memory-mapped reads with on-demand trace loading and async rendering
@@ -19,8 +21,8 @@ Minerals, supplied as a public dataset.
 
 ## Upcoming / Future Features
 
-- **Multi-Revision Support** - SEG-Y Rev 1, Rev 2.0, and Rev 2.1 compatibility
-- **Custom Header Definitions** - User-defined field specs and overrides
+- **SEG-Y Rev 2.0 / Rev 2.1 Support** - Extended header and variable trace length parsing
+- **Custom Header Definitions** - User-defined field specs and overrides with save/load workflows
 
 ## Tech Stack
 
@@ -45,8 +47,8 @@ Minerals, supplied as a public dataset.
 
 ### Prerequisites
 
-- [Rust](https://rustup.rs/) (1.77.2+)
-- [Node.js](https://nodejs.org/) (18+)
+- [Rust](https://rustup.rs/) (1.94.1+)
+- [Node.js](https://nodejs.org/) (20+)
 
 ### Installation
 
