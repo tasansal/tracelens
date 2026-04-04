@@ -6,7 +6,7 @@
 
 use super::{colormap::Colormap, encode_png_fast, normalizer, types::*};
 use crate::segy::TraceData;
-use image::{imageops::FilterType, Rgb, RgbImage};
+use image::{Rgb, RgbImage, imageops::FilterType};
 use rayon::prelude::*;
 
 /// Render a vertical tile with high-quality Lanczos3 interpolation.
