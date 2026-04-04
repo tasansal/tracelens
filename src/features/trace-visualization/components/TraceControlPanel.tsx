@@ -15,6 +15,7 @@ import {
   DialogTrigger,
 } from '@/shared/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
+import { cn } from '@/shared/utils/cn';
 import { useState } from 'react';
 
 /**
@@ -146,7 +147,7 @@ export const TraceControlPanel = () => {
             <DialogTrigger asChild>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <button type="button" className={`${surfaceClass} flex items-center gap-2`}>
+                  <button type="button" className={cn(surfaceClass, 'flex items-center gap-2')}>
                     <span>{getScalingLabel()}</span>
                     <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -179,7 +180,7 @@ export const TraceControlPanel = () => {
 
               {/* Type Selector */}
               <div className="mb-4 mt-5">
-                <label className={`mb-2 block ${labelClass}`}>Scaling Type</label>
+                <label className={cn('mb-2 block', labelClass)}>Scaling Type</label>
                 <select
                   value={amplitudeScaling.type}
                   onChange={e => {
@@ -193,7 +194,7 @@ export const TraceControlPanel = () => {
                       setAmplitudeScaling({ type: 'agc' });
                     }
                   }}
-                  className={`${surfaceClass} w-full`}
+                  className={cn(surfaceClass, 'w-full')}
                 >
                   <option value="global-percentile">Global Percentile</option>
                   <option value="global-fixed">Global Fixed (dB Gain)</option>
@@ -204,7 +205,7 @@ export const TraceControlPanel = () => {
               {/* Global Percentile Settings */}
               {amplitudeScaling.type === 'global-percentile' && (
                 <div className="mb-4">
-                  <label className={`mb-2 block ${labelClass}`}>
+                  <label className={cn('mb-2 block', labelClass)}>
                     Percentile: {(percentile * 100).toFixed(0)}%{isScanning && ' (scanning…)'}
                   </label>
                   <input
@@ -227,7 +228,7 @@ export const TraceControlPanel = () => {
               {/* Global Fixed Settings */}
               {amplitudeScaling.type === 'global-fixed' && (
                 <div className="mb-4">
-                  <label className={`mb-2 block ${labelClass}`}>
+                  <label className={cn('mb-2 block', labelClass)}>
                     Gain: {gainDb >= 0 ? '+' : ''}
                     {gainDb} dB
                   </label>
@@ -258,7 +259,7 @@ export const TraceControlPanel = () => {
               {/* AGC Settings */}
               {amplitudeScaling.type === 'agc' && (
                 <div className="mb-4">
-                  <label className={`mb-2 block ${labelClass}`}>AGC Window (samples)</label>
+                  <label className={cn('mb-2 block', labelClass)}>AGC Window (samples)</label>
                   <input
                     type="number"
                     min="0"
@@ -272,7 +273,7 @@ export const TraceControlPanel = () => {
                       });
                     }}
                     placeholder="None (full trace)"
-                    className={`${surfaceClass} w-full`}
+                    className={cn(surfaceClass, 'w-full')}
                   />
                   <p className="mt-1 text-xs text-text-dim">Leave empty for full-trace AGC.</p>
                 </div>
@@ -288,7 +289,7 @@ export const TraceControlPanel = () => {
         {/* Trace Info */}
         <div className="ml-auto flex items-center gap-2">
           <label className={labelClass}>Traces</label>
-          <span className={`${surfaceClass} font-mono`}>{totalTraces.toLocaleString()}</span>
+          <span className={cn(surfaceClass, 'font-mono')}>{totalTraces.toLocaleString()}</span>
         </div>
       </div>
     </div>

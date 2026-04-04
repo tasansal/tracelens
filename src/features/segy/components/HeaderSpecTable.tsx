@@ -2,7 +2,7 @@ import type { HeaderFieldData } from '@/shared/api/tauri/segy';
 import { SectionTitle } from '@/shared/ui/section-title';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
-import { formatValue } from '@/shared/utils/formatters';
+import { cn } from '@/shared/utils/cn';
 
 /**
  * Props for the HeaderSpecTable component.
@@ -41,7 +41,7 @@ export const HeaderSpecTable = ({ title, fieldData }: HeaderSpecTableProps) => {
             <TableHead className={headerCellClass}>Field</TableHead>
             <TableHead className={headerCellClass}>Bytes</TableHead>
             <TableHead className={headerCellClass}>Type</TableHead>
-            <TableHead className={`${headerCellClass} text-right`}>Value</TableHead>
+            <TableHead className={cn(headerCellClass, 'text-right')}>Value</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -51,7 +51,7 @@ export const HeaderSpecTable = ({ title, fieldData }: HeaderSpecTableProps) => {
                 key={idx}
                 className="transition-colors duration-150 hover:bg-[var(--row-hover)] motion-reduce:transition-none"
               >
-                <TableCell className={`${bodyCellClass} font-semibold text-text`}>
+                <TableCell className={cn(bodyCellClass, 'font-semibold text-text')}>
                   <Tooltip>
                     <TooltipTrigger className="cursor-help text-left">{field.name}</TooltipTrigger>
                     <TooltipContent side="right" className="max-w-64">
@@ -59,13 +59,13 @@ export const HeaderSpecTable = ({ title, fieldData }: HeaderSpecTableProps) => {
                     </TooltipContent>
                   </Tooltip>
                 </TableCell>
-                <TableCell className={`${bodyCellClass} font-mono text-text-dim`}>
+                <TableCell className={cn(bodyCellClass, 'font-mono text-text-dim')}>
                   {field.byte_start}-{field.byte_end}
                 </TableCell>
-                <TableCell className={`${bodyCellClass} font-mono text-accent-2`}>
+                <TableCell className={cn(bodyCellClass, 'font-mono text-accent-2')}>
                   {field.data_type}
                 </TableCell>
-                <TableCell className={`${bodyCellClass} text-right font-mono text-text`}>
+                <TableCell className={cn(bodyCellClass, 'text-right font-mono text-text')}>
                   {field.resolved ? (
                     <Tooltip>
                       <TooltipTrigger className="cursor-help">{field.resolved}</TooltipTrigger>
@@ -74,7 +74,7 @@ export const HeaderSpecTable = ({ title, fieldData }: HeaderSpecTableProps) => {
                       </TooltipContent>
                     </Tooltip>
                   ) : (
-                    formatValue(field.value)
+                    String(field.value)
                   )}
                 </TableCell>
               </TableRow>

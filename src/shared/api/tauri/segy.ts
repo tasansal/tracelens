@@ -23,15 +23,6 @@ export interface SingleTrace {
 }
 
 /**
- * Schema validation error matching the Rust SchemaValidationError struct.
- */
-export interface SchemaValidationError {
-  field_name: string;
-  byte_range: string;
-  issue: string;
-}
-
-/**
  * Header field data with resolved values.
  */
 export interface HeaderFieldData {

@@ -74,7 +74,7 @@ export const SchemaTabContent = ({
               <div
                 className={cn(
                   'h-2 w-2 rounded-full',
-                  detectionFailed ? 'bg-amber-500' : 'bg-green-500'
+                  detectionFailed ? 'bg-destructive' : 'bg-accent-2'
                 )}
               />
               <span className="text-sm text-text">

@@ -6,6 +6,7 @@ import type { SegyRevision } from '@/shared/api/tauri/segy';
 import { LoadingSpinner } from '@/shared/ui/loading-spinner';
 import { SectionTitle } from '@/shared/ui/section-title';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { cn } from '@/shared/utils/cn';
 import type { HeaderView } from '../hooks/useTraceHeader';
 import { BinaryHeaderTable } from './BinaryHeaderTable';
 import { SchemaTabContent } from './SchemaTabContent';
@@ -147,7 +148,7 @@ export const SegyHeaderPanel = ({
         {headerView === 'trace' &&
           (currentTrace ? (
             <div
-              className={`h-full ${loadingTrace ? 'opacity-60' : ''} transition-opacity duration-150`}
+              className={cn('h-full transition-opacity duration-150', loadingTrace && 'opacity-60')}
             >
               <TraceHeaderTable
                 filePath={filePath}

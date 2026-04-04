@@ -1,3 +1,4 @@
+import { cn } from '@/shared/utils/cn';
 import * as React from 'react';
 
 const buttonVariants = {
@@ -13,8 +14,9 @@ export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', type = 'button', ...props }, ref) => {
-    const classes = [buttonVariants[variant], className].filter(Boolean).join(' ');
-    return <button ref={ref} type={type} className={classes} {...props} />;
+    return (
+      <button ref={ref} type={type} className={cn(buttonVariants[variant], className)} {...props} />
+    );
   }
 );
 

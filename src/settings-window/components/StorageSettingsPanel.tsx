@@ -7,6 +7,7 @@ import { Checkbox } from '@/shared/ui/checkbox';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { cn } from '@/shared/utils/cn';
 import { ChevronDown, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
@@ -312,7 +313,7 @@ export const StorageSettingsPanel = () => {
                         const nextValue = Math.max(1, parseInt(e.target.value, 10) || 64);
                         updatePerformance({ sparseThreshold: nextValue });
                       }}
-                      className={`${inputClassName} w-24 text-right font-mono`}
+                      className={cn(inputClassName, 'w-24 text-right font-mono')}
                     />
                     <p className="text-xs text-text-dim">
                       Switch to chunked access after this trace count.
@@ -406,7 +407,7 @@ export const StorageSettingsPanel = () => {
               </div>
 
               {/* Anonymous Access Checkbox - Auto-computed */}
-              <div className={`${softCardClassName} mt-4`}>
+              <div className={cn(softCardClassName, 'mt-4')}>
                 <div className="flex items-start gap-3">
                   <Checkbox
                     id="s3SkipSignature"
@@ -519,7 +520,7 @@ export const StorageSettingsPanel = () => {
                     id="gcsAuthMode"
                     value={gcsAuthMode}
                     onChange={e => setGcsAuthMode(e.target.value as GcsAuthMode)}
-                    className={`${inputClassName} pr-10`}
+                    className={cn(inputClassName, 'pr-10')}
                   >
                     <option value="adc">Application Default Credentials (ADC)</option>
                     <option value="serviceAccountPath">Service Account JSON Path</option>
@@ -664,11 +665,12 @@ export const StorageSettingsPanel = () => {
                           key={option.mode}
                           type="button"
                           onClick={() => setAzureAuthMode(option.mode)}
-                          className={`rounded-[12px] border px-3 py-3 text-left transition-colors ${
+                          className={cn(
+                            'rounded-[12px] border px-3 py-3 text-left transition-colors',
                             isActive
                               ? 'border-accent bg-panel text-text shadow-[0_10px_30px_-18px_var(--accent-glow)]'
                               : 'border-border bg-panel-strong text-text-muted hover:bg-panel'
-                          }`}
+                          )}
                         >
                           <div className="text-sm font-semibold">{option.title}</div>
                           <div className="mt-1 text-xs text-text-dim">{option.description}</div>
