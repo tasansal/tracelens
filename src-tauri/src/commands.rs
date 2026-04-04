@@ -4,8 +4,9 @@
 //! serialized data structures or JSON-encoded error payloads.
 
 use crate::segy::{
+    FieldData, HeaderFieldSpec, RuntimeHeaderView, SegyData, SegyReaderState, SegyRevision,
+    SpecRegistry, TraceBlock,
     rendering::{self, normalizer},
-    HeaderFieldSpec, SegyData, SegyFormatSpec, SegyReaderState, TraceBlock,
 };
 use crate::storage_config::StorageConfigState;
 use serde::{Deserialize, Serialize};
@@ -41,24 +42,164 @@ pub async fn load_segy_file(
     Ok(reader.data())
 }
 
-/// Return the SEG-Y Rev 0 binary header metadata.
+/// Return the SEG-Y binary header metadata for the specified revision.
+///
+/// # Arguments
+/// * `revision` - Optional SEG-Y revision. If None, uses default (Rev 0).
 ///
 /// # Returns
 /// * Vector of `HeaderFieldSpec` entries.
 #[tauri::command]
-pub fn get_binary_header_spec() -> CommandResult<Vec<HeaderFieldSpec>> {
-    let spec = SegyFormatSpec::load_rev0()?;
+pub fn get_binary_header_spec(
+    revision: Option<SegyRevision>,
+) -> CommandResult<Vec<HeaderFieldSpec>> {
+    let registry = SpecRegistry::new()?;
+    let spec = revision
+        .and_then(|r| registry.get(r))
+        .unwrap_or_else(|| registry.default_spec());
     Ok(spec.get_binary_header_fields())
 }
 
-/// Return the SEG-Y Rev 0 trace header metadata.
+/// Return the SEG-Y trace header metadata for the specified revision.
+///
+/// # Arguments
+/// * `revision` - Optional SEG-Y revision. If None, uses default (Rev 0).
 ///
 /// # Returns
 /// * Vector of `HeaderFieldSpec` entries.
 #[tauri::command]
-pub fn get_trace_header_spec() -> CommandResult<Vec<HeaderFieldSpec>> {
-    let spec = SegyFormatSpec::load_rev0()?;
+pub fn get_trace_header_spec(
+    revision: Option<SegyRevision>,
+) -> CommandResult<Vec<HeaderFieldSpec>> {
+    let registry = SpecRegistry::new()?;
+    let spec = revision
+        .and_then(|r| registry.get(r))
+        .unwrap_or_else(|| registry.default_spec());
     Ok(spec.get_trace_header_fields())
+}
+
+/// Extract binary header field values using spec-driven parsing.
+///
+/// # Arguments
+/// * `file_path` - Absolute path or URI to the SEG-Y file.
+///
+/// # Returns
+/// * Vector of `FieldData` with name, description, value, and resolved strings.
+///
+/// # Errors
+/// * Returns empty vector if no file loaded.
+#[tauri::command]
+pub async fn get_binary_header_data(
+    file_path: String,
+    reader_state: State<'_, SegyReaderState>,
+    storage_state: State<'_, StorageConfigState>,
+) -> CommandResult<Vec<FieldData>> {
+    let storage_config = storage_state.get();
+    let reader = reader_state
+        .get_or_open(file_path.clone(), Some(storage_config))
+        .await
+        .map_err(String::from)?;
+
+    let data = reader.data();
+    let detected_revision = data.detected_revision;
+    let active_revision = reader_state
+        .get_active_revision(&file_path, detected_revision)
+        .await;
+
+    let registry = SpecRegistry::new()?;
+    let spec = registry
+        .get(active_revision)
+        .unwrap_or_else(|| registry.default_spec());
+
+    let field_specs = spec.get_binary_header_fields();
+
+    let header_bytes = data.binary_header_bytes();
+
+    let header_spec = crate::segy::header_dynamic::HeaderSpec::from_specs(field_specs.clone(), 400)
+        .map_err(|e| format!("Failed to build header spec: {}", e))?;
+
+    let view = RuntimeHeaderView::new(header_bytes, &header_spec, data.byte_order);
+    let mut fields = view.extract_all(&field_specs);
+
+    // Normalize revision field: 256 in BigEndian files is actually value 1 (Rev 1)
+    // because the raw bytes [01, 00] read as BigEndian give 256
+    for field in &mut fields {
+        if field.name == "SEG-Y Revision Number" && field.value == 256 {
+            field.value = 1;
+            field.resolved = Some("Rev 1".to_string());
+        }
+    }
+
+    Ok(fields)
+}
+
+/// Extract trace header field values using spec-driven parsing.
+///
+/// # Arguments
+/// * `file_path` - Absolute path or URI to the SEG-Y file.
+/// * `trace_index` - Zero-based trace index.
+///
+/// # Returns
+/// * Vector of `FieldData` with name, description, value, and resolved strings.
+///
+/// # Errors
+/// * Returns error if trace index out of range or parsing fails.
+#[tauri::command]
+pub async fn get_trace_header_data(
+    file_path: String,
+    trace_index: usize,
+    reader_state: State<'_, SegyReaderState>,
+    storage_state: State<'_, StorageConfigState>,
+) -> CommandResult<Vec<FieldData>> {
+    let storage_config = storage_state.get();
+    let reader = reader_state
+        .get_or_open(file_path.clone(), Some(storage_config))
+        .await
+        .map_err(String::from)?;
+
+    let detected_revision = reader.data().detected_revision;
+    let active_revision = reader_state
+        .get_active_revision(&file_path, detected_revision)
+        .await;
+
+    let registry = SpecRegistry::new()?;
+    let spec = registry
+        .get(active_revision)
+        .unwrap_or_else(|| registry.default_spec());
+
+    let field_specs = spec.get_trace_header_fields();
+
+    let trace_block = reader
+        .load_single_trace(trace_index, None)
+        .await
+        .map_err(String::from)?;
+
+    let header_bytes = &trace_block.header_bytes;
+
+    let header_spec = crate::segy::header_dynamic::HeaderSpec::from_specs(field_specs.clone(), 240)
+        .map_err(|e| format!("Failed to build header spec: {}", e))?;
+
+    let view = RuntimeHeaderView::new(header_bytes, &header_spec, reader.data().byte_order);
+    Ok(view.extract_all(&field_specs))
+}
+
+/// Set the active revision override for a specific file.
+///
+/// Per D-06, the backend owns spec state per-file. This command stores
+/// the user's revision choice so header data commands respect it
+/// without re-opening the file.
+///
+/// # Arguments
+/// * `file_path` - Absolute path or URI to the SEG-Y file.
+/// * `revision` - The SEG-Y revision to use for header parsing.
+#[tauri::command]
+pub async fn set_active_revision(
+    file_path: String,
+    revision: SegyRevision,
+    reader_state: State<'_, SegyReaderState>,
+) -> CommandResult<()> {
+    reader_state.set_active_revision(file_path, revision).await;
+    Ok(())
 }
 
 /// Load a single trace block (header + samples) from the cached reader.

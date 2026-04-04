@@ -5,7 +5,7 @@
 
 use crate::error::AppError;
 use crate::segy::parser::binary_header::DataSampleFormat;
-use crate::segy::{constants, ByteOrder, SegyFileConfig, TraceBlock, TraceData};
+use crate::segy::{ByteOrder, SegyFileConfig, TraceBlock, TraceData, constants};
 
 /// Compute total trace count from file size and per-trace block size.
 ///

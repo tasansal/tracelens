@@ -5,7 +5,7 @@
 
 use crate::error::AppError;
 use crate::segy::parser::binary_header::DataSampleFormat;
-use crate::segy::{constants, BinaryHeader, ByteOrder, TextEncoding, TextualHeader};
+use crate::segy::{constants, BinaryHeader, ByteOrder, SegyRevision, TextEncoding, TextualHeader};
 
 /// SEG-Y file data structure containing headers only (no traces loaded eagerly)
 ///
@@ -19,6 +19,10 @@ pub struct SegyData {
     /// Binary file header (400 bytes with metadata)
     pub binary_header: BinaryHeader,
 
+    /// Raw binary header bytes (400 bytes) for spec-driven parsing
+    #[serde(skip)]
+    pub binary_header_bytes: Vec<u8>,
+
     /// Total number of traces in file (if determinable)
     pub total_traces: Option<usize>,
 
@@ -30,6 +34,16 @@ pub struct SegyData {
 
     /// Detected byte order for binary data
     pub byte_order: ByteOrder,
+
+    /// Detected SEG-Y revision for header field display
+    pub detected_revision: SegyRevision,
+}
+
+impl SegyData {
+    /// Get raw binary header bytes for spec-driven parsing.
+    pub fn binary_header_bytes(&self) -> &[u8] {
+        &self.binary_header_bytes
+    }
 }
 
 /// Configuration for SEG-Y file parameters used across trace loading operations

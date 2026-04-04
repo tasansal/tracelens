@@ -1,8 +1,8 @@
-import type { HeaderFieldSpec } from '@/features/segy/types/headerSpec';
+import type { HeaderFieldData } from '@/shared/api/tauri/segy';
 import { SectionTitle } from '@/shared/ui/section-title';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
-import { formatValue, getRawCode } from '@/shared/utils/formatters';
-import { useEffect, useState } from 'react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/shared/ui/tooltip';
+import { formatValue } from '@/shared/utils/formatters';
 
 /**
  * Props for the HeaderSpecTable component.
@@ -10,55 +10,18 @@ import { useEffect, useState } from 'react';
 interface HeaderSpecTableProps {
   /** Section title displayed at the top of the table */
   title: React.ReactNode;
-  /** Header data object with field values */
-  header: Record<string, unknown>;
-  /** Function to load field specifications from backend */
-  loadSpec: () => Promise<HeaderFieldSpec[]>;
+  /** Header field data with values resolved from spec-driven parsing */
+  fieldData: HeaderFieldData[];
 }
 
 /**
  * Displays a formatted table of SEG-Y header fields with their specifications.
- * Loads field specs asynchronously and renders field name, byte range, type, and value.
+ * Renders field name, byte range, type, and resolved value from spec-driven parsing.
  *
  * @param props - Component props
  * @returns Header specification table component
  */
-export const HeaderSpecTable = ({ title, header, loadSpec }: HeaderSpecTableProps) => {
-  const [fieldSpecs, setFieldSpecs] = useState<HeaderFieldSpec[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    loadSpec()
-      .then((specs: HeaderFieldSpec[]) => {
-        if (isMounted) {
-          setFieldSpecs(specs);
-        }
-      })
-      .catch((error: unknown) => {
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        console.error('Failed to load header field specifications:', errorMsg, error);
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [loadSpec]);
-
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-panel">
-        <div className="text-xs text-text-muted">Loading...</div>
-      </div>
-    );
-  }
-
+export const HeaderSpecTable = ({ title, fieldData }: HeaderSpecTableProps) => {
   const headerCellClass =
     'sticky top-0 border-b border-border bg-panel-strong px-3 py-2.5 text-left text-[11px] uppercase tracking-[0.18em] text-text-muted';
   const bodyCellClass = 'border-b border-border px-3 py-2.5';
@@ -82,18 +45,19 @@ export const HeaderSpecTable = ({ title, header, loadSpec }: HeaderSpecTableProp
           </TableRow>
         </TableHeader>
         <TableBody>
-          {fieldSpecs.map((field: HeaderFieldSpec, idx: number) => {
-            const value = header[field.field_key];
-            const rawCode = getRawCode(value);
-
+          {fieldData.map((field, idx) => {
             return (
               <TableRow
                 key={idx}
-                title={field.description}
                 className="transition-colors duration-150 hover:bg-[var(--row-hover)] motion-reduce:transition-none"
               >
                 <TableCell className={`${bodyCellClass} font-semibold text-text`}>
-                  {field.name}
+                  <Tooltip>
+                    <TooltipTrigger className="cursor-help text-left">{field.name}</TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-64">
+                      {field.description}
+                    </TooltipContent>
+                  </Tooltip>
                 </TableCell>
                 <TableCell className={`${bodyCellClass} font-mono text-text-dim`}>
                   {field.byte_start}-{field.byte_end}
@@ -101,11 +65,17 @@ export const HeaderSpecTable = ({ title, header, loadSpec }: HeaderSpecTableProp
                 <TableCell className={`${bodyCellClass} font-mono text-accent-2`}>
                   {field.data_type}
                 </TableCell>
-                <TableCell
-                  className={`${bodyCellClass} text-right font-mono text-text ${rawCode ? 'cursor-help' : ''}`}
-                  title={rawCode ? `Raw code: ${rawCode}` : undefined}
-                >
-                  {formatValue(value)}
+                <TableCell className={`${bodyCellClass} text-right font-mono text-text`}>
+                  {field.resolved ? (
+                    <Tooltip>
+                      <TooltipTrigger className="cursor-help">{field.resolved}</TooltipTrigger>
+                      <TooltipContent side="top">
+                        <span>Raw value: {field.value}</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    formatValue(field.value)
+                  )}
                 </TableCell>
               </TableRow>
             );

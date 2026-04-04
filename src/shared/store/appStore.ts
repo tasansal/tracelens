@@ -15,10 +15,12 @@ interface AppState {
   isLoading: boolean;
   segyData: SegyData | null;
   error: string | null;
+  showRevisionDialog: boolean;
   setFilePath: (path: string | null) => void;
   setLoading: (loading: boolean) => void;
   setSegyData: (data: SegyData | null) => void;
   setError: (error: string | null) => void;
+  setShowRevisionDialog: (show: boolean) => void;
   setThemePreference: (theme: ThemePreference) => void;
   applyTheme: (settings: AppSettings) => void;
 }
@@ -51,10 +53,12 @@ export const useAppStore = create<AppState>(set => ({
   isLoading: false,
   segyData: null,
   error: null,
+  showRevisionDialog: false,
   setFilePath: path => set({ filePath: path }),
   setLoading: loading => set({ isLoading: loading }),
   setSegyData: data => set({ segyData: data }),
   setError: error => set({ error }),
+  setShowRevisionDialog: show => set({ showRevisionDialog: show }),
   setThemePreference: theme => set({ themePreference: theme, isDarkMode: resolveTheme(theme) }),
   applyTheme: settings =>
     set({ themePreference: settings.theme, isDarkMode: resolveTheme(settings.theme) }),

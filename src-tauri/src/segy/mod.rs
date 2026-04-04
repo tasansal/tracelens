@@ -13,12 +13,16 @@
 //! 4. Render traces into variable-density or wiggle views.
 
 mod constants;
+pub mod header_dynamic;
 pub mod header_spec;
 mod io;
 mod model;
 pub mod parser;
 mod reader;
 pub mod rendering;
+mod revision;
+mod schema_validator;
+mod spec_registry;
 mod storage;
 mod utils;
 mod window_cache;
@@ -27,15 +31,25 @@ mod window_cache;
 pub use constants::*;
 /// Binary header definition and byte-order detection.
 pub use parser::{
-    BinaryHeader, ByteOrder, CoordinateUnits, DataSampleFormat, MeasurementSystem, SampleFormat,
-    TextualHeader, TraceBlock, TraceData, TraceHeader, TraceIdentificationCode, TraceSortingCode,
+    BinaryHeader, ByteOrder, DataSampleFormat, SampleFormat, TextualHeader, TraceBlock, TraceData,
+    TraceHeader,
 };
 
+/// Dynamic header field extraction types.
+pub use header_dynamic::{
+    FieldData, HeaderError, HeaderField, HeaderSpec, RuntimeHeaderView, ScalarType,
+};
 /// Header specification structures loaded from the JSON spec.
 pub use header_spec::{HeaderFieldSpec, SegyFormatSpec};
 /// High-level data models and derived file configuration.
 pub use model::{SegyData, SegyFileConfig};
 /// SEG-Y reader and cacheable state for Tauri commands.
 pub use reader::{SegyReader, SegyReaderState};
+/// SEG-Y revision identifiers.
+pub use revision::SegyRevision;
+/// Schema validation errors for spec integrity checks.
+pub use schema_validator::SchemaValidationError;
+/// Schema registry mapping revisions to format specifications.
+pub use spec_registry::SpecRegistry;
 /// Detected textual header encoding.
 pub use utils::TextEncoding;
