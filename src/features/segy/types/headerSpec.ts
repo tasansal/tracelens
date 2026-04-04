@@ -7,5 +7,7 @@ export interface HeaderFieldSpec {
   byte_start: number;
   byte_end: number;
   data_type: string;
-  description?: string;
+  description: string;
+  required: boolean;
+  code_mapping?: Record<string, string>;
 }

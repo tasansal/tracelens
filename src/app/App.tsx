@@ -12,6 +12,7 @@ import { SegyLoadingState } from '@/features/segy/components/SegyLoadingState';
 import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
+import { getErrorMessage, parseBackendError } from '@/shared/api/tauri/error';
 import {
   loadSegyFile as loadSegyFileCommand,
   scanAmplitudeRange,
@@ -29,38 +30,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
-interface BackendErrorPayload {
-  name?: string;
-  message?: string;
-}
-
-const parseBackendErrorMessage = (error: unknown): string => {
-  const fallback = error instanceof Error ? error.message : String(error);
-
-  if (typeof fallback !== 'string') {
-    return String(fallback);
-  }
-
-  try {
-    const payload = JSON.parse(fallback) as BackendErrorPayload;
-    if (payload && typeof payload.message === 'string' && payload.message.trim()) {
-      return payload.message;
-    }
-  } catch {
-    // Non-JSON error string, use as-is.
-  }
-
-  return fallback;
-};
-
 const formatLoadError = (error: unknown, uri: string): string => {
-  const message = parseBackendErrorMessage(error);
+  const parsed = parseBackendError(error);
+  const message = parsed?.message ?? getErrorMessage(error);
+
   const isAzureUri =
     uri.startsWith('az://') || uri.startsWith('azure://') || uri.includes('.blob.core.windows.net');
-  const looksLikeAuthFailure =
-    /(authentication|authorization|forbidden|unauthorized|status code: 401|status code: 403|signature|sas)/i.test(
-      message
-    );
+
+  // Use error type for auth detection when available, fall back to regex for untyped errors
+  const looksLikeAuthFailure = parsed
+    ? parsed.name === 'IoError' &&
+      /(authentication|authorization|forbidden|unauthorized|status code: 40[13]|signature|sas)/i.test(
+        message
+      )
+    : /(authentication|authorization|forbidden|unauthorized|status code: 40[13]|signature|sas)/i.test(
+        message
+      );
 
   if (!isAzureUri || !looksLikeAuthFailure) {
     return message;

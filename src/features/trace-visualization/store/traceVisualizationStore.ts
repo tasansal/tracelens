@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import {
   AmplitudeScaling,
   AmplitudeStats,
+  clampRgb,
   ColormapType,
   RenderMode,
   ViewportConfig,
@@ -86,10 +87,15 @@ export const useTraceVisualizationStore = create<TraceVisualizationState>(set =>
   setColormap: colormap => set({ colormap }),
   setAmplitudeScaling: scaling => set({ amplitudeScaling: scaling }),
   setAmplitudeStats: stats => set({ amplitudeStats: stats }),
-  setWiggleConfig: partial =>
+  setWiggleConfig: partial => {
+    const clamped: Partial<WiggleConfig> = { ...partial };
+    if (clamped.lineColor) clamped.lineColor = clampRgb(clamped.lineColor);
+    if (clamped.positiveFillColor) clamped.positiveFillColor = clampRgb(clamped.positiveFillColor);
+    if (clamped.negativeFillColor) clamped.negativeFillColor = clampRgb(clamped.negativeFillColor);
     set(state => ({
-      wiggleConfig: { ...state.wiggleConfig, ...partial },
-    })),
+      wiggleConfig: { ...state.wiggleConfig, ...clamped },
+    }));
+  },
   updateViewport: partial =>
     set(state => ({
       viewport: { ...state.viewport, ...partial },

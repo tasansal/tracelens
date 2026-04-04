@@ -34,7 +34,7 @@ pub async fn load_segy_file(
     reader_state: State<'_, SegyReaderState>,
     storage_state: State<'_, StorageConfigState>,
 ) -> CommandResult<SegyData> {
-    let storage_config = storage_state.get();
+    let storage_config = storage_state.get().await;
     let reader = reader_state
         .open(file_path, Some(storage_config))
         .await
@@ -94,7 +94,7 @@ pub async fn get_binary_header_data(
     reader_state: State<'_, SegyReaderState>,
     storage_state: State<'_, StorageConfigState>,
 ) -> CommandResult<Vec<FieldData>> {
-    let storage_config = storage_state.get();
+    let storage_config = storage_state.get().await;
     let reader = reader_state
         .get_or_open(file_path.clone(), Some(storage_config))
         .await
@@ -151,7 +151,7 @@ pub async fn get_trace_header_data(
     reader_state: State<'_, SegyReaderState>,
     storage_state: State<'_, StorageConfigState>,
 ) -> CommandResult<Vec<FieldData>> {
-    let storage_config = storage_state.get();
+    let storage_config = storage_state.get().await;
     let reader = reader_state
         .get_or_open(file_path.clone(), Some(storage_config))
         .await
@@ -222,7 +222,7 @@ pub async fn load_single_trace(
     reader_state: State<'_, SegyReaderState>,
     storage_state: State<'_, StorageConfigState>,
 ) -> CommandResult<TraceBlock> {
-    let storage_config = storage_state.get();
+    let storage_config = storage_state.get().await;
     let reader = reader_state
         .get_or_open(file_path, Some(storage_config))
         .await
@@ -255,7 +255,7 @@ pub async fn render_tile(
     reader_state: State<'_, SegyReaderState>,
     storage_state: State<'_, StorageConfigState>,
 ) -> CommandResult<rendering::RenderedTile> {
-    let storage_config = storage_state.get();
+    let storage_config = storage_state.get().await;
     let reader = reader_state
         .get_or_open(file_path, Some(storage_config))
         .await
@@ -418,7 +418,7 @@ pub async fn scan_amplitude_range(
     const BLOCK_SIZE: usize = 50;
     let percentile = percentile.unwrap_or(0.99).clamp(0.0, 1.0);
 
-    let storage_config = storage_state.get();
+    let storage_config = storage_state.get().await;
     let reader = reader_state
         .get_or_open(file_path, Some(storage_config))
         .await
