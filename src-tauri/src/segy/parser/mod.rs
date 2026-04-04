@@ -9,8 +9,6 @@
 //! All parsers handle byte-order detection and support both big-endian
 //! (standard) and little-endian (non-standard) files.
 
-#[macro_use]
-pub mod byte_order_macros;
 pub mod binary_header;
 pub mod textual_header;
 pub mod trace;
