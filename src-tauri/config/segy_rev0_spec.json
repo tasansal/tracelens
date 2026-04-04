@@ -95,9 +95,7 @@
           "1": "IBM Float32",
           "2": "Int32",
           "3": "Int16",
-          "4": "Fixed Point with Gain",
-          "5": "IEEE Float32",
-          "8": "Int8"
+          "4": "Fixed Point with Gain"
         }
       },
       {
@@ -301,12 +299,12 @@
         "required": true
       },
       {
-        "name": "Trace Seq Number (Reel)",
-        "field_key": "trace_seq_reel",
+        "name": "Trace Seq Number (File)",
+        "field_key": "trace_seq_file",
         "byte_start": 5,
         "byte_end": 8,
         "data_type": "int32",
-        "description": "Trace sequence number within reel"
+        "description": "Trace sequence number within SEG Y file (unassigned in Rev 0, often used for sequence within file)"
       },
       {
         "name": "Field Record Number",
@@ -906,7 +904,7 @@
         "byte_start": 179,
         "byte_end": 180,
         "data_type": "int16",
-        "description": "Overtravel associated with taper",
+        "description": "Overtravel associated with taper at the beginning or end of line",
         "code_mapping": {
           "1": "Down/Behind",
           "2": "Up/Ahead"
