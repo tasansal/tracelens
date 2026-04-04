@@ -53,7 +53,6 @@ impl DataSampleFormat {
     }
 }
 
-
 /// Byte order (endianness) of binary data
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum ByteOrder {

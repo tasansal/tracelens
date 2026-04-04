@@ -5,7 +5,7 @@
 
 use crate::error::AppError;
 use crate::segy::parser::binary_header::DataSampleFormat;
-use crate::segy::{constants, BinaryHeader, ByteOrder, SegyRevision, TextEncoding, TextualHeader};
+use crate::segy::{BinaryHeader, ByteOrder, SegyRevision, TextEncoding, TextualHeader, constants};
 
 /// SEG-Y file data structure containing headers only (no traces loaded eagerly)
 ///

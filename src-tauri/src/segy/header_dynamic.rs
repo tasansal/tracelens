@@ -10,9 +10,9 @@ use crate::segy::parser::binary_header::ByteOrder;
 use byteorder::{BigEndian, ByteOrder as ByteOrderTrait, LittleEndian};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::hash::BuildHasherDefault;
 use std::hash::DefaultHasher;
+use std::str::FromStr;
 
 pub use crate::segy::parser::binary_header::ByteOrder as HeaderByteOrder;
 
@@ -47,7 +47,6 @@ impl FromStr for ScalarType {
 }
 
 impl ScalarType {
-
     pub fn size(&self) -> usize {
         match self {
             Self::Int8 | Self::Uint8 => 1,

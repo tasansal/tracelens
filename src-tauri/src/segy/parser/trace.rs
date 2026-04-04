@@ -9,7 +9,6 @@ use std::io::{self, Read};
 use super::binary_header::ByteOrder;
 use super::trace_data::TraceData;
 
-
 /// Trace header containing metadata for a single trace
 ///
 /// The trace header is 240 bytes and precedes the trace data samples.
@@ -123,7 +122,8 @@ impl TraceBlock {
         reader.read_exact(&mut header_bytes)?;
 
         // num_samples is at bytes 115-116 (0-indexed 114-116)
-        let header = TraceHeader::from_reader_with_order(std::io::Cursor::new(&header_bytes), byte_order)?;
+        let header =
+            TraceHeader::from_reader_with_order(std::io::Cursor::new(&header_bytes), byte_order)?;
         let samples = num_samples.unwrap_or(header.num_samples);
         let data = TraceData::from_reader(&mut *reader, sample_format, samples as usize)?;
 
