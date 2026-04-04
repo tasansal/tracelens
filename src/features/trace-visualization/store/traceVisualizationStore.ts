@@ -23,18 +23,11 @@ interface TraceVisualizationState {
   viewport: ViewportConfig;
   wiggleConfig: WiggleConfig;
 
-  // Rendered image cache
-  currentImage: HTMLImageElement | ImageData | null;
-  isRendering: boolean;
-  renderProgress: number; // 0 to 1, where 1 is complete
-
   // UI state
-  showControls: boolean;
   zoomLevel: number;
   zoomLevelY: number;
   panOffset: { x: number; y: number };
   canvasSize: { width: number; height: number };
-  lastRenderedZoom: number; // Track zoom level at which current image was rendered
 
   // Actions
   setRenderMode: (mode: RenderMode) => void;
@@ -43,14 +36,10 @@ interface TraceVisualizationState {
   setAmplitudeStats: (stats: AmplitudeStats | null) => void;
   setWiggleConfig: (config: Partial<WiggleConfig>) => void;
   updateViewport: (viewport: Partial<ViewportConfig>) => void;
-  setCurrentImage: (image: HTMLImageElement | ImageData | null) => void;
-  setIsRendering: (isRendering: boolean) => void;
-  setRenderProgress: (progress: number) => void;
   setZoomLevel: (zoom: number) => void;
   setZoomLevelY: (zoom: number) => void;
   setPanOffset: (offset: { x: number; y: number }) => void;
   setCanvasSize: (size: { width: number; height: number }) => void;
-  setLastRenderedZoom: (zoom: number) => void;
   resetView: () => void;
 }
 
@@ -87,15 +76,10 @@ export const useTraceVisualizationStore = create<TraceVisualizationState>(set =>
   amplitudeStats: null,
   viewport: DEFAULT_VIEWPORT,
   wiggleConfig: DEFAULT_WIGGLE_CONFIG,
-  currentImage: null,
-  isRendering: false,
-  renderProgress: 0,
-  showControls: true,
   zoomLevel: 1.0,
   zoomLevelY: 1.0,
   panOffset: { x: 0, y: 0 },
   canvasSize: { width: 800, height: 600 },
-  lastRenderedZoom: 1.0,
 
   // Actions
   setRenderMode: mode => set({ renderMode: mode }),
@@ -110,14 +94,10 @@ export const useTraceVisualizationStore = create<TraceVisualizationState>(set =>
     set(state => ({
       viewport: { ...state.viewport, ...partial },
     })),
-  setCurrentImage: image => set({ currentImage: image }),
-  setIsRendering: isRendering => set({ isRendering }),
-  setRenderProgress: progress => set({ renderProgress: progress }),
   setZoomLevel: zoom => set({ zoomLevel: zoom }),
   setZoomLevelY: zoom => set({ zoomLevelY: zoom }),
   setPanOffset: offset => set({ panOffset: offset }),
   setCanvasSize: size => set({ canvasSize: size }),
-  setLastRenderedZoom: zoom => set({ lastRenderedZoom: zoom }),
   resetView: () =>
     set({
       viewport: DEFAULT_VIEWPORT,
