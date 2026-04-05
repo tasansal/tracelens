@@ -1,6 +1,6 @@
 /* Global styles, theme tokens, and component primitives for TraceLens. */
 @import 'tailwindcss';
-@plugin 'tailwindcss-animate';
+@import 'tw-animate-css';
 
 @theme {
   --font-display: 'Syne', sans-serif;
