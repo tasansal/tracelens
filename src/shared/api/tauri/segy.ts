@@ -11,10 +11,28 @@ import type {
 import { invoke } from '@tauri-apps/api/core';
 
 /**
+ * SEG-Y revision types matching the backend enum.
+ */
+export type SegyRevision = 'Rev0' | 'Rev1' | 'Rev2' | 'Rev21' | 'Unknown';
+
+/**
  * Header-only payload for an individual trace.
  */
 export interface SingleTrace {
   header: Record<string, unknown>;
+}
+
+/**
+ * Header field data with resolved values.
+ */
+export interface HeaderFieldData {
+  name: string;
+  description: string;
+  value: number;
+  resolved?: string;
+  byte_start: number;
+  byte_end: number;
+  data_type: string;
 }
 
 /**
@@ -41,16 +59,52 @@ export async function loadSingleTrace(params: {
 
 /**
  * Fetch backend spec for binary header fields.
+ * @param revision Optional SEG-Y revision. If undefined, uses default (Rev 0).
  */
-export async function getBinaryHeaderSpec(): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_binary_header_spec');
+export async function getBinaryHeaderSpec(revision?: SegyRevision): Promise<HeaderFieldSpec[]> {
+  return revision
+    ? invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision })
+    : invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision: null });
 }
 
 /**
  * Fetch backend spec for trace header fields.
+ * @param revision Optional SEG-Y revision. If undefined, uses default (Rev 0).
  */
-export async function getTraceHeaderSpec(): Promise<HeaderFieldSpec[]> {
-  return invoke<HeaderFieldSpec[]>('get_trace_header_spec');
+export async function getTraceHeaderSpec(revision?: SegyRevision): Promise<HeaderFieldSpec[]> {
+  return revision
+    ? invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision })
+    : invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision: null });
+}
+
+/**
+ * Fetch binary header field values using spec-driven parsing.
+ * @param filePath Path to the SEG-Y file
+ */
+export async function getBinaryHeaderData(filePath: string): Promise<HeaderFieldData[]> {
+  return invoke<HeaderFieldData[]>('get_binary_header_data', { filePath });
+}
+
+/**
+ * Fetch trace header field values using spec-driven parsing.
+ * @param filePath Path to the SEG-Y file
+ * @param traceIndex Zero-based trace index
+ */
+export async function getTraceHeaderData(
+  filePath: string,
+  traceIndex: number
+): Promise<HeaderFieldData[]> {
+  return invoke<HeaderFieldData[]>('get_trace_header_data', { filePath, traceIndex });
+}
+
+/**
+ * Set the active revision for a loaded SEG-Y file.
+ * Overrides the detected revision for header data queries.
+ * @param filePath Path to the SEG-Y file
+ * @param revision SEG-Y revision to activate
+ */
+export async function setActiveRevision(filePath: string, revision: SegyRevision): Promise<void> {
+  return invoke('set_active_revision', { filePath, revision });
 }
 
 /**

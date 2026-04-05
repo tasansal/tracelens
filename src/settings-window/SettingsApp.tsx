@@ -13,6 +13,7 @@ import {
   type ThemePreference,
 } from '@/shared/api/tauri/settings';
 import { useAppStore } from '@/shared/store/appStore';
+import { cn } from '@/shared/utils/cn';
 import { isTauri } from '@/shared/utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -34,7 +35,10 @@ const sidebarItems = [
 
 const titlebarButtonClass =
   'inline-flex h-7 w-[30px] items-center justify-center rounded-lg border border-border bg-panel-muted text-text transition duration-200 ease-out hover:border-transparent hover:bg-panel-strong active:translate-y-px motion-reduce:transition-none';
-const titlebarCloseButtonClass = `${titlebarButtonClass} hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink hover:shadow-[0_8px_18px_var(--accent-glow)]`;
+const titlebarCloseButtonClass = cn(
+  titlebarButtonClass,
+  'hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink hover:shadow-[0_8px_18px_var(--accent-glow)]'
+);
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -508,11 +512,12 @@ export const SettingsApp = () => {
                 <button
                   key={item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={`flex flex-col items-start gap-1 rounded-[14px] border px-4 py-3 text-left transition duration-200 ${
+                  className={cn(
+                    'flex flex-col items-start gap-1 rounded-[14px] border px-4 py-3 text-left transition duration-200',
                     activeTab === item.id
                       ? 'border-[rgba(255,255,255,0.08)] bg-panel text-text shadow-[0_10px_30px_-18px_var(--accent-glow)]'
                       : 'border-transparent text-text-muted hover:border-border hover:bg-panel-strong'
-                  }`}
+                  )}
                 >
                   <span className="text-sm font-semibold">{item.label}</span>
                   <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-dim">

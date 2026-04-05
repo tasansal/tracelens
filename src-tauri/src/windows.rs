@@ -157,10 +157,10 @@ pub fn update_app_settings(app: AppHandle, settings: AppSettings) -> CommandResu
 /// # Returns
 /// * Clone of the stored `StorageConfig`.
 #[tauri::command]
-pub fn get_storage_config_settings(
+pub async fn get_storage_config_settings(
     state: State<'_, StorageConfigState>,
 ) -> CommandResult<StorageConfig> {
-    Ok(state.get())
+    Ok(state.get().await)
 }
 
 /// Replace the in-memory storage configuration snapshot.
@@ -172,10 +172,10 @@ pub fn get_storage_config_settings(
 /// # Returns
 /// * `()` after the new configuration is stored.
 #[tauri::command]
-pub fn update_storage_config_settings(
+pub async fn update_storage_config_settings(
     config: StorageConfig,
     state: State<'_, StorageConfigState>,
 ) -> CommandResult<()> {
-    state.set(config);
+    state.set(config).await;
     Ok(())
 }

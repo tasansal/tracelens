@@ -1,6 +1,6 @@
 {
-  "version": "SEG-Y Rev 0 (1975)",
-  "reference": "Barry, K. M., Cavers, D. A. and Kneale, C. W., 1975",
+  "version": "SEG-Y Rev 1 (2002)",
+  "reference": "SEG-Y Rev 1 Data Exchange Format, 2002",
   "binary_header": {
     "size": 400,
     "byte_offset": 3200,
@@ -95,7 +95,9 @@
           "1": "IBM Float32",
           "2": "Int32",
           "3": "Int16",
-          "4": "Fixed Point with Gain"
+          "4": "Fixed Point with Gain (obsolete)",
+          "5": "IEEE Float32",
+          "8": "Int8"
         }
       },
       {
@@ -115,10 +117,17 @@
         "data_type": "int16",
         "description": "Trace sorting code",
         "code_mapping": {
+          "-1": "Other",
+          "0": "Unknown",
           "1": "As Recorded",
           "2": "CDP Ensemble",
           "3": "Single Fold",
-          "4": "Horizontally Stacked"
+          "4": "Horizontally Stacked",
+          "5": "Common Source Point",
+          "6": "Common Receiver Point",
+          "7": "Common Offset Point",
+          "8": "Common Midpoint Point",
+          "9": "Common Conversion Point"
         }
       },
       {
@@ -283,6 +292,42 @@
           "7": "247.5° to 292.5°",
           "8": "292.5° to 337.5°"
         }
+      },
+      {
+        "name": "SEG-Y Revision Number",
+        "field_key": "segy_revision",
+        "byte_start": 3501,
+        "byte_end": 3502,
+        "data_type": "uint16",
+        "description": "SEG-Y format revision number",
+        "required": true,
+        "code_mapping": {
+          "0": "Rev 0",
+          "1": "Rev 1",
+          "2": "Rev 2"
+        }
+      },
+      {
+        "name": "Fixed Length Trace Flag",
+        "field_key": "fixed_length_trace_flag",
+        "byte_start": 3503,
+        "byte_end": 3504,
+        "data_type": "int16",
+        "description": "Whether all traces have the same number of samples",
+        "required": true,
+        "code_mapping": {
+          "0": "Variable length traces",
+          "1": "Fixed length traces"
+        }
+      },
+      {
+        "name": "Number of Extended Textual File Headers",
+        "field_key": "num_extended_text_headers",
+        "byte_start": 3505,
+        "byte_end": 3506,
+        "data_type": "int16",
+        "description": "Number of extended textual file headers following the binary header",
+        "required": true
       }
     ]
   },
@@ -364,7 +409,23 @@
           "5": "Uphole",
           "6": "Sweep",
           "7": "Timing",
-          "8": "Water Break"
+          "8": "Water Break",
+          "9": "Near-field Gun Signature",
+          "10": "Far-field Gun Signature",
+          "11": "Seismic Pressure Sensor",
+          "12": "Multicomponent Seismic Sensor - Vertical",
+          "13": "Multicomponent Seismic Sensor - Cross-line",
+          "14": "Multicomponent Seismic Sensor - In-line",
+          "15": "Rotated Multicomponent Seismic Sensor - Vertical",
+          "16": "Rotated Multicomponent Seismic Sensor - Transverse",
+          "17": "Rotated Multicomponent Seismic Sensor - Radial",
+          "18": "Vibrator Reaction Mass",
+          "19": "Vibrator Baseplate",
+          "20": "Vibrator Estimated Ground Force",
+          "21": "Vibrator Reference",
+          "22": "Time-velocity Pairs",
+          "0": "Unknown",
+          "-1": "Other"
         }
       },
       {
@@ -516,7 +577,9 @@
         "description": "Coordinate units",
         "code_mapping": {
           "1": "Length (meters/feet)",
-          "2": "Seconds of Arc"
+          "2": "Seconds of Arc",
+          "3": "Decimal Degrees",
+          "4": "Degrees, Minutes, Seconds (DMS)"
         }
       },
       {
@@ -908,6 +971,193 @@
         "code_mapping": {
           "1": "Down/Behind",
           "2": "Up/Ahead"
+        }
+      },
+      {
+        "name": "Ensemble X Coordinate",
+        "field_key": "ensemble_x_coordinate",
+        "byte_start": 181,
+        "byte_end": 184,
+        "data_type": "int32",
+        "description": "X coordinate of ensemble (CDP) position of this trace"
+      },
+      {
+        "name": "Ensemble Y Coordinate",
+        "field_key": "ensemble_y_coordinate",
+        "byte_start": 185,
+        "byte_end": 188,
+        "data_type": "int32",
+        "description": "Y coordinate of ensemble (CDP) position of this trace"
+      },
+      {
+        "name": "Inline Number",
+        "field_key": "inline_number",
+        "byte_start": 189,
+        "byte_end": 192,
+        "data_type": "int32",
+        "description": "For 3D poststack data, this field should be used for the in-line number"
+      },
+      {
+        "name": "Crossline Number",
+        "field_key": "crossline_number",
+        "byte_start": 193,
+        "byte_end": 196,
+        "data_type": "int32",
+        "description": "For 3D poststack data, this field should be used for the cross-line number"
+      },
+      {
+        "name": "Shotpoint Number",
+        "field_key": "shotpoint_number",
+        "byte_start": 197,
+        "byte_end": 200,
+        "data_type": "int32",
+        "description": "Shotpoint number"
+      },
+      {
+        "name": "Shotpoint Scalar",
+        "field_key": "shotpoint_scalar",
+        "byte_start": 201,
+        "byte_end": 202,
+        "data_type": "int16",
+        "description": "Scalar to be applied to the shotpoint number in bytes 197-200"
+      },
+      {
+        "name": "Trace Value Measurement Unit",
+        "field_key": "trace_value_measurement_unit",
+        "byte_start": 203,
+        "byte_end": 204,
+        "data_type": "int16",
+        "description": "Trace value measurement unit",
+        "required": true,
+        "code_mapping": {
+          "1": "Pascal (Pa)",
+          "2": "Volts (V)",
+          "3": "Millivolts (mV)",
+          "4": "Amperes (A)",
+          "5": "Meters (m)",
+          "6": "Meters Per Second (m/s)",
+          "7": "Meters Per Second Squared (m/s²)",
+          "8": "Newton (N)",
+          "9": "Watt (W)",
+          "0": "Unknown",
+          "-1": "Other"
+        }
+      },
+      {
+        "name": "Transduction Constant Mantissa",
+        "field_key": "transduction_constant_mantissa",
+        "byte_start": 205,
+        "byte_end": 208,
+        "data_type": "int32",
+        "description": "Transduction constant mantissa"
+      },
+      {
+        "name": "Transduction Constant Exponent",
+        "field_key": "transduction_constant_exponent",
+        "byte_start": 209,
+        "byte_end": 210,
+        "data_type": "int16",
+        "description": "Transduction constant power of ten exponent"
+      },
+      {
+        "name": "Transduction Unit",
+        "field_key": "transduction_unit",
+        "byte_start": 211,
+        "byte_end": 212,
+        "data_type": "int16",
+        "description": "Transduction measurement unit",
+        "code_mapping": {
+          "1": "Pascal (Pa)",
+          "2": "Volts (V)",
+          "3": "Millivolts (mV)",
+          "4": "Amperes (A)",
+          "5": "Meters (m)",
+          "6": "Meters Per Second (m/s)",
+          "7": "Meters Per Second Squared (m/s²)",
+          "8": "Newton (N)",
+          "9": "Watt (W)",
+          "0": "Unknown",
+          "-1": "Other"
+        }
+      },
+      {
+        "name": "Device Identifier",
+        "field_key": "device_identifier",
+        "byte_start": 213,
+        "byte_end": 214,
+        "data_type": "int16",
+        "description": "Device/trace identifier"
+      },
+      {
+        "name": "Scalar for Times",
+        "field_key": "scalar_for_times",
+        "byte_start": 215,
+        "byte_end": 216,
+        "data_type": "int16",
+        "description": "Scalar for times in bytes 95-114"
+      },
+      {
+        "name": "Source Type/Orientation",
+        "field_key": "source_type",
+        "byte_start": 217,
+        "byte_end": 218,
+        "data_type": "int16",
+        "description": "Source type and orientation code",
+        "required": true,
+        "code_mapping": {
+          "1": "Vibratory - Vertical",
+          "2": "Vibratory - Cross-line",
+          "3": "Vibratory - In-line",
+          "4": "Impulsive - Vertical",
+          "5": "Impulsive - Cross-line",
+          "6": "Impulsive - In-line",
+          "7": "Distributed Impulsive - Vertical",
+          "8": "Distributed Impulsive - Cross-line",
+          "9": "Distributed Impulsive - In-line",
+          "0": "Unknown",
+          "-1": "Other"
+        }
+      },
+      {
+        "name": "Source Energy Direction",
+        "field_key": "source_energy_direction",
+        "byte_start": 219,
+        "byte_end": 220,
+        "data_type": "int16",
+        "description": "Source energy direction in tenths of degrees"
+      },
+      {
+        "name": "Source Measurement Mantissa",
+        "field_key": "source_measurement_mantissa",
+        "byte_start": 225,
+        "byte_end": 228,
+        "data_type": "int32",
+        "description": "Source measurement mantissa"
+      },
+      {
+        "name": "Source Measurement Exponent",
+        "field_key": "source_measurement_exponent",
+        "byte_start": 229,
+        "byte_end": 230,
+        "data_type": "int16",
+        "description": "Source measurement power of ten exponent"
+      },
+      {
+        "name": "Source Measurement Unit",
+        "field_key": "source_measurement_unit",
+        "byte_start": 231,
+        "byte_end": 232,
+        "data_type": "int16",
+        "description": "Source measurement unit",
+        "code_mapping": {
+          "1": "Joule (J)",
+          "2": "Kilowatt (kW)",
+          "3": "Pascal (Pa)",
+          "4": "Bar (Bar)",
+          "5": "Newton (N)",
+          "6": "Kilograms (kg)",
+          "0": "Unknown",
+          "-1": "Other"
         }
       }
     ]

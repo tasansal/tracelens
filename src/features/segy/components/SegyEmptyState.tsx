@@ -3,6 +3,7 @@
  */
 import { Button } from '@/shared/ui/button';
 import { SectionTitle } from '@/shared/ui/section-title';
+import { cn } from '@/shared/utils/cn';
 
 /**
  * Props for SegyEmptyState component.
@@ -31,11 +32,12 @@ export const SegyEmptyState = ({
   return (
     <div className="flex flex-1 items-center justify-center p-6">
       <div
-        className={`w-[min(520px,92%)] rounded-[var(--radius-xl)] border border-border bg-panel p-8 text-center shadow-[var(--shadow)] transition-transform transition-opacity transition-colors duration-300 ease-out motion-reduce:transition-none ${
+        className={cn(
+          'w-[min(520px,92%)] rounded-[var(--radius-xl)] border border-border bg-panel p-8 text-center shadow-[var(--shadow)] transition-transform transition-opacity transition-colors duration-300 ease-out motion-reduce:transition-none',
           isDragActive
             ? 'border-accent-2 border-dashed opacity-[0.88] -translate-y-1'
             : 'animate-[rise-in_0.8s_ease-out] motion-reduce:animate-none'
-        }`}
+        )}
       >
         <SectionTitle as="div">No File Loaded</SectionTitle>
         <p className="mt-2 text-[13px] text-text-muted">

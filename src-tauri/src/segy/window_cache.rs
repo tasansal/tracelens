@@ -47,13 +47,12 @@ impl WindowCache {
         storage: &SegyStorage,
     ) -> Result<Vec<TraceBlock>, AppError> {
         // Check if we can serve from current window
-        if let Some(window) = &self.current_window {
-            if start_trace >= window.start_trace
-                && start_trace + count <= window.start_trace + window.trace_count
-            {
-                // Request fits in current window
-                return window.extract_traces(start_trace, count, &self.config);
-            }
+        if let Some(window) = &self.current_window
+            && start_trace >= window.start_trace
+            && start_trace + count <= window.start_trace + window.trace_count
+        {
+            // Request fits in current window
+            return window.extract_traces(start_trace, count, &self.config);
         }
 
         // Need to load new chunk - pass the requested count to ensure chunk is large enough
@@ -80,19 +79,18 @@ impl WindowCache {
         storage: &SegyStorage,
     ) -> Result<Vec<TraceData>, AppError> {
         // Check if we can serve from current window
-        if let Some(window) = &self.current_window {
-            if start_trace >= window.start_trace
-                && start_trace + trace_count <= window.start_trace + window.trace_count
-            {
-                // Request fits in current window
-                return window.extract_trace_data_with_range(
-                    start_trace,
-                    trace_count,
-                    start_sample,
-                    sample_count,
-                    &self.config,
-                );
-            }
+        if let Some(window) = &self.current_window
+            && start_trace >= window.start_trace
+            && start_trace + trace_count <= window.start_trace + window.trace_count
+        {
+            // Request fits in current window
+            return window.extract_trace_data_with_range(
+                start_trace,
+                trace_count,
+                start_sample,
+                sample_count,
+                &self.config,
+            );
         }
 
         // Need to load new chunk

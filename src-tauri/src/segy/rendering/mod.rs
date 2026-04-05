@@ -12,7 +12,7 @@ pub mod wiggle_renderer; // Make public for tile rendering
 // Re-exports - only expose high-level rendering function and types
 pub use types::*;
 
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose};
 use colormap::create_colormap;
 use image::RgbImage;
 

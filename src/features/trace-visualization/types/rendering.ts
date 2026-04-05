@@ -46,16 +46,24 @@ export interface RenderedImage {
   format: ImageFormat;
 }
 
+/** RGB color channel tuple clamped to 0–255 integer range to match Rust `[u8; 3]`. */
+export type RgbColor = [number, number, number];
+
+/** Clamp an RGB tuple to valid u8 values (0–255 integers). */
+export function clampRgb(color: RgbColor): RgbColor {
+  return color.map(c => Math.max(0, Math.min(255, Math.round(c)))) as RgbColor;
+}
+
 /**
  * Wiggle render configuration for stroke/fill styling.
  */
 export interface WiggleConfig {
   lineWidth: number;
-  lineColor: [number, number, number]; // RGB
+  lineColor: RgbColor;
   fillPositive: boolean;
   fillNegative: boolean;
-  positiveFillColor: [number, number, number]; // RGB
-  negativeFillColor: [number, number, number]; // RGB
+  positiveFillColor: RgbColor;
+  negativeFillColor: RgbColor;
 }
 
 /**

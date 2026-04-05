@@ -5,15 +5,22 @@
 import { AppHeader } from '@/app/components/AppHeader';
 import { useSystemTheme } from '@/app/hooks/useSystemTheme';
 import { UriInputDialog } from '@/features/file/components/UriInputDialog';
+import { RevisionDetectionDialog } from '@/features/segy/components/RevisionDetectionDialog';
 import { SegyEmptyState } from '@/features/segy/components/SegyEmptyState';
 import { SegyHeaderPanel } from '@/features/segy/components/SegyHeaderPanel';
 import { SegyLoadingState } from '@/features/segy/components/SegyLoadingState';
 import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
-import { loadSegyFile as loadSegyFileCommand, scanAmplitudeRange } from '@/shared/api/tauri/segy';
+import { getErrorMessage, parseBackendError } from '@/shared/api/tauri/error';
+import {
+  loadSegyFile as loadSegyFileCommand,
+  scanAmplitudeRange,
+  type SegyRevision,
+} from '@/shared/api/tauri/segy';
 import { getAppSettings, openSettingsWindow, type AppSettings } from '@/shared/api/tauri/settings';
 import { useAppStore } from '@/shared/store/appStore';
+import { TooltipProvider } from '@/shared/ui/tooltip';
 import { isTauri } from '@/shared/utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -23,38 +30,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
-interface BackendErrorPayload {
-  name?: string;
-  message?: string;
-}
-
-const parseBackendErrorMessage = (error: unknown): string => {
-  const fallback = error instanceof Error ? error.message : String(error);
-
-  if (typeof fallback !== 'string') {
-    return String(fallback);
-  }
-
-  try {
-    const payload = JSON.parse(fallback) as BackendErrorPayload;
-    if (payload && typeof payload.message === 'string' && payload.message.trim()) {
-      return payload.message;
-    }
-  } catch {
-    // Non-JSON error string, use as-is.
-  }
-
-  return fallback;
-};
-
 const formatLoadError = (error: unknown, uri: string): string => {
-  const message = parseBackendErrorMessage(error);
+  const parsed = parseBackendError(error);
+  const message = parsed?.message ?? getErrorMessage(error);
+
   const isAzureUri =
     uri.startsWith('az://') || uri.startsWith('azure://') || uri.includes('.blob.core.windows.net');
-  const looksLikeAuthFailure =
-    /(authentication|authorization|forbidden|unauthorized|status code: 401|status code: 403|signature|sas)/i.test(
-      message
-    );
+
+  // Use error type for auth detection when available, fall back to regex for untyped errors
+  const looksLikeAuthFailure = parsed
+    ? parsed.name === 'IoError' &&
+      /(authentication|authorization|forbidden|unauthorized|status code: 40[13]|signature|sas)/i.test(
+        message
+      )
+    : /(authentication|authorization|forbidden|unauthorized|status code: 40[13]|signature|sas)/i.test(
+        message
+      );
 
   if (!isAzureUri || !looksLikeAuthFailure) {
     return message;
@@ -76,6 +67,8 @@ export const App = () => {
     filePath,
     isLoading,
     segyData,
+    showRevisionDialog,
+    setShowRevisionDialog,
     setLoading,
     setSegyData,
     setFilePath,
@@ -91,6 +84,9 @@ export const App = () => {
     currentTrace,
     loadingTrace,
     resetTraceState,
+    currentRevision,
+    setActiveRevision,
+    revisionKey,
   } = useTraceHeader({ segyData, filePath });
   const [isDragActive, setIsDragActive] = useState(false);
   const [isUriDialogOpen, setIsUriDialogOpen] = useState(false);
@@ -334,6 +330,38 @@ export const App = () => {
   }, [handleFileLoad, segyData, setError]);
 
   /**
+   * Handle revision selection from the detection dialog.
+   */
+  const handleRevisionConfirm = useCallback(
+    async (revision: SegyRevision) => {
+      try {
+        await setActiveRevision(revision);
+        setShowRevisionDialog(false);
+        toast.success(`Using ${revision} revision`);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        toast.error(`Failed to set revision: ${errorMsg}`);
+        console.error('Revision confirm error:', error);
+      }
+    },
+    [setActiveRevision, setShowRevisionDialog]
+  );
+
+  const handleRevisionDismiss = useCallback(async () => {
+    try {
+      await setActiveRevision('Rev0');
+      setShowRevisionDialog(false);
+      toast('Using Rev 0 as fallback. Change in Schema tab if needed.', {
+        duration: 6000,
+        icon: '⚠️',
+      });
+    } catch (error) {
+      console.error('Revision dismiss error:', error);
+      setShowRevisionDialog(false);
+    }
+  }, [setActiveRevision, setShowRevisionDialog]);
+
+  /**
    * Exit the application process with a user-facing fallback if the call fails.
    */
   const handleExit = async () => {
@@ -351,57 +379,69 @@ export const App = () => {
   };
 
   return (
-    <div className="app-shell relative flex h-screen flex-col overflow-hidden bg-bg text-text isolate">
-      <Toaster position="top-right" />
+    <TooltipProvider delayDuration={200}>
+      <div className="app-shell relative flex h-screen flex-col overflow-hidden bg-bg text-text isolate">
+        <Toaster position="top-right" />
 
-      <AppHeader
-        onFileSelect={handleFileSelect}
-        onRemoteFileSelect={handleRemoteFileSelect}
-        onExit={handleExit}
-      />
+        <AppHeader
+          onFileSelect={handleFileSelect}
+          onRemoteFileSelect={handleRemoteFileSelect}
+          onExit={handleExit}
+        />
 
-      <UriInputDialog
-        isOpen={isUriDialogOpen}
-        onClose={() => setIsUriDialogOpen(false)}
-        onSubmit={handleUriSubmit}
-        onOpenSettings={isTauri() ? () => handleOpenSettings('storage') : undefined}
-      />
+        <UriInputDialog
+          isOpen={isUriDialogOpen}
+          onClose={() => setIsUriDialogOpen(false)}
+          onSubmit={handleUriSubmit}
+          onOpenSettings={isTauri() ? () => handleOpenSettings('storage') : undefined}
+        />
 
-      <main className="flex flex-1 overflow-hidden px-4 pb-4 pt-3">
-        {isLoading && <SegyLoadingState />}
+        <RevisionDetectionDialog
+          isOpen={showRevisionDialog}
+          onClose={handleRevisionDismiss}
+          onConfirm={handleRevisionConfirm}
+        />
 
-        {!isLoading && !segyData && (
-          <SegyEmptyState
-            onFileSelect={handleFileSelect}
-            onRemoteFileSelect={handleRemoteFileSelect}
-            isDragActive={isDragActive}
-          />
-        )}
+        <main className="flex flex-1 overflow-hidden px-4 pb-4 pt-3">
+          {isLoading && <SegyLoadingState />}
 
-        {!isLoading && segyData && (
-          <div className="h-full w-full flex-1 overflow-hidden rounded-[var(--radius-xl)] border border-border bg-panel-tint shadow-[var(--shadow)]">
-            <PanelGroup orientation="horizontal" className="h-full w-full">
-              <Panel id="header-panel" defaultSize="37%" minSize="10%" maxSize="45%">
-                <SegyHeaderPanel
-                  segyData={segyData}
-                  headerView={headerView}
-                  onHeaderViewChange={setHeaderView}
-                  sliderValue={sliderValue}
-                  onSliderChange={setSliderValue}
-                  currentTrace={currentTrace}
-                  loadingTrace={loadingTrace}
-                />
-              </Panel>
+          {!isLoading && !segyData && (
+            <SegyEmptyState
+              onFileSelect={handleFileSelect}
+              onRemoteFileSelect={handleRemoteFileSelect}
+              isDragActive={isDragActive}
+            />
+          )}
 
-              <PanelResizeHandle className="relative w-1.5 cursor-col-resize bg-gradient-to-b from-transparent via-accent-2 to-transparent opacity-60 transition-transform hover:scale-x-125 motion-reduce:transition-none after:absolute after:inset-y-1.5 after:inset-x-0 after:bg-[var(--accent-2-muted)] after:opacity-80 after:content-['']" />
+          {!isLoading && segyData && (
+            <div className="h-full w-full flex-1 overflow-hidden rounded-[var(--radius-xl)] border border-border bg-panel-tint shadow-[var(--shadow)]">
+              <PanelGroup orientation="horizontal" className="h-full w-full">
+                <Panel id="header-panel" defaultSize="37%" minSize="10%" maxSize="45%">
+                  <SegyHeaderPanel
+                    filePath={filePath!}
+                    segyData={segyData}
+                    headerView={headerView}
+                    onHeaderViewChange={setHeaderView}
+                    sliderValue={sliderValue}
+                    onSliderChange={setSliderValue}
+                    currentTrace={currentTrace}
+                    loadingTrace={loadingTrace}
+                    currentRevision={currentRevision}
+                    setActiveRevision={setActiveRevision}
+                    revisionKey={revisionKey}
+                  />
+                </Panel>
 
-              <Panel id="visualization-panel" defaultSize="63%" minSize="40%">
-                <TraceVisualizationContainer />
-              </Panel>
-            </PanelGroup>
-          </div>
-        )}
-      </main>
-    </div>
+                <PanelResizeHandle className="relative w-1.5 cursor-col-resize bg-gradient-to-b from-transparent via-accent-2 to-transparent opacity-60 transition-transform hover:scale-x-125 motion-reduce:transition-none after:absolute after:inset-y-1.5 after:inset-x-0 after:bg-[var(--accent-2-muted)] after:opacity-80 after:content-['']" />
+
+                <Panel id="visualization-panel" defaultSize="63%" minSize="40%">
+                  <TraceVisualizationContainer />
+                </Panel>
+              </PanelGroup>
+            </div>
+          )}
+        </main>
+      </div>
+    </TooltipProvider>
   );
 };

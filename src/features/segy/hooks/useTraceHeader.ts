@@ -2,7 +2,12 @@
  * Hook for managing SEG-Y header view state and trace header loading.
  */
 import type { SegyData, TraceHeader } from '@/features/segy/types/segy';
-import { loadSingleTrace } from '@/shared/api/tauri/segy';
+import {
+  loadSingleTrace,
+  setActiveRevision as setActiveRevisionApi,
+  type SegyRevision,
+} from '@/shared/api/tauri/segy';
+import { useAppStore } from '@/shared/store/appStore';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { MAX_TRACE_SAMPLES } from '../constants';
@@ -10,7 +15,7 @@ import { MAX_TRACE_SAMPLES } from '../constants';
 /**
  * Supported header tabs in the SEG-Y header panel.
  */
-export type HeaderView = 'textual' | 'binary' | 'trace';
+export type HeaderView = 'textual' | 'binary' | 'trace' | 'schema';
 
 /**
  * Parameters for the useTraceHeader hook.
@@ -34,11 +39,49 @@ interface UseTraceHeaderParams {
 export function useTraceHeader(params: UseTraceHeaderParams) {
   const { segyData, filePath, maxSamples = MAX_TRACE_SAMPLES } = params;
 
+  const setShowRevisionDialog = useAppStore(s => s.setShowRevisionDialog);
+
   const [headerView, setHeaderView] = useState<HeaderView>('binary');
   const [traceId, setTraceId] = useState<number>(1);
   const [sliderValue, setSliderValue] = useState<number>(1);
   const [currentTrace, setCurrentTrace] = useState<TraceHeader | null>(null);
   const [loadingTrace, setLoadingTrace] = useState(false);
+  const [currentRevision, setCurrentRevision] = useState<SegyRevision | null>(null);
+  const [revisionKey, setRevisionKey] = useState(0);
+
+  useEffect(() => {
+    if (segyData) {
+      setCurrentRevision(segyData.detected_revision as SegyRevision);
+    } else {
+      setCurrentRevision(null);
+    }
+  }, [segyData]);
+
+  useEffect(() => {
+    if (segyData && segyData.detected_revision === 'Unknown') {
+      setShowRevisionDialog(true);
+      toast('Revision detection failed. Choose Rev 0 or Rev 1 below.', {
+        icon: '⚠️',
+        duration: 8000,
+      });
+    }
+  }, [segyData, setShowRevisionDialog]);
+
+  const handleSetActiveRevision = useCallback(
+    async (revision: SegyRevision) => {
+      if (!filePath) return;
+      try {
+        await setActiveRevisionApi(filePath, revision);
+        setCurrentRevision(revision);
+        setRevisionKey(prev => prev + 1);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        toast.error(`Failed to set revision: ${errorMsg}`);
+        console.error('setActiveRevision error:', error);
+      }
+    },
+    [filePath]
+  );
 
   const loadTrace = useCallback(
     async (traceIndex: number) => {
@@ -91,6 +134,7 @@ export function useTraceHeader(params: UseTraceHeaderParams) {
     setSliderValue(1);
     setCurrentTrace(null);
     setLoadingTrace(false);
+    setRevisionKey(0);
   }, []);
 
   return {
@@ -101,5 +145,8 @@ export function useTraceHeader(params: UseTraceHeaderParams) {
     currentTrace,
     loadingTrace,
     resetTraceState,
+    currentRevision,
+    setActiveRevision: handleSetActiveRevision,
+    revisionKey,
   };
 }

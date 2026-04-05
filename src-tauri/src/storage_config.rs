@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tokio::sync::RwLock;
 
 /// Complete storage configuration
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -147,26 +148,26 @@ fn default_timeout() -> u64 {
 
 /// Managed state for ephemeral storage configuration
 pub struct StorageConfigState {
-    config: std::sync::RwLock<StorageConfig>,
+    config: RwLock<StorageConfig>,
 }
 
 impl Default for StorageConfigState {
     fn default() -> Self {
         Self {
-            config: std::sync::RwLock::new(StorageConfig::default()),
+            config: RwLock::new(StorageConfig::default()),
         }
     }
 }
 
 impl StorageConfigState {
     /// Get a copy of the current configuration
-    pub fn get(&self) -> StorageConfig {
-        self.config.read().unwrap().clone()
+    pub async fn get(&self) -> StorageConfig {
+        self.config.read().await.clone()
     }
 
     /// Update the configuration
-    pub fn set(&self, config: StorageConfig) {
-        *self.config.write().unwrap() = config;
+    pub async fn set(&self, config: StorageConfig) {
+        *self.config.write().await = config;
     }
 }
 

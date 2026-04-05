@@ -2,7 +2,7 @@ use crate::error::AppError;
 use crate::storage_config;
 use bytes::Bytes;
 use memmap2::Mmap;
-use object_store::{parse_url_opts, GetOptions, GetRange, ObjectStore};
+use object_store::{GetOptions, GetRange, ObjectStore, parse_url_opts};
 use std::fs::File;
 use std::ops::Range;
 use std::sync::Arc;
@@ -15,14 +15,12 @@ use url::Url;
 /// Convert HTTP(S) S3 URLs to s3:// scheme
 /// e.g., http://s3.amazonaws.com/bucket/key -> s3://bucket/key
 fn try_convert_s3_url(url: &Url) -> Option<Url> {
-    if let Some(host) = url.host_str() {
-        if host == "s3.amazonaws.com"
-            || (host.starts_with("s3.") && host.ends_with(".amazonaws.com"))
-        {
-            if let Some(path_without_slash) = url.path().strip_prefix('/') {
-                return Url::parse(&format!("s3://{}", path_without_slash)).ok();
-            }
-        }
+    if let Some(host) = url.host_str()
+        && (host == "s3.amazonaws.com"
+            || (host.starts_with("s3.") && host.ends_with(".amazonaws.com")))
+        && let Some(path_without_slash) = url.path().strip_prefix('/')
+    {
+        return Url::parse(&format!("s3://{}", path_without_slash)).ok();
     }
     None
 }
@@ -33,18 +31,18 @@ fn try_convert_gcs_url(url: &Url) -> Option<Url> {
     if let Some(host) = url.host_str() {
         // Path-style: storage.googleapis.com/<bucket>/<object>
         // and browser-facing form: storage.cloud.google.com/<bucket>/<object>
-        if host == "storage.googleapis.com" || host == "storage.cloud.google.com" {
-            if let Some(path_without_slash) = url.path().strip_prefix('/') {
-                return Url::parse(&format!("gs://{}", path_without_slash)).ok();
-            }
+        if (host == "storage.googleapis.com" || host == "storage.cloud.google.com")
+            && let Some(path_without_slash) = url.path().strip_prefix('/')
+        {
+            return Url::parse(&format!("gs://{}", path_without_slash)).ok();
         }
 
         // Virtual-hosted style: <bucket>.storage.googleapis.com/<object>
-        if let Some(bucket) = host.strip_suffix(".storage.googleapis.com") {
-            if !bucket.is_empty() {
-                let object = url.path().strip_prefix('/').unwrap_or_default();
-                return Url::parse(&format!("gs://{}/{}", bucket, object)).ok();
-            }
+        if let Some(bucket) = host.strip_suffix(".storage.googleapis.com")
+            && !bucket.is_empty()
+        {
+            let object = url.path().strip_prefix('/').unwrap_or_default();
+            return Url::parse(&format!("gs://{}/{}", bucket, object)).ok();
         }
     }
     None
@@ -53,18 +51,17 @@ fn try_convert_gcs_url(url: &Url) -> Option<Url> {
 /// Convert HTTP(S) Azure URLs to az:// scheme and extract account/SAS
 /// e.g., https://account.blob.core.windows.net/container/blob?sas -> (az://container/blob, account, sas)
 fn try_convert_azure_url(url: &Url) -> Option<(Url, String, Option<String>)> {
-    if let Some(host) = url.host_str() {
-        if host.ends_with(".blob.core.windows.net") {
-            if let Some(account) = host.strip_suffix(".blob.core.windows.net") {
-                let account_name = account.to_string();
-                let sas_token = url.query().and_then(normalize_azure_sas_token);
+    if let Some(host) = url.host_str()
+        && host.ends_with(".blob.core.windows.net")
+        && let Some(account) = host.strip_suffix(".blob.core.windows.net")
+    {
+        let account_name = account.to_string();
+        let sas_token = url.query().and_then(normalize_azure_sas_token);
 
-                if let Some(path_without_slash) = url.path().strip_prefix('/') {
-                    if let Ok(az_url) = Url::parse(&format!("az://{}", path_without_slash)) {
-                        return Some((az_url, account_name, sas_token));
-                    }
-                }
-            }
+        if let Some(path_without_slash) = url.path().strip_prefix('/')
+            && let Ok(az_url) = Url::parse(&format!("az://{}", path_without_slash))
+        {
+            return Some((az_url, account_name, sas_token));
         }
     }
     None

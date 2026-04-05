@@ -12,6 +12,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
+import { cn } from '@/shared/utils/cn';
 import { isTauri } from '@/shared/utils/tauri';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useEffect } from 'react';
@@ -26,7 +27,10 @@ const statusDotClass =
   'h-1.5 w-1.5 rounded-full bg-accent-2 shadow-[0_0_12px_var(--accent-2-glow)]';
 const titlebarButtonClass =
   'inline-flex h-7 w-[30px] items-center justify-center rounded-lg border border-border bg-panel-muted text-text transition duration-200 ease-out hover:border-transparent hover:bg-panel-strong active:translate-y-px motion-reduce:transition-none';
-const titlebarCloseButtonClass = `${titlebarButtonClass} hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink hover:shadow-[0_8px_18px_var(--accent-glow)]`;
+const titlebarCloseButtonClass = cn(
+  titlebarButtonClass,
+  'hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink hover:shadow-[0_8px_18px_var(--accent-glow)]'
+);
 
 /**
  * Props for AppHeader component.
@@ -65,6 +69,25 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onFileSelect, onRemoteFileSelect]);
 
+  const handleOpenSettings = async () => {
+    try {
+      await openSettingsWindow();
+    } catch (error) {
+      console.error('Failed to open settings window:', error);
+      toast.error('Failed to open settings window');
+    }
+  };
+
+  const handleMinimize = async () => {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.minimize();
+    } catch (error) {
+      console.error('Failed to minimize window:', error);
+      toast.error('Failed to minimize window');
+    }
+  };
+
   /**
    * Toggles the window between maximized and normal state.
    */
@@ -81,6 +104,16 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
     } catch (error) {
       console.error('Failed to toggle window maximize state:', error);
       toast.error('Failed to toggle window size');
+    }
+  };
+
+  const handleClose = async () => {
+    try {
+      const appWindow = getCurrentWindow();
+      await appWindow.close();
+    } catch (error) {
+      console.error('Failed to close window:', error);
+      toast.error('Failed to close window');
     }
   };
 
@@ -155,14 +188,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
               <button
                 data-tauri-drag-region="false"
                 className={ghostButtonClass}
-                onClick={async () => {
-                  try {
-                    await openSettingsWindow();
-                  } catch (error) {
-                    console.error('Failed to open settings window:', error);
-                    toast.error('Failed to open settings window');
-                  }
-                }}
+                onClick={handleOpenSettings}
               >
                 Settings
               </button>
@@ -175,7 +201,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
             <>
               {/* Full status bar for large screens */}
               <div
-                className={`${statusPillBase} hidden gap-4 lg:inline-flex`}
+                className={cn(statusPillBase, 'hidden gap-4 lg:inline-flex')}
                 data-tauri-drag-region
               >
                 <div className="flex items-center gap-2" data-tauri-drag-region>
@@ -191,7 +217,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
               </div>
 
               {/* Abbreviated status for mobile */}
-              <div className={`${statusPillBase} gap-2 lg:hidden`} data-tauri-drag-region>
+              <div className={cn(statusPillBase, 'gap-2 lg:hidden')} data-tauri-drag-region>
                 <span className={statusDotClass} data-tauri-drag-region></span>
                 <div data-tauri-drag-region>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
                 <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
@@ -204,15 +230,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
             <div className="inline-flex items-center gap-1.5 ml-1.5" data-tauri-drag-region="false">
               <button
                 type="button"
-                onClick={async () => {
-                  try {
-                    const appWindow = getCurrentWindow();
-                    await appWindow.minimize();
-                  } catch (error) {
-                    console.error('Failed to minimize window:', error);
-                    toast.error('Failed to minimize window');
-                  }
-                }}
+                onClick={handleMinimize}
                 className={titlebarButtonClass}
                 data-tauri-drag-region="false"
                 aria-label="Minimize window"
@@ -231,9 +249,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  await toggleMaximize();
-                }}
+                onClick={toggleMaximize}
                 className={titlebarButtonClass}
                 data-tauri-drag-region="false"
                 aria-label="Toggle maximize window"
@@ -252,15 +268,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  try {
-                    const appWindow = getCurrentWindow();
-                    await appWindow.close();
-                  } catch (error) {
-                    console.error('Failed to close window:', error);
-                    toast.error('Failed to close window');
-                  }
-                }}
+                onClick={handleClose}
                 className={titlebarCloseButtonClass}
                 data-tauri-drag-region="false"
                 aria-label="Close window"

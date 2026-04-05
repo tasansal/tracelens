@@ -1,6 +1,7 @@
 /**
  * TypeScript structures that mirror Rust SEG-Y data returned from the backend.
  */
+import type { SegyRevision } from '@/shared/api/tauri/segy';
 
 /**
  * Textual header is exposed as an array of 40 lines.
@@ -25,6 +26,8 @@ export interface SegyData {
   file_size: number;
   text_encoding: TextEncoding;
   byte_order: ByteOrder;
+  /** Detected SEG-Y revision for header field display */
+  detected_revision: SegyRevision;
 }
 
 /**

@@ -1,25 +1,30 @@
 /**
- * Header panel for switching between textual, binary, and trace headers.
+ * Header panel for switching between textual, binary, trace, and schema headers.
  */
 import type { SegyData, TraceHeader } from '@/features/segy/types/segy';
+import type { SegyRevision } from '@/shared/api/tauri/segy';
 import { LoadingSpinner } from '@/shared/ui/loading-spinner';
 import { SectionTitle } from '@/shared/ui/section-title';
 import { Tabs, TabsList, TabsTrigger } from '@/shared/ui/tabs';
+import { cn } from '@/shared/utils/cn';
 import type { HeaderView } from '../hooks/useTraceHeader';
 import { BinaryHeaderTable } from './BinaryHeaderTable';
+import { SchemaTabContent } from './SchemaTabContent';
 import { TraceHeaderTable } from './TraceHeaderTable';
 
 /**
  * Props for SegyHeaderPanel component.
  */
 interface SegyHeaderPanelProps {
+  /** Path to the loaded SEG-Y file */
+  filePath: string;
   /** Parsed SEG-Y file data including headers */
   segyData: SegyData;
   /** Currently selected header view tab */
   headerView: HeaderView;
   /** Callback fired when header view changes */
   onHeaderViewChange: (view: HeaderView) => void;
-  /** Current trace index for the slider */
+  /** Current trace index for the slider (1-based) */
   sliderValue: number;
   /** Callback fired when trace slider value changes */
   onSliderChange: (value: number) => void;
@@ -27,12 +32,18 @@ interface SegyHeaderPanelProps {
   currentTrace: TraceHeader | null;
   /** Whether a trace header is currently being loaded */
   loadingTrace: boolean;
+  /** Current active revision */
+  currentRevision: SegyRevision | null;
+  /** Callback to change the active revision */
+  setActiveRevision: (revision: SegyRevision) => void;
+  /** Key to trigger table re-fetch on revision change */
+  revisionKey: number;
 }
 
 /**
  * Available header tabs displayed in the panel.
  */
-const headerViews: HeaderView[] = ['textual', 'binary', 'trace'];
+const headerViews: HeaderView[] = ['textual', 'binary', 'trace', 'schema'];
 
 /**
  * Renders the selected header view with trace slider support.
@@ -42,6 +53,7 @@ const headerViews: HeaderView[] = ['textual', 'binary', 'trace'];
  * @returns Header panel component with tabs and content
  */
 export const SegyHeaderPanel = ({
+  filePath,
   segyData,
   headerView,
   onHeaderViewChange,
@@ -49,6 +61,9 @@ export const SegyHeaderPanel = ({
   onSliderChange,
   currentTrace,
   loadingTrace,
+  currentRevision,
+  setActiveRevision,
+  revisionKey,
 }: SegyHeaderPanelProps) => {
   return (
     <div className="flex h-full flex-col bg-panel">
@@ -118,14 +133,28 @@ export const SegyHeaderPanel = ({
           </div>
         )}
 
-        {headerView === 'binary' && <BinaryHeaderTable header={segyData.binary_header} />}
+        {headerView === 'binary' && (
+          <BinaryHeaderTable filePath={filePath} revisionKey={revisionKey} />
+        )}
+
+        {headerView === 'schema' && (
+          <SchemaTabContent
+            detectedRevision={segyData.detected_revision as SegyRevision}
+            currentRevision={currentRevision}
+            onRevisionChange={setActiveRevision}
+          />
+        )}
 
         {headerView === 'trace' &&
           (currentTrace ? (
             <div
-              className={`h-full ${loadingTrace ? 'opacity-60' : ''} transition-opacity duration-150`}
+              className={cn('h-full transition-opacity duration-150', loadingTrace && 'opacity-60')}
             >
-              <TraceHeaderTable header={currentTrace} traceId={sliderValue} />
+              <TraceHeaderTable
+                filePath={filePath}
+                traceIndex={sliderValue - 1}
+                revisionKey={revisionKey}
+              />
             </div>
           ) : (
             <div className="flex flex-1 items-center justify-center text-text-muted">
