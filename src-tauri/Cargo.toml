@@ -1,12 +1,12 @@
 [package]
 name = "tracelens"
 version = "0.1.0"
-description = "SEG-Y Viewer - A modern desktop app for viewing and analyzing SEG-Y seismic data files"
+description = "TraceLens - A modern desktop app for viewing and analyzing SEG-Y seismic data files"
 authors = ["Altay Sansal"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/tasansal/tracelens"
-edition = "2021"
-rust-version = "1.77.2"
+edition = "2024"
+rust-version = "1.94.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,23 +15,32 @@ name = "app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.5.3", features = [] }
+tauri-build = { version = "2.6.1", features = [] }
 
 [dependencies]
-serde_json = "1.0"
-serde = { version = "1.0", features = ["derive"] }
-log = "0.4"
-tauri = { version = "2.9.5", features = [] }
-tauri-plugin-log = "2.0.0"
-tauri-plugin-dialog = "2.0.0"
-tauri-plugin-updater = "2.0.0"
-tauri-plugin-process = "2.0.0"
-thiserror = "2.0"
-tokio = { version = "1.42", features = ["rt", "macros", "sync"] }
-byteorder = "1.5"
-memmap2 = "0.9"
-image = "0.25"
-tiny-skia = "0.11"
-rayon = "1.10"
-colorgrad = { version = "0.8.0", features = ["preset"] }
-png = "0.18.0"
+serde_json = "1.0.149"
+serde = { version = "1.0.228", features = ["derive"] }
+log = "0.4.29"
+tauri = { version = "2.11.1", features = [] }
+tauri-plugin-log = "2.8.0"
+tauri-plugin-dialog = "2.7.1"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-process = "2.3.1"
+thiserror = "2.0.18"
+tokio = { version = "1.52.3", features = ["rt", "macros", "sync"] }
+byteorder = "1.5.0"
+memmap2 = "0.9.10"
+object_store = { version = "0.13.2", features = ["aws", "gcp", "azure", "http"] }
+url = "2.5.8"
+bytes = "1.11.1"
+dirs = "6.0.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tokio = { version = "1.52.3", features = ["rt", "macros", "sync", "test-util"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

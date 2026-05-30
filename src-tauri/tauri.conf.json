@@ -9,16 +9,28 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
+  "bundle": {
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "TraceLens",
         "width": 1440,
         "height": 900,
         "minWidth": 800,
         "minHeight": 600,
+        "decorations": false,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "zoomHotkeysEnabled": false
       }
     ],
     "security": {
@@ -28,9 +40,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": [
-        "https://releases.myapp.com/{{target}}/{{arch}}/{{current_version}}"
-      ],
+      "endpoints": ["https://releases.myapp.com/{{target}}/{{arch}}/{{current_version}}"],
       "dialog": true,
       "pubkey": "YOUR_UPDATER_PUBLIC_KEY_HERE"
     }

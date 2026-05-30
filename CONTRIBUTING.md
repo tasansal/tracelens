@@ -1,6 +1,6 @@
-# Contributing to SEG-Y Viewer
+# Contributing to TraceLens
 
-Thank you for your interest in contributing to SEG-Y Viewer! This guide will help you get started with development and submission of contributions.
+Thank you for your interest in contributing to TraceLens! This guide will help you get started with development and submission of contributions.
 
 ## Table of Contents
 
@@ -15,10 +15,10 @@ Thank you for your interest in contributing to SEG-Y Viewer! This guide will hel
 
 ## Getting Started
 
-SEG-Y Viewer is a modern desktop application built with:
+TraceLens is a modern desktop application built with:
 
 - **Backend**: Rust (async with Tokio)
-- **Frontend**: React 18+ with TypeScript and Vite
+- **Frontend**: React 19 with TypeScript and Vite
 - **Framework**: Tauri 2.x
 
 Before contributing, familiarize yourself with:
@@ -64,17 +64,46 @@ Before contributing, familiarize yourself with:
 
 ```
 tracelens/
-├── src/                    # React frontend source
-│   ├── components/         # UI components
-│   │   ├── ui/            # Basic/reusable components
-│   │   └── features/      # Domain-specific components
-│   ├── hooks/             # Custom React hooks
-│   └── stores/            # Zustand state stores
-└── src-tauri/             # Rust backend
+├── src/                              # React frontend
+│   ├── app/                          # App-level components/layout
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── App.tsx                   # Root component
+│   ├── features/                     # Feature slices
+│   │   ├── segy/                     # SEG-Y metadata UI
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   └── types/
+│   │   └── trace-visualization/      # Trace rendering UI
+│   │       ├── components/
+│   │       ├── hooks/
+│   │       ├── store/
+│   │       └── types/
+│   ├── shared/                       # Reusable UI + utilities
+│   │   ├── api/                      # External/service adapters
+│   │   │   └── tauri/                # IPC bridge
+│   │   ├── store/                    # App-level Zustand store
+│   │   ├── ui/                       # shadcn UI components
+│   │   └── utils/
+│   ├── index.css                     # Global styles
+│   └── main.tsx                      # App entry point
+└── src-tauri/                        # Rust backend (Tauri v2)
+    ├── capabilities/                 # Tauri capability definitions
+    ├── config/                       # Configuration files
+    │   └── segy_rev0_spec.json       # SEG-Y Rev 0 specification
+    ├── icons/                        # App icons
     ├── src/
-    │   ├── lib.rs         # Library exports
-    │   └── main.rs        # Application entry
-    └── Cargo.toml         # Rust dependencies
+    │   ├── commands.rs               # Tauri commands
+    │   ├── error.rs                  # AppError definitions
+    │   ├── lib.rs                    # Library exports
+    │   ├── main.rs                   # Tauri entry point
+    │   └── segy/                     # SEG-Y parser + rendering
+    │       ├── parser/               # Format parsing modules
+
+    │       └── rendering/            # PNG renderers, colormaps
+    ├── build.rs                      # Tauri build script
+    ├── tauri.conf.json               # Tauri configuration
+    └── Cargo.toml                    # Rust dependencies
 ```
 
 ## Development Workflow
@@ -129,10 +158,31 @@ npm run tauri build
 - **Strict mode**: Enable TypeScript strict mode; avoid `any`
 - **Components**: Functional components with hooks
 - **State Management**: Zustand for global state, React Query for server data
+- **UI Components**: Use shadcn/ui components from `src/shared/ui/` (see below)
 - **Error Handling**: Use discriminated unions matching Rust error types
 - **Naming**: `camelCase` for functions/variables, `PascalCase` for components
 - **IPC**: Use `invoke('command', { camelCaseParams })`
 - **Linting**: Run `npm run lint` before committing
+
+### Working with shadcn/ui
+
+TraceLens uses [shadcn/ui](https://ui.shadcn.com/) for UI components. Components are installed
+locally in `src/shared/ui/` and can be customized.
+
+**Adding new components**:
+
+```bash
+npx shadcn@latest add <component-name>
+```
+
+**Available components**: Check `src/shared/ui/` for already installed components
+(button, dialog, dropdown-menu, table, tabs, etc.)
+
+**Customization**:
+
+- Components use Tailwind CSS and CSS variables defined in `src/index.css`
+- Theme configuration is in `components.json` (New York style, Lucide icons)
+- Import aliases: `@/shared/ui`, `@/shared/utils`
 
 ### Design Principles
 
@@ -229,4 +279,4 @@ If you have questions about contributing, please:
 1. Check existing issues and discussions
 2. Open a new issue with your question
 
-Thank you for contributing to SEG-Y Viewer!
+Thank you for contributing to TraceLens!
