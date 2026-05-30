@@ -3,11 +3,31 @@
 //! This crate wires together the SEG-Y parser, renderer, and Tauri commands.
 //! The `run` function is the single entry point used by the native binary.
 
+use tauri::Manager;
+
+/// IPC command handlers — thin adapters organized by domain.
+pub mod ipc;
+
 mod commands;
 pub mod error;
 
-/// SEG-Y format parsing and rendering modules.
+/// I/O layer: storage backends, caching, URI routing, and binary parsing.
+pub mod io;
+
+/// Header spec layer: field specs, registry, runtime extraction, and validation.
+pub mod spec;
+
+/// SEG-Y format parsing.
 pub mod segy;
+
+/// Storage configuration for cloud backends.
+pub mod storage_config;
+
+/// Application settings for user preferences.
+mod app_settings;
+
+/// Window management commands.
+mod windows;
 
 /// Build and run the Tauri application.
 ///
@@ -25,14 +45,49 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(segy::SegyReaderState::new())
+        .manage(storage_config::StorageConfigState::default())
         .invoke_handler(tauri::generate_handler![
-            commands::load_segy_file,
-            commands::get_binary_header_spec,
-            commands::get_trace_header_spec,
-            commands::load_single_trace,
-            commands::load_trace_range,
-            commands::render_variable_density
+            ipc::file::load_segy_file,
+            ipc::file::load_single_trace,
+            ipc::headers::get_binary_header_spec,
+            ipc::headers::get_trace_header_spec,
+            ipc::headers::get_binary_header_data,
+            ipc::headers::get_trace_header_data,
+            ipc::headers::set_active_revision,
+            ipc::headers::list_scalar_types,
+            ipc::amplitude::scan_amplitude_range,
+            ipc::amplitude::get_sample_value,
+            ipc::data::fetch_trace_samples,
+            ipc::custom_spec::load_custom_spec,
+            ipc::custom_spec::save_custom_spec,
+            ipc::custom_spec::get_custom_spec,
+            ipc::custom_spec::clear_custom_spec,
+            ipc::custom_spec::add_custom_field,
+            ipc::custom_spec::update_custom_field,
+            ipc::custom_spec::delete_custom_field,
+            ipc::custom_spec::get_active_spec,
+            ipc::settings::open_settings_window,
+            ipc::settings::close_settings_window,
+            ipc::settings::get_app_settings,
+            ipc::settings::update_app_settings,
+            ipc::settings::get_storage_config_settings,
+            ipc::settings::update_storage_config_settings,
         ])
+        .setup(|app| {
+            // Set up main window close handler to close all child windows
+            if let Some(main_window) = app.get_webview_window("main") {
+                let app_handle = app.app_handle().clone();
+                main_window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { .. } = event {
+                        // Destroy all other windows when main window closes
+                        if let Some(settings_window) = app_handle.get_webview_window("settings") {
+                            let _ = settings_window.destroy();
+                        }
+                    }
+                });
+            }
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

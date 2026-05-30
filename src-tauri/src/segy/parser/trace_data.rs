@@ -191,17 +191,6 @@ impl TraceData {
         f32::from_bits(ieee_bits)
     }
 
-    /// Convert IBM floating point to IEEE 754 floating point (legacy version)
-    ///
-    /// IBM format: SEEEEEEE MMMMMMMM MMMMMMMM MMMMMMMM
-    /// - S: sign bit (1 bit)
-    /// - E: exponent (7 bits, base 16, excess 64)
-    /// - M: mantissa (24 bits, normalized 0.1xxx... in base 16)
-    #[allow(dead_code)]
-    fn ibm_to_ieee(ibm: u32) -> f32 {
-        Self::ibm_to_ieee_fast(ibm)
-    }
-
     /// Read 32-bit two's complement integer samples (optimized with batch read)
     fn read_int32<R: Read>(reader: &mut R, count: usize) -> io::Result<Vec<i32>> {
         let byte_count = count * 4;
@@ -295,6 +284,38 @@ impl TraceData {
         self.len() == 0
     }
 
+    /// Stream samples as `f32` regardless of the underlying storage format.
+    ///
+    /// Avoids the per-trace `Vec<f32>` allocation a "to_f32_vec" accessor would
+    /// require — callers that just need to push, scan, or copy each value can
+    /// do so in one pass.
+    pub fn for_each_f32(&self, mut f: impl FnMut(f32)) {
+        match self {
+            Self::IbmFloat32(samples) | Self::IeeeFloat32(samples) => {
+                samples.iter().copied().for_each(&mut f);
+            }
+            Self::Int32(samples) => samples.iter().for_each(|&v| f(v as f32)),
+            Self::Int16(samples) => samples.iter().for_each(|&v| f(v as f32)),
+            Self::Int8(samples) => samples.iter().for_each(|&v| f(v as f32)),
+            Self::FixedPointWithGain(samples) => samples
+                .iter()
+                .for_each(|&(gain, value)| f((value as f32) * 2.0_f32.powi(gain as i32))),
+        }
+    }
+
+    /// First sample as `f32`, or `None` for an empty trace.
+    pub fn first_f32(&self) -> Option<f32> {
+        match self {
+            Self::IbmFloat32(s) | Self::IeeeFloat32(s) => s.first().copied(),
+            Self::Int32(s) => s.first().map(|&v| v as f32),
+            Self::Int16(s) => s.first().map(|&v| v as f32),
+            Self::Int8(s) => s.first().map(|&v| v as f32),
+            Self::FixedPointWithGain(s) => s
+                .first()
+                .map(|&(gain, value)| (value as f32) * 2.0_f32.powi(gain as i32)),
+        }
+    }
+
     /// Downsample to a maximum number of samples, keeping relative spacing.
     pub fn downsample(self, max_samples: usize) -> Self {
         if max_samples == 0 {
@@ -334,10 +355,11 @@ fn downsample_vec<T>(samples: Vec<T>, max_samples: usize) -> Vec<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
 
     #[test]
     fn test_ibm_float_zero() {
-        let result = TraceData::ibm_to_ieee(0x00000000);
+        let result = TraceData::ibm_to_ieee_fast(0x00000000);
         assert_eq!(result, 0.0);
     }
 
@@ -345,7 +367,7 @@ mod tests {
     fn test_ibm_float_simple() {
         // Test a known IBM float value
         // For now, just test that the conversion doesn't panic
-        let result = TraceData::ibm_to_ieee(0x41100000);
+        let result = TraceData::ibm_to_ieee_fast(0x41100000);
         // The conversion algorithm produces a value
         assert!(result.is_finite());
     }
@@ -367,5 +389,245 @@ mod tests {
             }
             _ => panic!("Unexpected trace data variant"),
         }
+    }
+
+    #[test]
+    fn test_read_trace_data_ieee_float32() {
+        let values: Vec<f32> = vec![
+            0.0,
+            1.0,
+            -1.0,
+            0.5,
+            100.0,
+            -50.5,
+            std::f32::consts::PI,
+            -2.72,
+            42.0,
+            0.001,
+        ];
+        let mut buf = Vec::new();
+        for &v in &values {
+            buf.extend_from_slice(&v.to_be_bytes());
+        }
+
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::IeeeFloat32, 10)
+                .unwrap();
+
+        match result {
+            TraceData::IeeeFloat32(samples) => {
+                assert_eq!(samples.len(), 10);
+                for (actual, expected) in samples.iter().zip(values.iter()) {
+                    assert!(
+                        (actual - expected).abs() < 0.001,
+                        "expected {}, got {}",
+                        expected,
+                        actual
+                    );
+                }
+            }
+            _ => panic!("Expected IeeeFloat32 variant"),
+        }
+    }
+
+    #[test]
+    fn test_read_trace_data_ibm_float32() {
+        // Write known IBM float32 bytes and verify roundtrip conversion.
+        // IBM float values (from existing ibm_to_ieee_fast tests):
+        // 0x41100000 → 2.0, 0xC1100000 → -2.0, 0x42040000 → 8.0, 0x41A00000 → 20.0
+        let ibm_values: Vec<u32> = vec![
+            0x00000000, // 0.0
+            0x41100000, // 2.0
+            0xC1100000, // -2.0
+            0x42040000, // 8.0
+            0x41A00000, // 20.0
+            0x00000000, // 0.0
+            0x41100000, // 2.0
+            0xC1100000, // -2.0
+            0x00000000, // 0.0
+            0x41100000, // 2.0
+        ];
+
+        let mut buf = Vec::new();
+        for &v in &ibm_values {
+            buf.extend_from_slice(&v.to_be_bytes());
+        }
+
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::IbmFloat32, 10)
+                .unwrap();
+
+        match result {
+            TraceData::IbmFloat32(samples) => {
+                assert_eq!(samples.len(), 10);
+                // Verify known values from the conversion algorithm
+                assert_eq!(samples[0], 0.0);
+                assert!((samples[1] - 2.0).abs() < 0.01);
+                assert!((samples[2] - (-2.0)).abs() < 0.01);
+                assert!((samples[3] - 8.0).abs() < 0.01);
+                assert!((samples[4] - 20.0).abs() < 0.01);
+            }
+            _ => panic!("Expected IbmFloat32 variant"),
+        }
+    }
+
+    #[test]
+    fn test_read_trace_data_int32() {
+        let values: Vec<i32> = vec![0, 1, -1, 100, -50, 32767, -32768, 2147483647, -1000, 42];
+        let mut buf = Vec::new();
+        for &v in &values {
+            buf.extend_from_slice(&v.to_be_bytes());
+        }
+
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::Int32, 10).unwrap();
+
+        match result {
+            TraceData::Int32(samples) => {
+                assert_eq!(samples, values);
+            }
+            _ => panic!("Expected Int32 variant"),
+        }
+    }
+
+    #[test]
+    fn test_read_trace_data_int16() {
+        let values: Vec<i16> = vec![0, 1, -1, 100, -50, 32767, -32768, 255, -1000, 42];
+        let mut buf = Vec::new();
+        for &v in &values {
+            buf.extend_from_slice(&v.to_be_bytes());
+        }
+
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::Int16, 10).unwrap();
+
+        match result {
+            TraceData::Int16(samples) => {
+                assert_eq!(samples, values);
+            }
+            _ => panic!("Expected Int16 variant"),
+        }
+    }
+
+    #[test]
+    fn test_read_trace_data_int8() {
+        let values: Vec<i8> = vec![0, 1, -1, 100, -50, 127, -128, 64, -100, 42];
+        let buf: Vec<u8> = values.iter().map(|&v| v as u8).collect();
+
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::Int8, 10).unwrap();
+
+        match result {
+            TraceData::Int8(samples) => {
+                assert_eq!(samples, values);
+            }
+            _ => panic!("Expected Int8 variant"),
+        }
+    }
+
+    #[test]
+    fn test_read_trace_data_invalid_format() {
+        // Format code 99 is not valid — but DataSampleFormat::from_code returns Err
+        // which gets converted to io::Error before from_reader is called.
+        // We test this by using the enum directly with an impossible scenario.
+        // Since the enum only has valid variants, we test via the error path
+        // by providing too few bytes for a valid format (which is the closest
+        // we can get to testing "invalid format" at this level).
+        let buf = vec![0u8; 4];
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::IeeeFloat32, 100);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_trace_data_zero_samples() {
+        let buf: Vec<u8> = vec![];
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::IeeeFloat32, 0)
+                .unwrap();
+
+        match result {
+            TraceData::IeeeFloat32(samples) => {
+                assert!(samples.is_empty());
+            }
+            _ => panic!("Expected IeeeFloat32 variant"),
+        }
+    }
+
+    #[test]
+    fn test_read_trace_data_truncated() {
+        // Provide only 4 bytes but request 10 f32 samples (need 40 bytes)
+        let buf = vec![0u8; 4];
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::IeeeFloat32, 10);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_trace_data_empty_buffer() {
+        let buf: Vec<u8> = vec![];
+        let result =
+            TraceData::from_reader(&mut Cursor::new(buf), DataSampleFormat::IeeeFloat32, 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_trace_data_fixed_point_with_gain() {
+        // Format: 1 byte zero + 1 byte gain + 2 bytes value = 4 bytes per sample
+        let mut buf = Vec::new();
+        // Sample 1: gain=0, value=100
+        buf.push(0x00);
+        buf.push(0x00);
+        buf.extend_from_slice(&100i16.to_be_bytes());
+        // Sample 2: gain=1, value=-50
+        buf.push(0x00);
+        buf.push(0x01);
+        buf.extend_from_slice(&(-50i16).to_be_bytes());
+
+        let result = TraceData::from_reader(
+            &mut Cursor::new(buf),
+            DataSampleFormat::FixedPointWithGain,
+            2,
+        )
+        .unwrap();
+
+        match result {
+            TraceData::FixedPointWithGain(samples) => {
+                assert_eq!(samples.len(), 2);
+                assert_eq!(samples[0], (0, 100));
+                assert_eq!(samples[1], (1, -50));
+            }
+            _ => panic!("Expected FixedPointWithGain variant"),
+        }
+    }
+
+    #[test]
+    fn test_trace_data_is_empty() {
+        let data = TraceData::IeeeFloat32(vec![]);
+        assert!(data.is_empty());
+
+        let data = TraceData::Int8(vec![1]);
+        assert!(!data.is_empty());
+    }
+
+    #[test]
+    fn test_sample_format_conversion() {
+        let sample_format: SampleFormat = DataSampleFormat::IbmFloat32.into();
+        assert_eq!(sample_format, SampleFormat::IbmFloat32);
+
+        let sample_format: SampleFormat = DataSampleFormat::IeeeFloat32.into();
+        assert_eq!(sample_format, SampleFormat::IeeeFloat32);
+
+        let sample_format: SampleFormat = DataSampleFormat::Int32.into();
+        assert_eq!(sample_format, SampleFormat::Int32);
+
+        let sample_format: SampleFormat = DataSampleFormat::Int16.into();
+        assert_eq!(sample_format, SampleFormat::Int16);
+
+        let sample_format: SampleFormat = DataSampleFormat::FixedPointWithGain.into();
+        assert_eq!(sample_format, SampleFormat::FixedPointWithGain);
+
+        let sample_format: SampleFormat = DataSampleFormat::Int8.into();
+        assert_eq!(sample_format, SampleFormat::Int8);
     }
 }
