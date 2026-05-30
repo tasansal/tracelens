@@ -1,52 +1,154 @@
 /* Global styles, theme tokens, and component primitives for TraceLens. */
 @import 'tailwindcss';
+@import 'tw-animate-css';
 
-@plugin 'tailwind-scrollbar';
+@theme {
+  --font-display: 'Syne', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel-strong: var(--panel-strong);
+  --color-panel-muted: var(--panel-muted);
+  --color-panel-tint: var(--panel-tint);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-dim: var(--text-dim);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-accent-ink: var(--accent-ink);
+  /* Shadcn compatibility tokens mapped to TraceLens palette. */
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-card: var(--panel);
+  --color-card-foreground: var(--text);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--text);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --color-secondary: var(--panel-muted);
+  --color-secondary-foreground: var(--text);
+  --color-muted: var(--panel-muted);
+  --color-muted-foreground: var(--text-dim);
+  --color-accent-foreground: var(--accent-ink);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
 
 /* Design tokens shared by both themes. */
 :root {
-  --font-display: 'Syne', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   --radius-xl: 22px;
   --radius-lg: 16px;
-  --radius-md: 12px;
   --radius-sm: 10px;
   --grid-size: 28px;
-  --transition-fast: 180ms ease;
-  --transition-med: 320ms ease;
+
+  /* Subtle atmosphere intensity controls for the settings shell (Task 3.5).
+     These enable a restrained grid + glow treatment that echoes the main window's
+     .app-shell / .canvas-shell atmospherics (radial glows via --accent-*-glow,
+     grid via --grid / --grid-size) without film grain and at far lower opacity.
+     This reduces the "two apps" divergence identified in the Task 3.1 audit
+     while respecting that settings is a calm form/preferences context (not a
+     dense visualization workbench). Values are intentionally conservative. */
+  --settings-grid-opacity: 0.11;
+  --settings-glow-opacity: 0.18;
+
+  /* === UI Density tokens (base values for Compact) ===
+     These are overridden by the .density-* classes below.
+     Used by custom utilities (.text-eyebrow, .text-headline) and gradually
+     by components for consistent scaling of text + spacing across the app.
+     --text-2xs for very micro chrome (ticks, badges, units) in dense viz surfaces.
+  */
+  --text-eyebrow: 10px;
+  --text-headline: 19px;
+  --text-2xs: 9px;
+  --text-xs: 10px;
+  --text-sm: 12px;
+  --text-base: 13px;
+
+  /* Spacing scale (used for targeted component + surface updates) */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 8px;
+  --space-4: 12px;
+}
+
+/* UI Density presets — applied as classes on <html> (like theme-*).
+   These scale text and spacing for power users. Compact = current dense
+   optimized state. Standard and Spacious give more breathing room.
+*/
+.density-compact {
+  /* inherits the compact defaults from :root above */
+}
+
+.density-standard {
+  --text-eyebrow: 11px;
+  --text-headline: 20px;
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 14px;
+
+  --space-1: 3px;
+  --space-2: 5px;
+  --space-3: 9px;
+  --space-4: 14px;
+}
+
+.density-spacious {
+  --text-eyebrow: 12px;
+  --text-headline: 21px;
+  --text-2xs: 11px;
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 15px;
+
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 10px;
+  --space-4: 16px;
 }
 
 /* Light theme palette. */
 .theme-light {
-  --bg: #f6f2ea;
-  --bg-alt: #efe7db;
-  --panel: #fbf6ee;
-  --panel-strong: #fffdf7;
-  --panel-muted: #f2e8da;
-  --text: #1e1b16;
-  --text-muted: #6a6053;
-  --text-dim: #9a8f80;
-  --border: rgba(60, 52, 42, 0.16);
-  --accent: #d55a2c;
-  --accent-2: #268c83;
-  --accent-3: #f1b84b;
+  /* Cool Professional + Violet (primary) + Teal (secondary) */
+  --overlay-dim: rgba(15, 23, 42, 0.45);
+  --bg: #f8f9fb;
+  --bg-alt: #f1f5f9;
+  --panel: #ffffff;
+  --panel-strong: #ffffff;
+  --panel-muted: #f1f5f9;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+  --border: #e2e8f0;
+  --input: var(--border);
+  --accent: #7c3aed;
+  --accent-2: #0f766e;
+  --accent-3: #6366f1;
   --accent-ink: #ffffff;
-  --accent-glow: rgba(213, 90, 44, 0.25);
-  --accent-2-glow: rgba(38, 140, 131, 0.18);
-  --panel-tint: rgba(251, 246, 238, 0.94);
-  --accent-focus: rgba(213, 90, 44, 0.35);
-  --range-track: rgba(60, 52, 42, 0.2);
-  --accent-ring: rgba(213, 90, 44, 0.22);
-  --scroll-thumb: rgba(38, 140, 131, 0.45);
-  --row-hover: rgba(38, 140, 131, 0.08);
-  --accent-2-muted: rgba(38, 140, 131, 0.35);
-  --canvas-bg: #f5efe5;
-  --shadow: 0 18px 40px rgba(50, 40, 25, 0.15), 0 8px 20px rgba(50, 40, 25, 0.08);
-  --grid: rgba(60, 52, 42, 0.08);
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --accent-glow: rgba(124, 58, 237, 0.18);
+  --accent-2-glow: rgba(15, 118, 110, 0.14);
+  --panel-tint: rgba(255, 255, 255, 0.96);
+  --card-inset-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.03);
+  --accent-focus: rgba(124, 58, 237, 0.28);
+  --range-track: rgba(15, 23, 42, 0.12);
+  --accent-ring: rgba(124, 58, 237, 0.22);
+  --ring: var(--accent-ring);
+  --scroll-thumb: rgba(15, 118, 110, 0.42);
+  --row-hover: rgba(15, 118, 110, 0.07);
+  --accent-2-muted: rgba(15, 118, 110, 0.32);
+  --canvas-bg: #f1f5f9;
+  --shadow: 0 20px 45px -12px rgb(15 23 42 / 0.12), 0 8px 18px -6px rgb(15 23 42 / 0.08);
+  --grid: rgba(15, 23, 42, 0.06);
 }
 
 /* Dark theme palette. */
 .theme-dark {
+  --overlay-dim: rgba(8, 10, 14, 0.68);
   --bg: #0b0d10;
   --bg-alt: #12141a;
   --panel: #141821;
@@ -56,16 +158,21 @@
   --text-muted: #a4a8b2;
   --text-dim: #6f7785;
   --border: rgba(243, 240, 232, 0.1);
+  --input: var(--border);
   --accent: #f0793e;
   --accent-2: #40c9b2;
   --accent-3: #f6c25d;
   --accent-ink: #1a0f08;
+  --destructive: #f87171;
+  --destructive-foreground: #ffffff;
   --accent-glow: rgba(240, 121, 62, 0.35);
   --accent-2-glow: rgba(64, 201, 178, 0.25);
   --panel-tint: rgba(20, 24, 33, 0.92);
+  --card-inset-shadow: inset 0 1px 0 rgba(243, 240, 232, 0.04);
   --accent-focus: rgba(240, 121, 62, 0.45);
   --range-track: rgba(243, 240, 232, 0.15);
   --accent-ring: rgba(240, 121, 62, 0.25);
+  --ring: var(--accent-ring);
   --scroll-thumb: rgba(64, 201, 178, 0.45);
   --row-hover: rgba(64, 201, 178, 0.12);
   --accent-2-muted: rgba(64, 201, 178, 0.45);
@@ -74,28 +181,35 @@
   --grid: rgba(243, 240, 232, 0.05);
 }
 
+/* Remap Tailwind color tokens for scoped theme containers */
+#theme-preview-container.theme-light,
+#theme-preview-container.theme-dark {
+  --color-accent: var(--accent);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-dim: var(--text-dim);
+  --color-panel: var(--panel);
+  --color-panel-strong: var(--panel-strong);
+  --color-panel-muted: var(--panel-muted);
+  --color-border: var(--border);
+}
+
 /* Base typography + page background. */
+@layer base {
+  body {
+    @apply bg-bg text-text font-display min-h-screen;
+    /* Base text size respects UI density tokens (with compact fallback). */
+    font-size: var(--text-base, 13px);
+  }
+}
+
+/* Disable rubber-banding / overscroll on the root document. */
+html,
 body {
-  font-family: var(--font-display);
-  background-color: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
+  overscroll-behavior: none;
 }
 
-.font-mono {
-  font-family: var(--font-mono);
-}
-
-/* App shell + background atmospherics. */
-.app-shell {
-  position: relative;
-  min-height: 100vh;
-  color: var(--text);
-  background: var(--bg);
-  overflow: hidden;
-  isolation: isolate;
-}
-
+/* App shell background atmospherics. */
 .app-shell::before {
   content: '';
   position: absolute;
@@ -127,230 +241,13 @@ body {
   z-index: 1;
 }
 
-/* Layout primitives. */
-.app-main {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  padding: 12px 16px 16px;
-}
-
-/* Panel surfaces. */
-.panel-frame {
-  width: 100%;
-  height: 100%;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--panel-tint);
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.panel-surface {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
-.shadow-panel {
-  box-shadow: var(--shadow);
-}
-
-.panel-header {
-  background: var(--panel-strong);
-  border-bottom: 1px solid var(--border);
-}
-
-/* Section titles + brand styling. */
-.panel-title {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
-  font-weight: 700;
-  color: var(--text-muted);
-}
-
-.section-title {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.2em;
-  font-weight: 800;
-  color: var(--text);
-}
-
-.brand-mark {
-  font-weight: 800;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-}
-
-.brand-subtitle {
-  font-size: 10px;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-.text-muted {
-  color: var(--text-muted);
-}
-
-.text-dim {
-  color: var(--text-dim);
-}
-
-.text-strong {
-  color: var(--text);
-}
-
-/* Status pill used in the header. */
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel-muted);
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--accent-2);
-  box-shadow: 0 0 12px var(--accent-2-glow);
-}
-
-/* Buttons + interactive controls. */
-.btn-primary {
-  border-radius: 999px;
-  padding: 10px 16px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--accent-ink);
-  background: linear-gradient(130deg, var(--accent) 0%, var(--accent-3) 100%);
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  box-shadow: 0 8px 18px var(--accent-glow);
-  transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px var(--accent-glow);
-}
-
-.btn-primary:active {
-  transform: translateY(0);
-}
-
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.btn-ghost {
-  border-radius: 999px;
-  padding: 6px 12px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  transition:
-    border-color var(--transition-fast),
-    color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.btn-ghost:hover {
-  background: var(--panel-muted);
-  border-color: transparent;
-  color: var(--text);
-}
-
-/* Tab-style toggles. */
-.tab-strip {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel-muted);
-}
-
-.tab-btn {
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.tab-btn.is-active {
-  color: var(--accent-ink);
-  background: linear-gradient(130deg, var(--accent), var(--accent-3));
-  box-shadow: 0 6px 16px var(--accent-glow);
-}
-
-/* Inputs, selects, and steppers. */
-.input-surface,
-.select-surface {
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--panel-muted);
-  color: var(--text);
-  padding: 6px 10px;
-  font-size: 12px;
-  transition:
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.input-surface:focus,
-.select-surface:focus {
-  outline: none;
-  border-color: transparent;
-  box-shadow: 0 0 0 2px var(--accent-focus);
-}
-
-.stepper-btn {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--panel-strong);
-  color: var(--text);
-  transition:
-    transform var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.stepper-btn:hover {
-  transform: translateY(-1px);
-  border-color: transparent;
-  color: var(--accent-ink);
-  background: linear-gradient(130deg, var(--accent), var(--accent-3));
-}
-
 /* Range slider styling (cross-browser). */
 .range-slider {
-  width: 100%;
-  accent-color: var(--accent);
-  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  cursor: pointer;
+  background: transparent;
 }
 
 .range-slider::-webkit-slider-runnable-track {
@@ -385,10 +282,54 @@ body {
   box-shadow: 0 0 0 4px var(--accent-ring);
 }
 
-/* Scrollbars and data tables. */
+/* Scrollbars. */
 .scroll-area {
   scrollbar-color: var(--accent-2) transparent;
   scrollbar-width: thin;
+}
+
+/* Compact numeric jump inputs (e.g. trace number in header panel).
+   Hides the native up/down spinner so it never overlaps digits in tight spaces.
+   Users can still type directly, use the adjacent range slider, keyboard arrows,
+   or (if we add it) wheel. */
+input.no-spinner[type='number'] {
+  -moz-appearance: textfield;
+}
+
+input.no-spinner[type='number']::-webkit-outer-spin-button,
+input.no-spinner[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Custom styling for native color inputs used in the trace control panel.
+   Removes the ugly browser chrome (especially the inner rounded circle swatch)
+   so they render as clean, flat color chips that match the app's border radius,
+   borders, and dark/light theme. */
+input[type='color'] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden; /* clips the inner swatch to our border-radius */
+}
+
+input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border: none;
+}
+
+input[type='color']::-webkit-color-swatch {
+  border: none;
+  border-radius: inherit; /* respects the rounded-[var(--radius-sm)] from the input */
+}
+
+/* Firefox equivalent */
+input[type='color']::-moz-color-swatch {
+  border: none;
+  border-radius: inherit;
 }
 
 .scroll-area::-webkit-scrollbar {
@@ -405,64 +346,7 @@ body {
   background: transparent;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.data-table thead th {
-  position: sticky;
-  top: 0;
-  text-align: left;
-  padding: 10px 12px;
-  background: var(--panel-strong);
-  color: var(--text-muted);
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-}
-
-.data-table tbody td {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.data-table tbody tr:hover {
-  background: var(--row-hover);
-}
-
-.data-table .cell-field {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.data-table .cell-bytes {
-  font-family: var(--font-mono);
-  color: var(--text-dim);
-}
-
-.data-table .cell-type {
-  font-family: var(--font-mono);
-  color: var(--accent-2);
-}
-
-.data-table .cell-value {
-  font-family: var(--font-mono);
-  color: var(--text);
-  text-align: right;
-}
-
 /* Canvas presentation layer. */
-.canvas-shell {
-  position: relative;
-  background: var(--canvas-bg);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  overflow: hidden;
-}
-
 .canvas-shell::before {
   content: '';
   position: absolute;
@@ -484,80 +368,47 @@ body {
   pointer-events: none;
 }
 
-.canvas-layer {
+/* Subtle settings shell atmosphere (Task 3.5).
+   Very restrained grid + soft glow layer using shared design tokens.
+   - No film grain (would overwhelm form text, inputs, and cards).
+   - Grid and glow opacities driven by --settings-* vars (much lower than
+     .app-shell 0.55 / .canvas-shell 0.5).
+   - Automatically theme-aware via --grid, --accent-glow, --accent-2-glow.
+   - Applied only to .settings-shell (opt-in via its root class in SettingsApp).
+   - The existing `relative isolate` + children z-indexing keeps content
+     (titlebar, sidebar, unified cards from 3.3, footer) cleanly above the
+     atmospheric backdrop. */
+.settings-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(820px 400px at 6% -5%, var(--accent-glow), transparent 66%),
+    radial-gradient(650px 340px at 94% 4%, var(--accent-2-glow), transparent 66%);
+  opacity: var(--settings-glow-opacity);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.settings-shell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(transparent 95.5%, var(--grid) 96.5%),
+    linear-gradient(90deg, transparent 95.5%, var(--grid) 96.5%);
+  background-size: var(--grid-size) var(--grid-size);
+  opacity: var(--settings-grid-opacity);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.settings-shell > * {
   position: relative;
   z-index: 1;
 }
 
-/* Empty states + cards. */
-.empty-state {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-}
-
-.empty-card {
-  width: min(520px, 92%);
-  padding: 32px;
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-  text-align: center;
-  animation: rise-in 0.8s ease-out;
-}
-
-.empty-subtitle {
-  color: var(--text-muted);
-  margin-top: 8px;
-  font-size: 13px;
-}
-
-.empty-hint {
-  margin-top: 14px;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: var(--text-dim);
-}
-
-/* Panel resize handle. */
-.panel-resize {
-  position: relative;
-  background: linear-gradient(180deg, transparent 0%, var(--accent-2) 50%, transparent 100%);
-  opacity: 0.6;
-}
-
-.panel-resize::after {
-  content: '';
-  position: absolute;
-  inset: 6px 0;
-  background: var(--accent-2-muted);
-  opacity: 0.8;
-}
-
-/* Modal surfaces. */
-.modal-backdrop {
-  background: rgba(8, 10, 12, 0.6);
-  backdrop-filter: blur(6px);
-}
-
-.modal-card {
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
-  background: var(--panel);
-  box-shadow: var(--shadow);
-}
-
 /* Loading ornament. */
-.loading-orbit {
-  position: relative;
-  width: 64px;
-  height: 64px;
-}
-
 .loading-orbit::before,
 .loading-orbit::after {
   content: '';
@@ -604,14 +455,126 @@ body {
 /* Respect reduced motion settings. */
 @media (prefers-reduced-motion: reduce) {
   .loading-orbit::before,
-  .loading-orbit::after,
-  .empty-card {
+  .loading-orbit::after {
     animation: none;
   }
+  [style*='wave-draw'],
+  [style*='sweep-rail'] {
+    animation: none !important;
+  }
+}
 
-  .btn-primary,
-  .tab-btn,
-  .stepper-btn {
-    transition: none;
+/* Scrollbar hover state. */
+.scroll-area::-webkit-scrollbar-thumb:hover {
+  width: 10px;
+  background: var(--accent-2);
+}
+
+/* Range slider thumb :active scale. */
+.range-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+
+.range-slider::-moz-range-thumb:active {
+  transform: scale(1.15);
+}
+
+/* Wiggle-trace background animation for empty state. */
+@keyframes wiggle-breathe {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* Seismic sweep — progress rail L->R draw. */
+@keyframes sweep-rail {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Wave draw — stroke-dashoffset animation for the loading trace. */
+@keyframes wave-draw {
+  0% {
+    stroke-dashoffset: 1600;
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 0.95;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0.2;
+  }
+}
+
+/* Film-grain overlay on dark theme — subtle dimensional texture. */
+.theme-dark .app-shell > *::after,
+.theme-dark .app-shell {
+  /* no-op; grain is applied via dedicated ::before below */
+}
+
+.theme-dark .app-shell::before {
+  background-image:
+    radial-gradient(1200px 600px at 0% -10%, var(--accent-glow), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, var(--accent-2-glow), transparent 60%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg-alt) 60%, var(--bg) 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/></svg>");
+  background-blend-mode: normal, normal, normal, overlay;
+}
+
+/* Typography utilities. */
+@layer utilities {
+  .text-eyebrow {
+    font-size: var(--text-eyebrow, 10px);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.28em;
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+  }
+
+  .text-headline {
+    font-size: var(--text-headline, 19px);
+    font-weight: 600;
+    font-family: var(--font-display);
+    color: var(--text);
+    line-height: 1.2;
+  }
+
+  /* Display-font tuning: enable Syne's stylistic alternates + optical sizing. */
+  .display-tight {
+    font-family: var(--font-display);
+    font-feature-settings:
+      'ss01' 1,
+      'dlig' 1,
+      'kern' 1;
+    font-optical-sizing: auto;
+    letter-spacing: -0.035em;
+  }
+
+  /* Focus ring — apply `focus-ring` class; engages on :focus-visible. */
+  .focus-ring:focus-visible {
+    outline: none;
+    border-color: transparent;
+    box-shadow: 0 0 0 2px var(--accent-focus);
+  }
+
+  /* Readout color-state tiers — use for status-bearing numeric/textual values. */
+  .readout-ok {
+    color: var(--accent-2);
+  }
+  .readout-warn {
+    color: var(--accent-3);
+  }
+  .readout-destructive {
+    color: var(--destructive);
   }
 }

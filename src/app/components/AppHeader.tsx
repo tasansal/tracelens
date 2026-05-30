@@ -1,202 +1,203 @@
 /**
  * Header bar with app branding, file actions, and quick SEG-Y metadata status.
+ *
+ * Typography (Task 4.2 final sweep): Defines `ghostButtonClass` (text-[12px] uppercase
+ * tracking-[0.12em] + display-tight on titlebar "TraceLens" label) and `statusPillBase`
+ * (text-[11px] text-text-muted) — both intentionally local chrome treatments (documented
+ * exceptions in design-language.md; low ROI to extract). Titlebar identity uses the
+ * canonical display-tight + tracking pattern (see SettingsApp for parallel "Settings").
+ * Status pills for SEG-Y metadata are dense header chrome. Dropdown shortcuts use
+ * shared DropdownMenuShortcut (.text-eyebrow). All per 4.2 rules + prior branding
+ * cleanup chunk. No prose leaks. Final sweep confirms; see design doc for ghost vs
+ * Button.ghost distinctions.
  */
 import { formatByteOrder, formatTextEncoding } from '@/features/segy/types/segy';
-import { useAppStore } from '@/store/appStore';
-import React from 'react';
-import { createPortal } from 'react-dom';
+import { openSettingsWindow } from '@/shared/api/tauri/settings';
+import { useAppStore } from '@/shared/store/appStore';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/shared/ui/dropdown-menu';
+import { WindowControls } from '@/shared/ui/window-controls';
+import { logoUrl } from '@/shared/utils/assets';
+import { cn } from '@/shared/utils/cn';
+import { isTauri } from '@/shared/utils/tauri';
+import { useEffect, useEffectEvent } from 'react';
+import toast from 'react-hot-toast';
 
-const menuItems = [{ id: 'file', label: 'File', disabled: false }];
-const logoUrl = new URL('../../../src-tauri/icons/64x64.png', import.meta.url).toString();
+const ghostButtonClass =
+  'rounded-full border border-border px-3 py-1 text-[12px] uppercase tracking-[0.12em] text-text transition-colors duration-200 hover:border-transparent hover:bg-panel-muted motion-reduce:transition-none';
+const statusPillBase =
+  'inline-flex items-center rounded-full border border-border bg-panel-muted px-3 py-1 text-[11px] text-text-muted';
+const statusDotClass =
+  'h-1.5 w-1.5 rounded-full bg-accent-2 shadow-[0_0_12px_var(--accent-2-glow)]';
 
 /**
- * Props for AppHeader actions.
+ * Props for AppHeader component.
  */
-export const AppHeader: React.FC<{
+interface AppHeaderProps {
+  /** Callback to trigger file selection dialog */
   onFileSelect: () => void;
+  /** Callback to trigger remote URI input dialog */
+  onRemoteFileSelect: () => void;
+  /** Callback to exit the application */
   onExit: () => void;
-}> = ({ onFileSelect, onExit }) => {
-  const { segyData, isLoading, isDarkMode } = useAppStore();
-  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
-  const [menuPosition, setMenuPosition] = React.useState<{
-    top: number;
-    left: number;
-    width: number;
-  } | null>(null);
-  const menuButtonRef = React.useRef<HTMLButtonElement>(null);
-  const menuRef = React.useRef<HTMLDivElement>(null);
+}
 
-  /**
-   * Position the dropdown menu relative to the File button with viewport clamping.
-   */
-  const updateMenuPosition = React.useCallback(() => {
-    const button = menuButtonRef.current;
-    if (!button) return;
-    const rect = button.getBoundingClientRect();
-    const width = 240;
-    const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
-    const top = rect.bottom + 10;
-    setMenuPosition({ top, left, width });
-  }, []);
+/**
+ * Application header component with branding, file actions, and metadata status.
+ * Includes window controls and keyboard shortcuts.
+ *
+ * @returns Rendered header bar with file menu, shortcuts, and window controls.
+ */
+export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeaderProps) => {
+  const { segyData } = useAppStore();
+  const inTauri = isTauri();
 
-  // Keyboard shortcuts
-  React.useEffect(() => {
+  // Wrap callbacks as Effect Events so the keydown listener doesn't re-subscribe
+  // every time the parent re-renders with fresh callback identities.
+  const triggerLocalOpen = useEffectEvent(() => onFileSelect());
+  const triggerRemoteOpen = useEffectEvent(() => onRemoteFileSelect());
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'O') {
         e.preventDefault();
-        onFileSelect();
+        triggerRemoteOpen();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
+        e.preventDefault();
+        triggerLocalOpen();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onFileSelect]);
+  }, []);
 
-  // Click outside to close menu
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsMenuOpen(false);
-      }
-    };
-    if (isMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
+  const handleOpenSettings = async () => {
+    try {
+      await openSettingsWindow();
+    } catch (error) {
+      console.error('Failed to open settings window:', error);
+      toast.error('Failed to open settings window');
     }
-  }, [isMenuOpen]);
-
-  React.useEffect(() => {
-    if (!isMenuOpen) return;
-    const handleReposition = () => updateMenuPosition();
-    window.addEventListener('resize', handleReposition);
-    window.addEventListener('scroll', handleReposition, true);
-    handleReposition();
-    return () => {
-      window.removeEventListener('resize', handleReposition);
-      window.removeEventListener('scroll', handleReposition, true);
-    };
-  }, [isMenuOpen, updateMenuPosition]);
-
-  const toggleMenu = () => {
-    if (isMenuOpen) {
-      setIsMenuOpen(false);
-      return;
-    }
-    updateMenuPosition();
-    setIsMenuOpen(true);
   };
 
   return (
-    <header className="sticky top-0 z-[200] border-b border-[var(--border)] bg-[var(--panel-tint)] text-[var(--text)] relative overflow-visible">
-      <div className="flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-3">
+    <header
+      className="sticky top-0 z-[200] relative overflow-visible border-b border-[var(--grid)] bg-panel-tint text-text select-none"
+      data-tauri-drag-region
+    >
+      <div className="flex h-11 items-center justify-between px-4" data-tauri-drag-region>
+        <div className="flex items-center gap-6" data-tauri-drag-region>
+          <div className="flex items-center gap-3" data-tauri-drag-region>
             <img
               src={logoUrl}
               alt="TraceLens logo"
-              className="h-8 w-8 rounded-md border border-[var(--border)] bg-[var(--panel-strong)]"
+              className="size-8 rounded-[var(--radius-sm)] border border-border bg-panel-strong"
+              data-tauri-drag-region
             />
-            <div className="flex flex-col leading-none">
-              <span className="brand-mark text-sm">TraceLens</span>
-              <span className="brand-subtitle">SEG-Y Workbench</span>
-            </div>
+            <span
+              className="display-tight text-sm font-extrabold uppercase tracking-[0.2em] text-text"
+              data-tauri-drag-region
+            >
+              TraceLens
+            </span>
           </div>
-          <nav className="flex items-center gap-2">
-            {menuItems.map(item => (
+          <nav className="flex items-center gap-2" data-tauri-drag-region>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button data-tauri-drag-region="false" className={ghostButtonClass}>
+                  File
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" sideOffset={10}>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onFileSelect();
+                  }}
+                >
+                  <span className="font-semibold">Open Local File…</span>
+                  <DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onRemoteFileSelect();
+                  }}
+                >
+                  <span className="whitespace-nowrap font-semibold">Open Remote File…</span>
+                  <DropdownMenuShortcut>Ctrl+Shift+O</DropdownMenuShortcut>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onExit();
+                  }}
+                  className="text-accent"
+                >
+                  Exit Application
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {inTauri && (
               <button
-                key={item.id}
-                ref={item.id === 'file' ? menuButtonRef : undefined}
-                onClick={() => item.id === 'file' && toggleMenu()}
-                disabled={item.disabled}
-                className="btn-ghost"
+                data-tauri-drag-region="false"
+                className={ghostButtonClass}
+                onClick={handleOpenSettings}
               >
-                {item.label}
+                Settings
               </button>
-            ))}
+            )}
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4" data-tauri-drag-region>
           {segyData && (
             <>
               {/* Full status bar for large screens */}
-              <div className="status-pill hidden items-center gap-4 lg:flex">
-                <div className="flex items-center gap-2">
-                  <span className="status-dot"></span>
+              <div
+                className={cn(statusPillBase, 'hidden gap-1 lg:inline-flex')}
+                data-tauri-drag-region
+              >
+                <div className="flex items-center gap-2" data-tauri-drag-region>
+                  <span className={statusDotClass} data-tauri-drag-region></span>
                   {(segyData.file_size / 1024 / 1024).toFixed(2)} MB
                 </div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
-                <div>{segyData.total_traces ?? '?'} traces</div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
-                <div>{formatTextEncoding(segyData.text_encoding)}</div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
-                <div>{formatByteOrder(segyData.byte_order)}</div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
+                <div data-tauri-drag-region>{segyData.total_traces ?? '?'} traces</div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
+                <div data-tauri-drag-region>{formatTextEncoding(segyData.text_encoding)}</div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
+                <div data-tauri-drag-region>{formatByteOrder(segyData.byte_order)}</div>
               </div>
 
               {/* Abbreviated status for mobile */}
-              <div className="status-pill flex items-center gap-2 lg:hidden">
-                <span className="status-dot"></span>
-                <div>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
-                <div className="h-3 w-px bg-[var(--border)]"></div>
-                <div>{segyData.total_traces ?? '?'} tr</div>
+              <div className={cn(statusPillBase, 'gap-1 lg:hidden')} data-tauri-drag-region>
+                <span className={statusDotClass} data-tauri-drag-region></span>
+                <div data-tauri-drag-region>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
+                <div data-tauri-drag-region>{segyData.total_traces ?? '?'} tr</div>
               </div>
             </>
           )}
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onFileSelect}
-              disabled={isLoading}
-              className="btn-primary ml-2 text-sm"
-            >
-              {isLoading ? 'Loading...' : 'Open SEG-Y'}
-            </button>
-          </div>
+          <WindowControls />
         </div>
       </div>
-
-      {/* Modern Menu Overlay */}
-      {isMenuOpen &&
-        menuPosition &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            ref={menuRef}
-            className={`shadow-panel fixed z-[999] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--panel)] text-[var(--text)] ${
-              isDarkMode ? 'theme-dark' : 'theme-light'
-            }`}
-            style={{
-              top: menuPosition.top,
-              left: menuPosition.left,
-              width: menuPosition.width,
-            }}
-          >
-            <div className="p-1.5">
-              <button
-                onClick={() => {
-                  onFileSelect();
-                  setIsMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-strong transition-colors hover:bg-[var(--panel-strong)]"
-              >
-                <span className="font-semibold">Open SEG-Y...</span>
-                <span className="ml-auto text-[10px] text-dim">Ctrl+O</span>
-              </button>
-
-              <div className="my-1.5 border-t border-[var(--border)]"></div>
-
-              <button
-                onClick={() => {
-                  onExit();
-                  setIsMenuOpen(false);
-                }}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-[var(--accent)] transition-colors hover:bg-[var(--panel-strong)]"
-              >
-                <span>Exit Application</span>
-              </button>
-            </div>
-          </div>,
-          document.body
-        )}
     </header>
   );
 };

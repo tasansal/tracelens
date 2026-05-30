@@ -1,87 +1,108 @@
 /**
  * Hook for managing SEG-Y header view state and trace header loading.
  */
-import type { SegyData, TraceHeader } from '@/features/segy/types/segy';
-import { loadSingleTrace } from '@/services/tauri/segy';
+import type { SegyData } from '@/features/segy/types/segy';
+import {
+  setActiveRevision as setActiveRevisionApi,
+  type SegyRevision,
+} from '@/shared/api/tauri/segy';
+import { useAppStore } from '@/shared/store/appStore';
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { MAX_TRACE_SAMPLES } from '../constants';
 
 /**
  * Supported header tabs in the SEG-Y header panel.
  */
-export type HeaderView = 'textual' | 'binary' | 'trace';
+export type HeaderView = 'text' | 'binary' | 'trace' | 'schema';
 
 /**
- * Manage header view selection and on-demand trace header loading.
- * @param params.segyData Parsed SEG-Y metadata (or null while idle).
- * @param params.filePath Path to the loaded SEG-Y file.
- * @param params.maxSamples Optional cap for trace samples when fetching headers.
+ * Parameters for the useTraceHeader hook.
  */
-export function useTraceHeader(params: {
+interface UseTraceHeaderParams {
+  /** Parsed SEG-Y metadata (or null while idle) */
   segyData: SegyData | null;
+  /** Path to the loaded SEG-Y file */
   filePath: string | null;
-  maxSamples?: number;
-}) {
-  const { segyData, filePath, maxSamples = MAX_TRACE_SAMPLES } = params;
+}
+
+/**
+ * Manages header view selection and on-demand trace header loading.
+ * Handles debounced loading of trace headers as the user interacts with the trace slider.
+ *
+ * @param params - Hook parameters
+ * @returns Header view state and control functions
+ */
+export function useTraceHeader(params: UseTraceHeaderParams) {
+  const { segyData, filePath } = params;
+
+  const setShowRevisionDialog = useAppStore(s => s.setShowRevisionDialog);
 
   const [headerView, setHeaderView] = useState<HeaderView>('binary');
   const [traceId, setTraceId] = useState<number>(1);
   const [sliderValue, setSliderValue] = useState<number>(1);
-  const [currentTrace, setCurrentTrace] = useState<TraceHeader | null>(null);
-  const [loadingTrace, setLoadingTrace] = useState(false);
+  const [revisionKey, setRevisionKey] = useState(0);
 
-  const loadTrace = useCallback(
-    async (traceIndex: number) => {
-      if (!segyData || !filePath) return;
+  // Reset currentRevision whenever segyData changes (render-time update).
+  const [currentRevision, setCurrentRevision] = useState<SegyRevision | null>(
+    () => (segyData?.detected_revision as SegyRevision) ?? null
+  );
+  const [prevSegyData, setPrevSegyData] = useState(segyData);
+  if (prevSegyData !== segyData) {
+    setPrevSegyData(segyData);
+    setCurrentRevision((segyData?.detected_revision as SegyRevision) ?? null);
+  }
 
-      setLoadingTrace(true);
+  useEffect(() => {
+    if (segyData && segyData.detected_revision === 'Unknown') {
+      setShowRevisionDialog(true);
+      toast('Revision detection failed. Choose Rev 0 or Rev 1 below.', {
+        icon: '⚠️',
+        duration: 8000,
+      });
+    }
+  }, [segyData, setShowRevisionDialog]);
+
+  const handleSetActiveRevision = useCallback(
+    async (revision: SegyRevision) => {
+      if (!filePath) return;
       try {
-        const trace = await loadSingleTrace({
-          filePath,
-          traceIndex: traceIndex - 1,
-          maxSamples,
-        });
-
-        setCurrentTrace(trace.header);
+        await setActiveRevisionApi(filePath, revision);
+        setCurrentRevision(revision);
+        setRevisionKey(prev => prev + 1);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
-        toast.error(`Failed to load trace: ${errorMsg}`);
-        console.error(error);
-      } finally {
-        setLoadingTrace(false);
+        toast.error(`Failed to set revision: ${errorMsg}`);
+        console.error('setActiveRevision error:', error);
       }
     },
-    [filePath, maxSamples, segyData]
+    [filePath]
   );
 
+  // Subscribe to traceJump so setState fires in a callback, not synchronously in an effect.
+  // useState setters are stable references, so this effect only runs once.
   useEffect(() => {
-    // Debounce trace header fetches while the slider is moving.
-    if (headerView === 'trace' && segyData) {
-      const timeoutId = setTimeout(() => {
-        if (sliderValue !== traceId) {
-          setTraceId(sliderValue);
-          loadTrace(sliderValue);
-        }
-      }, 300);
+    return useAppStore.subscribe((state, prev) => {
+      if (state.traceJump === null || state.traceJump === prev.traceJump) return;
+      const jump = state.traceJump;
+      setSliderValue(jump);
+      setTraceId(jump);
+      setHeaderView('trace');
+      state.setTraceJump(null);
+    });
+  }, [setSliderValue, setTraceId, setHeaderView]);
 
-      return () => clearTimeout(timeoutId);
-    }
-  }, [sliderValue, headerView, segyData, traceId, loadTrace]);
-
+  // Debounce traceId updates while the slider is moving.
   useEffect(() => {
-    // Ensure the first trace header is loaded when entering trace mode.
-    if (headerView === 'trace' && segyData && !currentTrace) {
-      loadTrace(traceId);
-    }
-  }, [headerView, segyData, currentTrace, traceId, loadTrace]);
+    if (headerView !== 'trace' || !segyData) return;
+    const timeoutId = setTimeout(() => setTraceId(sliderValue), 300);
+    return () => clearTimeout(timeoutId);
+  }, [sliderValue, headerView, segyData]);
 
   const resetTraceState = useCallback(() => {
     setHeaderView('binary');
     setTraceId(1);
     setSliderValue(1);
-    setCurrentTrace(null);
-    setLoadingTrace(false);
+    setRevisionKey(0);
   }, []);
 
   return {
@@ -89,8 +110,10 @@ export function useTraceHeader(params: {
     setHeaderView,
     sliderValue,
     setSliderValue,
-    currentTrace,
-    loadingTrace,
+    traceId,
     resetTraceState,
+    currentRevision,
+    setActiveRevision: handleSetActiveRevision,
+    revisionKey,
   };
 }
