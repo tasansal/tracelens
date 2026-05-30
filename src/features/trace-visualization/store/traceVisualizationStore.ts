@@ -4,6 +4,8 @@
 import { create } from 'zustand';
 import {
   AmplitudeScaling,
+  AmplitudeStats,
+  clampRgb,
   ColormapType,
   RenderMode,
   ViewportConfig,
@@ -17,31 +19,33 @@ interface TraceVisualizationState {
   // View configuration
   renderMode: RenderMode;
   colormap: ColormapType;
+  /** When true, the selected colormap is inverted (e.g. seismic becomes red-white-blue). */
+  invertColormap: boolean;
   amplitudeScaling: AmplitudeScaling;
+  amplitudeStats: AmplitudeStats | null;
+  amplitudeScanFailed: boolean;
   viewport: ViewportConfig;
   wiggleConfig: WiggleConfig;
 
-  // Rendered image cache
-  currentImage: HTMLImageElement | ImageData | null;
-  isRendering: boolean;
-
-  // UI state
-  showControls: boolean;
-  zoomLevel: number;
+  // UI state — independent per-axis zoom
+  /** Horizontal zoom. At 1.0, INITIAL_VISIBLE_TRACES (1000) traces fill the viewport width. */
+  zoomX: number;
+  /** Vertical zoom. At 1.0, all samples fill the viewport height. Cannot go below 1.0. */
+  zoomY: number;
   panOffset: { x: number; y: number };
-  canvasSize: { width: number; height: number };
 
   // Actions
   setRenderMode: (mode: RenderMode) => void;
   setColormap: (colormap: ColormapType) => void;
+  setInvertColormap: (invert: boolean) => void;
   setAmplitudeScaling: (scaling: AmplitudeScaling) => void;
+  setAmplitudeStats: (stats: AmplitudeStats | null) => void;
+  setAmplitudeScanFailed: (failed: boolean) => void;
   setWiggleConfig: (config: Partial<WiggleConfig>) => void;
   updateViewport: (viewport: Partial<ViewportConfig>) => void;
-  setCurrentImage: (image: HTMLImageElement | ImageData | null) => void;
-  setIsRendering: (isRendering: boolean) => void;
-  setZoomLevel: (zoom: number) => void;
+  setZoomX: (zoom: number) => void;
+  setZoomY: (zoom: number) => void;
   setPanOffset: (offset: { x: number; y: number }) => void;
-  setCanvasSize: (size: { width: number; height: number }) => void;
   resetView: () => void;
 }
 
@@ -49,62 +53,66 @@ interface TraceVisualizationState {
  * Initial viewport used before the canvas is measured.
  */
 const DEFAULT_VIEWPORT: ViewportConfig = {
-  startTrace: 0,
-  traceCount: 500,
   width: 800,
   height: 600,
 };
 
-/**
- * Default wiggle rendering parameters.
- */
 const DEFAULT_WIGGLE_CONFIG: WiggleConfig = {
-  lineWidth: 1.0,
   lineColor: [0, 0, 0],
-  fillPositive: true,
-  fillNegative: false,
+  wiggleScale: 2.0,
   positiveFillColor: [0, 0, 0],
-  negativeFillColor: [255, 0, 0],
+  negativeFillColor: [255, 255, 255],
+  backgroundColor: [255, 255, 255],
 };
 
 /**
  * Store accessor for trace visualization state and actions.
+ *
+ * @returns Zustand store with viewport settings, render cache, and action setters.
  */
 export const useTraceVisualizationStore = create<TraceVisualizationState>(set => ({
   // Initial state
   renderMode: 'variable-density',
   colormap: 'grayscale',
-  amplitudeScaling: { type: 'percentile', percentile: 0.98 },
+  invertColormap: false,
+  amplitudeScaling: { type: 'global-percentile', clipValue: 1.0 },
+  amplitudeStats: null,
+  amplitudeScanFailed: false,
   viewport: DEFAULT_VIEWPORT,
   wiggleConfig: DEFAULT_WIGGLE_CONFIG,
-  currentImage: null,
-  isRendering: false,
-  showControls: true,
-  zoomLevel: 1.0,
+  zoomX: 1.0,
+  zoomY: 1.0,
   panOffset: { x: 0, y: 0 },
-  canvasSize: { width: 800, height: 600 },
 
   // Actions
   setRenderMode: mode => set({ renderMode: mode }),
   setColormap: colormap => set({ colormap }),
+  setInvertColormap: invert => set({ invertColormap: invert }),
   setAmplitudeScaling: scaling => set({ amplitudeScaling: scaling }),
-  setWiggleConfig: partial =>
+  setAmplitudeStats: stats => set({ amplitudeStats: stats }),
+  setAmplitudeScanFailed: failed => set({ amplitudeScanFailed: failed }),
+  setWiggleConfig: partial => {
+    const clamped: Partial<WiggleConfig> = { ...partial };
+    if (clamped.lineColor) clamped.lineColor = clampRgb(clamped.lineColor);
+    if (clamped.positiveFillColor) clamped.positiveFillColor = clampRgb(clamped.positiveFillColor);
+    if (clamped.negativeFillColor) clamped.negativeFillColor = clampRgb(clamped.negativeFillColor);
+    if (clamped.backgroundColor) clamped.backgroundColor = clampRgb(clamped.backgroundColor);
     set(state => ({
-      wiggleConfig: { ...state.wiggleConfig, ...partial },
-    })),
+      wiggleConfig: { ...state.wiggleConfig, ...clamped },
+    }));
+  },
   updateViewport: partial =>
     set(state => ({
       viewport: { ...state.viewport, ...partial },
     })),
-  setCurrentImage: image => set({ currentImage: image }),
-  setIsRendering: isRendering => set({ isRendering }),
-  setZoomLevel: zoom => set({ zoomLevel: zoom }),
+  setZoomX: zoom => set({ zoomX: zoom }),
+  setZoomY: zoom => set({ zoomY: zoom }),
   setPanOffset: offset => set({ panOffset: offset }),
-  setCanvasSize: size => set({ canvasSize: size }),
   resetView: () =>
     set({
       viewport: DEFAULT_VIEWPORT,
-      zoomLevel: 1.0,
+      zoomX: 1.0,
+      zoomY: 1.0,
       panOffset: { x: 0, y: 0 },
     }),
 }));
