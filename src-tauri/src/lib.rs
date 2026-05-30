@@ -33,7 +33,6 @@ mod windows;
 ///
 /// This registers plugins, shared state, and all Rust-side commands exposed to
 /// the frontend. Any application-wide initialization should live here.
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(

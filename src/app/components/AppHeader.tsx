@@ -183,7 +183,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
                 <div data-tauri-drag-region>{formatByteOrder(segyData.byte_order)}</div>
               </div>
 
-              {/* Abbreviated status for mobile */}
+              {/* Compact status on narrow windows */}
               <div className={cn(statusPillBase, 'gap-1 lg:hidden')} data-tauri-drag-region>
                 <span className={statusDotClass} data-tauri-drag-region></span>
                 <div data-tauri-drag-region>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
