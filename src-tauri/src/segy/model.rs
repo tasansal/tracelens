@@ -4,8 +4,8 @@
 //! and sizes during on-demand loading.
 
 use crate::error::AppError;
-use crate::segy::binary_header::DataSampleFormat;
-use crate::segy::{constants, BinaryHeader, ByteOrder, TextEncoding, TextualHeader};
+use crate::segy::parser::binary_header::DataSampleFormat;
+use crate::segy::{BinaryHeader, ByteOrder, SegyRevision, TextEncoding, TextualHeader, constants};
 
 /// SEG-Y file data structure containing headers only (no traces loaded eagerly)
 ///
@@ -19,6 +19,10 @@ pub struct SegyData {
     /// Binary file header (400 bytes with metadata)
     pub binary_header: BinaryHeader,
 
+    /// Raw binary header bytes (400 bytes) for spec-driven parsing
+    #[serde(skip)]
+    pub binary_header_bytes: Vec<u8>,
+
     /// Total number of traces in file (if determinable)
     pub total_traces: Option<usize>,
 
@@ -30,6 +34,16 @@ pub struct SegyData {
 
     /// Detected byte order for binary data
     pub byte_order: ByteOrder,
+
+    /// Detected SEG-Y revision for header field display
+    pub detected_revision: SegyRevision,
+}
+
+impl SegyData {
+    /// Get raw binary header bytes for spec-driven parsing.
+    pub fn binary_header_bytes(&self) -> &[u8] {
+        &self.binary_header_bytes
+    }
 }
 
 /// Configuration for SEG-Y file parameters used across trace loading operations
@@ -59,16 +73,6 @@ impl SegyFileConfig {
         })
     }
 
-    /// Convert samples per trace into a signed integer for trace parsing APIs.
-    pub fn samples_per_trace_i16(&self) -> Result<i16, AppError> {
-        i16::try_from(self.samples_per_trace).map_err(|_| AppError::ValidationError {
-            message: format!(
-                "Samples per trace exceeds supported range: {}",
-                self.samples_per_trace
-            ),
-        })
-    }
-
     /// Calculate the total size of a trace block (header + data)
     pub fn trace_block_size(&self) -> Result<usize, AppError> {
         if self.samples_per_trace == 0 {
@@ -94,23 +98,6 @@ impl SegyFileConfig {
             .checked_add(trace_data_size)
             .ok_or_else(|| AppError::ValidationError {
                 message: "Trace block size overflow".to_string(),
-            })
-    }
-
-    /// Calculate the file position of a specific trace
-    pub fn calculate_trace_position(&self, trace_index: usize) -> Result<usize, AppError> {
-        let block_size = self.trace_block_size()?;
-        let offset =
-            trace_index
-                .checked_mul(block_size)
-                .ok_or_else(|| AppError::ValidationError {
-                    message: "Trace offset overflow".to_string(),
-                })?;
-
-        constants::FILE_HEADER_SIZE
-            .checked_add(offset)
-            .ok_or_else(|| AppError::ValidationError {
-                message: "Trace position overflow".to_string(),
             })
     }
 

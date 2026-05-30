@@ -4,54 +4,8 @@
 //! helpers used by `SegyReader`.
 
 use crate::error::AppError;
-use crate::segy::binary_header::DataSampleFormat;
-use crate::segy::{
-    constants, BinaryHeader, ByteOrder, SegyFileConfig, TextualHeader, TraceBlock, TraceData,
-};
-use std::fs::File;
-use std::io::{Seek, SeekFrom};
-
-/// Minimum file size for a valid SEG-Y file (textual + binary headers only).
-const MIN_SEGY_SIZE: u64 = constants::FILE_HEADER_SIZE as u64;
-
-/// Parsed header bundle and file metadata.
-pub(crate) struct HeaderBundle {
-    /// Parsed textual header.
-    pub textual_header: TextualHeader,
-    /// Parsed binary header.
-    pub binary_header: BinaryHeader,
-    /// File size in bytes.
-    pub file_size: u64,
-}
-
-/// Read textual and binary headers and validate file size.
-pub(crate) fn read_headers(file: &mut File) -> Result<HeaderBundle, AppError> {
-    let metadata = file.metadata().map_err(|e| AppError::IoError {
-        message: format!("Failed to read file metadata: {}", e),
-    })?;
-    let file_size = metadata.len();
-    ensure_min_file_size(file_size)?;
-
-    // Reset reader to the file start to read the headers.
-    file.seek(SeekFrom::Start(0))
-        .map_err(|e| AppError::IoError {
-            message: format!("Failed to seek to file start: {}", e),
-        })?;
-
-    let textual_header = TextualHeader::from_reader(file).map_err(|e| AppError::SegyError {
-        message: format!("Failed to read textual header: {}", e),
-    })?;
-
-    let binary_header = BinaryHeader::from_reader(file).map_err(|e| AppError::SegyError {
-        message: format!("Failed to parse binary header: {}", e),
-    })?;
-
-    Ok(HeaderBundle {
-        textual_header,
-        binary_header,
-        file_size,
-    })
-}
+use crate::segy::parser::binary_header::DataSampleFormat;
+use crate::segy::{ByteOrder, SegyFileConfig, TraceBlock, TraceData, constants};
 
 /// Compute total trace count from file size and per-trace block size.
 ///
@@ -119,27 +73,58 @@ pub(crate) fn parse_trace_data(
     })
 }
 
-/// Validate that a file path is non-empty and well-formed enough to attempt IO.
-pub(crate) fn validate_file_path(file_path: &str) -> Result<(), AppError> {
-    if file_path.is_empty() {
-        return Err(AppError::ValidationError {
-            message: "File path cannot be empty".to_string(),
-        });
-    }
-    Ok(())
-}
+/// Parse trace samples with sample range filtering (skip header) from raw bytes.
+///
+/// Only parses the specified sample range, optimizing memory and CPU usage for viewport rendering.
+pub(crate) fn parse_trace_data_with_range(
+    trace_bytes: &[u8],
+    format: DataSampleFormat,
+    total_samples: u16,
+    start_sample: usize,
+    sample_count: usize,
+) -> Result<TraceData, AppError> {
+    let data_offset = constants::TRACE_HEADER_SIZE;
+    let total_samples_usize = usize::from(total_samples);
 
-/// Ensure the file is large enough to contain the SEG-Y headers.
-fn ensure_min_file_size(file_size: u64) -> Result<(), AppError> {
-    if file_size < MIN_SEGY_SIZE {
-        return Err(AppError::SegyError {
+    // Validate range
+    if start_sample >= total_samples_usize {
+        return Err(AppError::ValidationError {
             message: format!(
-                "File too small to be valid SEG-Y ({} bytes, minimum {} bytes)",
-                file_size, MIN_SEGY_SIZE
+                "start_sample {} >= total_samples {}",
+                start_sample, total_samples
             ),
         });
     }
-    Ok(())
+
+    let end_sample = (start_sample + sample_count).min(total_samples_usize);
+    let actual_count = end_sample - start_sample;
+
+    if actual_count == 0 {
+        return Err(AppError::ValidationError {
+            message: "sample_count must result in at least one sample".to_string(),
+        });
+    }
+
+    // Calculate byte offsets within the trace data section
+    let bytes_per_sample = format.bytes_per_sample();
+    let range_start_byte = data_offset + (start_sample * bytes_per_sample);
+    let range_end_byte = data_offset + (end_sample * bytes_per_sample);
+
+    // Extract the sample range bytes
+    let range_bytes = trace_bytes
+        .get(range_start_byte..range_end_byte)
+        .ok_or_else(|| AppError::SegyError {
+            message: format!(
+                "Sample range [{}, {}) out of bounds for trace data",
+                start_sample, end_sample
+            ),
+        })?;
+
+    // Parse only the requested samples
+    let mut cursor = std::io::Cursor::new(range_bytes);
+    TraceData::from_reader(&mut cursor, format, actual_count).map_err(|e| AppError::SegyError {
+        message: format!("Trace data range parse failed: {}", e),
+    })
 }
 
 /// Validate the requested trace range and ensure the configuration is usable.
