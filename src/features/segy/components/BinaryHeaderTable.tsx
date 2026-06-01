@@ -11,11 +11,11 @@
  * text-[length:var(--text-xs,10px)]. Fully compliant; see HeaderSpecTable JSDoc.
  */
 import { useCustomSpecStore } from '@/features/segy/store/customSpecStore';
-import type { HeaderFieldSpec } from '@/features/segy/types/headerSpec';
 import { getBinaryHeaderData, type HeaderFieldData } from '@/shared/api/tauri/segy';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { useCallback, useMemo } from 'react';
 import { HeaderSpecTable } from './HeaderSpecTable';
+import { mergeCustomFields } from './mergeCustomFields';
 
 interface BinaryHeaderTableProps {
   /** Path to the SEG-Y file */
@@ -48,22 +48,10 @@ export const BinaryHeaderTable = ({ filePath, revisionKey = 0 }: BinaryHeaderTab
     error,
   } = useDataFetch(fetchData, [revisionKey, customSpec, filePath]);
 
-  const customFields = useMemo<HeaderFieldData[]>(() => {
-    if (!customSpec?.binary_header?.fields || !fieldData) return [];
-    const fieldMap = new Map(fieldData.map((f: HeaderFieldData) => [f.byte_start, f]));
-    return customSpec.binary_header.fields.map((specF: HeaderFieldSpec): HeaderFieldData => {
-      const parsed = fieldMap.get(specF.byte_start);
-      return {
-        name: specF.name,
-        description: specF.description,
-        value: parsed?.value ?? 0,
-        resolved: parsed?.resolved,
-        byte_start: specF.byte_start,
-        byte_end: specF.byte_end,
-        data_type: specF.data_type,
-      };
-    });
-  }, [customSpec, fieldData]);
+  const customFields = useMemo(
+    () => mergeCustomFields(customSpec?.binary_header?.fields, fieldData),
+    [customSpec, fieldData]
+  );
 
   if (loading) {
     return (

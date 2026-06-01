@@ -17,6 +17,9 @@ export function useSystemTheme() {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
+      // Only follow the OS when the user hasn't pinned an explicit light/dark
+      // theme; otherwise an OS switch would override their choice.
+      if (useAppStore.getState().themePreference !== 'system') return;
       useAppStore.setState({ isDarkMode: e.matches });
     };
 

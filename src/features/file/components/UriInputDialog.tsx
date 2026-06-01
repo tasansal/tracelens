@@ -45,7 +45,7 @@ export const UriInputDialog = ({
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSubmit();
     }
@@ -67,7 +67,7 @@ export const UriInputDialog = ({
               placeholder="s3://bucket/file.sgy or gs://bucket/file.sgy or https://..."
               value={uri}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUri(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={handleKeyDown}
             />
             <p className="text-sm text-text-muted">
               Enter a remote file URI. Supported protocols: S3, GCS, Azure Blob, HTTP/HTTPS

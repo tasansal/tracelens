@@ -333,16 +333,21 @@ export const SchemaTabContent = ({
   const detectionFailed = detectedRevision === 'Unknown';
   const specLoading = displayRevision !== null && standardSpec.loadedRevision !== displayRevision;
 
-  // Fetch standard spec whenever the active revision changes.
+  // Fetch standard spec whenever the active revision changes. The cancel flag
+  // ensures a slower fetch from a previous revision can't overwrite a newer one.
   useEffect(() => {
     if (!displayRevision) return;
     const rev = displayRevision as SegyRevision;
+    let cancelled = false;
     Promise.all([
       getBinaryHeaderSpec(rev).catch(() => [] as HeaderFieldSpec[]),
       getTraceHeaderSpec(rev).catch(() => [] as HeaderFieldSpec[]),
     ]).then(([binary, trace]) => {
-      setStandardSpec({ binary, trace, loadedRevision: displayRevision });
+      if (!cancelled) setStandardSpec({ binary, trace, loadedRevision: displayRevision });
     });
+    return () => {
+      cancelled = true;
+    };
   }, [displayRevision]);
 
   // Sync in-memory custom spec from backend when file changes.

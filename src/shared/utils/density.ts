@@ -9,9 +9,9 @@
  */
 import type { UiDensity } from '@/shared/api/tauri/settings';
 
-export const DENSITY_CLASS_PREFIX = 'density-';
+const DENSITY_CLASS_PREFIX = 'density-';
 
-export const ALL_DENSITY_CLASSES = [
+const ALL_DENSITY_CLASSES = [
   `${DENSITY_CLASS_PREFIX}compact`,
   `${DENSITY_CLASS_PREFIX}standard`,
   `${DENSITY_CLASS_PREFIX}spacious`,

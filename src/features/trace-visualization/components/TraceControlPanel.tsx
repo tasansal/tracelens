@@ -33,7 +33,10 @@ import {
   MAX_ZOOM_Y,
   MIN_ZOOM_Y,
 } from '@/features/trace-visualization/hooks/gestureClassifier';
-import { getColormapCssGradient } from '@/features/trace-visualization/renderer/colormaps';
+import {
+  getColormapCssGradient,
+  normalizeColormap,
+} from '@/features/trace-visualization/renderer/colormaps';
 import { INITIAL_VISIBLE_TRACES } from '@/features/trace-visualization/renderer/constants';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import type {
@@ -436,10 +439,10 @@ function RenderSettingsControl() {
   } = useTraceVisualizationStore();
 
   // Legacy migration for old persisted / HMR state containing the removed variant.
-  const effectiveColormapForUI: ColormapType =
-    colormap === ('grayscale-inverted' as ColormapType) ? 'grayscale' : colormap;
-  const effectiveInvertForUI =
-    invertColormap || colormap === ('grayscale-inverted' as ColormapType);
+  const { colormap: effectiveColormapForUI, invert: effectiveInvertForUI } = normalizeColormap(
+    colormap,
+    invertColormap
+  );
 
   const showColormap =
     renderMode === 'variable-density' || renderMode === 'wiggle-variable-density';

@@ -20,6 +20,7 @@ import {
   pxPerSample,
   pxPerTrace,
 } from '@/features/trace-visualization/renderer/constants';
+import { normalizeColormap } from '@/features/trace-visualization/renderer/colormaps';
 import { TraceScene } from '@/features/trace-visualization/renderer/traceScene';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import {
@@ -260,9 +261,10 @@ export const TraceCanvas = ({ width, height }: TraceCanvasProps) => {
 
   // Legacy migration — normalize once, very early.
   // All effects below and the scene creation will use these clean values.
-  const effectiveColormap: ColormapType =
-    colormap === ('grayscale-inverted' as ColormapType) ? 'grayscale' : colormap;
-  const effectiveInvert = invertColormap || colormap === ('grayscale-inverted' as ColormapType);
+  const { colormap: effectiveColormap, invert: effectiveInvert } = normalizeColormap(
+    colormap,
+    invertColormap
+  );
 
   const { sceneRef, sceneError } = useTraceScene({
     canvasRef,

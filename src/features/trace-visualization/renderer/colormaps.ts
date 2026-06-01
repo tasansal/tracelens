@@ -105,6 +105,22 @@ const GENERATORS: Record<ColormapType, RgbFn> = {
 };
 
 /**
+ * Normalize a possibly-legacy colormap value. The old `grayscale-inverted`
+ * variant was removed from {@link ColormapType} in favor of `grayscale` + an
+ * invert flag; map it back so persisted/HMR state from before the change still
+ * renders correctly. Current values pass through unchanged.
+ */
+export function normalizeColormap(
+  colormap: ColormapType,
+  invert: boolean
+): { colormap: ColormapType; invert: boolean } {
+  if (colormap === ('grayscale-inverted' as ColormapType)) {
+    return { colormap: 'grayscale', invert: true };
+  }
+  return { colormap, invert };
+}
+
+/**
  * Build a 256×1 RGBA8 `Texture` for the given colormap.
  * When `invert` is true the lookup is reversed (t → 1-t), which inverts any
  * colormap without needing separate "-r" / "-inverted" entries.
@@ -134,7 +150,7 @@ export function createColormapTexture(name: ColormapType, invert = false): Textu
 }
 
 /** Sample a single RGB color from a colormap at normalized position t ∈ [0,1]. */
-export function getColormapColor(
+function getColormapColor(
   name: ColormapType,
   t: number,
   invert = false

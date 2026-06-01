@@ -25,7 +25,7 @@ import type {
 } from '@/features/trace-visualization/types/rendering';
 import type { AgcOptions } from '@/shared/api/tauri/segy';
 import { Application, Container, Mesh, MeshGeometry, type Shader, type Texture } from 'pixi.js';
-import { createColormapTexture } from './colormaps';
+import { createColormapTexture, normalizeColormap } from './colormaps';
 import {
   pxPerSample as computePxPerSample,
   pxPerTrace as computePxPerTrace,
@@ -210,9 +210,7 @@ export class TraceScene {
   /** Swap the active colormap (and optional invert flag). Cached amplitude tiles are reused unchanged. */
   setColormap(name: ColormapType, invert = false): void {
     // Defensive normalization in case a legacy value ever reaches the renderer.
-    const safeName: ColormapType =
-      name === ('grayscale-inverted' as ColormapType) ? 'grayscale' : name;
-    const safeInvert = invert || name === ('grayscale-inverted' as ColormapType);
+    const { colormap: safeName, invert: safeInvert } = normalizeColormap(name, invert);
 
     if (safeName === this.colormapName && safeInvert === this.colormapInvert) return;
 

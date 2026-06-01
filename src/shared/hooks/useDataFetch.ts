@@ -3,15 +3,14 @@
  *
  * @param fetchFn - Async function that returns data of type T
  * @param deps - Dependency array to trigger re-fetch when values change
- * @returns Object with data, loading, error, and refetch
+ * @returns Object with data, loading, and error
  */
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef } from 'react';
+import { useEffect, useLayoutEffect, useReducer, useRef } from 'react';
 
 export interface UseDataFetchReturn<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
-  refetch: () => void;
 }
 
 interface FetchState<T> {
@@ -56,21 +55,6 @@ export function useDataFetch<T>(
     fetchFnRef.current = fetchFn;
   });
 
-  const refetch = useCallback(() => {
-    dispatch({ type: 'start' });
-
-    fetchFnRef
-      .current()
-      .then(fetchedData => {
-        dispatch({ type: 'success', data: fetchedData });
-      })
-      .catch(err => {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error('Data fetch failed:', msg);
-        dispatch({ type: 'error', error: msg });
-      });
-  }, []);
-
   useEffect(() => {
     let isMounted = true;
     dispatch({ type: 'start' });
@@ -96,5 +80,5 @@ export function useDataFetch<T>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
-  return { ...state, refetch };
+  return state;
 }

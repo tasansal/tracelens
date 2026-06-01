@@ -50,4 +50,3 @@ function Checkbox({ className, size = 'default', ...props }: CheckboxProps) {
 }
 
 export { Checkbox };
-export type { CheckboxSize };

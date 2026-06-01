@@ -2,11 +2,11 @@
  * Table view for the SEG-Y trace header with spec-driven fields.
  */
 import { useCustomSpecStore } from '@/features/segy/store/customSpecStore';
-import type { HeaderFieldSpec } from '@/features/segy/types/headerSpec';
-import { getTraceHeaderData, type HeaderFieldData } from '@/shared/api/tauri/segy';
+import { getTraceHeaderData } from '@/shared/api/tauri/segy';
 import { useDataFetch } from '@/shared/hooks/useDataFetch';
 import { useCallback, useMemo } from 'react';
 import { HeaderSpecTable } from './HeaderSpecTable';
+import { mergeCustomFields } from './mergeCustomFields';
 
 interface TraceHeaderTableProps {
   /** Path to the SEG-Y file */
@@ -36,22 +36,10 @@ export const TraceHeaderTable = ({
     error,
   } = useDataFetch(fetchData, [revisionKey, customSpec, traceIndex, filePath]);
 
-  const customFields = useMemo<HeaderFieldData[]>(() => {
-    if (!customSpec?.trace_header?.fields || !fieldData) return [];
-    const fieldMap = new Map(fieldData.map((f: HeaderFieldData) => [f.byte_start, f]));
-    return customSpec.trace_header.fields.map((specF: HeaderFieldSpec): HeaderFieldData => {
-      const parsed = fieldMap.get(specF.byte_start);
-      return {
-        name: specF.name,
-        description: specF.description,
-        value: parsed?.value ?? 0,
-        resolved: parsed?.resolved,
-        byte_start: specF.byte_start,
-        byte_end: specF.byte_end,
-        data_type: specF.data_type,
-      };
-    });
-  }, [customSpec, fieldData]);
+  const customFields = useMemo(
+    () => mergeCustomFields(customSpec?.trace_header?.fields, fieldData),
+    [customSpec, fieldData]
+  );
 
   if (loading) {
     return (

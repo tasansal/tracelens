@@ -84,7 +84,7 @@ export function agcClip(gainDb: number): number {
  * Linear signed amplitude histogram (both negative and positive sides).
  * Bin edges run from -maxAbs to +maxAbs. Used by the Scaling panel.
  */
-export interface AmplitudeHistogram {
+interface AmplitudeHistogram {
   binEdges: number[];
   counts: number[];
 }
