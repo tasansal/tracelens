@@ -88,7 +88,8 @@ export const BinaryHeaderTable = ({ filePath, revisionKey = 0 }: BinaryHeaderTab
         <span className="text-border">·</span>
         <span className="text-eyebrow">dt</span>
         <span className="font-mono text-[length:var(--text-sm,12px)] font-semibold tabular-nums text-accent-2">
-          {dt} <span className="text-[length:var(--text-xs,10px)] font-normal text-text-dim">μs</span>
+          {dt}{' '}
+          <span className="text-[length:var(--text-xs,10px)] font-normal text-text-dim">μs</span>
         </span>
         <span className="text-border">·</span>
         <span className="text-eyebrow">Format</span>

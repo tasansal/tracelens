@@ -82,8 +82,12 @@ export const RevisionDetectionDialog = ({
                 )}
               </span>
               <div className="flex flex-col gap-0.5">
-                <span className="text-[length:var(--text-sm,12px)] font-semibold text-text">{option.label}</span>
-                <span className="text-[length:var(--text-xs,10px)] text-text-dim">{option.description}</span>
+                <span className="text-[length:var(--text-sm,12px)] font-semibold text-text">
+                  {option.label}
+                </span>
+                <span className="text-[length:var(--text-xs,10px)] text-text-dim">
+                  {option.description}
+                </span>
               </div>
             </OptionTile>
           ))}

@@ -113,7 +113,9 @@ export const HeaderSpecTable = ({
                     <TooltipTrigger className="cursor-help text-left">
                       <span className={cn(isCustom && 'italic text-accent')}>
                         {field.name}
-                        {isCustom && <span className="ml-1 text-[length:var(--text-2xs,9px)]">✦</span>}
+                        {isCustom && (
+                          <span className="ml-1 text-[length:var(--text-2xs,9px)]">✦</span>
+                        )}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-64">

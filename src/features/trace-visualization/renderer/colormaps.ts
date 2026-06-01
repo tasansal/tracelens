@@ -150,11 +150,7 @@ export function createColormapTexture(name: ColormapType, invert = false): Textu
 }
 
 /** Sample a single RGB color from a colormap at normalized position t ∈ [0,1]. */
-function getColormapColor(
-  name: ColormapType,
-  t: number,
-  invert = false
-): [number, number, number] {
+function getColormapColor(name: ColormapType, t: number, invert = false): [number, number, number] {
   const gen = GENERATORS[name] ?? GENERATORS.grayscale;
   const tt = invert ? 1 - t : t;
   const [r, g, b] = gen(tt);

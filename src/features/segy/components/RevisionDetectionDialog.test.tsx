@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RevisionDetectionDialog } from './RevisionDetectionDialog';
 
 // Mock the shadcn/ui Dialog primitives that the component depends on.
@@ -13,13 +13,9 @@ vi.mock('@/shared/ui/dialog', async () => {
     DialogContent: ({ children }: { children: React.ReactNode }) => (
       <div data-testid="dialog-content">{children}</div>
     ),
-    DialogHeader: ({ children }: { children: React.ReactNode }) => (
-      <div>{children}</div>
-    ),
+    DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
     DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
-    DialogDescription: ({ children }: { children: React.ReactNode }) => (
-      <p>{children}</p>
-    ),
+    DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
   };
 });
 
@@ -44,9 +40,7 @@ describe('RevisionDetectionDialog', () => {
     expect(screen.queryByTestId('dialog-root')).not.toBeInTheDocument();
 
     // Open it
-    rerender(
-      <RevisionDetectionDialog {...defaultProps} isOpen={true} onConfirm={onConfirm} />
-    );
+    rerender(<RevisionDetectionDialog {...defaultProps} isOpen={true} onConfirm={onConfirm} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('dialog-root')).toBeInTheDocument();
@@ -63,12 +57,8 @@ describe('RevisionDetectionDialog', () => {
     // The second open below exercises exactly that path.
 
     // Close and re-open → the component should have reset selection to Rev0
-    rerender(
-      <RevisionDetectionDialog {...defaultProps} isOpen={false} onConfirm={onConfirm} />
-    );
-    rerender(
-      <RevisionDetectionDialog {...defaultProps} isOpen={true} onConfirm={onConfirm} />
-    );
+    rerender(<RevisionDetectionDialog {...defaultProps} isOpen={false} onConfirm={onConfirm} />);
+    rerender(<RevisionDetectionDialog {...defaultProps} isOpen={true} onConfirm={onConfirm} />);
 
     await waitFor(() => {
       const resetRev0 = screen.getByText('Rev 0').closest('button');
@@ -78,9 +68,7 @@ describe('RevisionDetectionDialog', () => {
 
   it('calls onConfirm with the currently selected revision', () => {
     const onConfirm = vi.fn();
-    render(
-      <RevisionDetectionDialog {...defaultProps} isOpen={true} onConfirm={onConfirm} />
-    );
+    render(<RevisionDetectionDialog {...defaultProps} isOpen={true} onConfirm={onConfirm} />);
 
     // The component renders the "Use Rev 0" button by default (reset state)
     const useRev0 = screen.getByRole('button', { name: /Use Rev 0/i });

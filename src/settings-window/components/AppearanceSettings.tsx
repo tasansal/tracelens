@@ -8,13 +8,17 @@
  * sample uses standard. Fully compliant with 4.2-mono (cited as "Good (settings / forms)"
  * example). No text-[Npx] leaks. Audited clean in final sweep.
  */
-import { updateAppSettings, type ThemePreference, type UiDensity } from '@/shared/api/tauri/settings';
+import {
+  updateAppSettings,
+  type ThemePreference,
+  type UiDensity,
+} from '@/shared/api/tauri/settings';
 import { Button } from '@/shared/ui/button';
 import { cardClassName } from '@/shared/ui/card';
 import { OptionTile } from '@/shared/ui/option-tile';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table';
-import { applyThemeClass, resolveThemeIsDark } from '@/shared/utils/theme';
 import { applyDensityClass } from '@/shared/utils/density';
+import { applyThemeClass, resolveThemeIsDark } from '@/shared/utils/theme';
 import { Maximize2, Minimize2, Rows } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
@@ -153,8 +157,12 @@ export const AppearanceSettings = () => {
               <div className="flex items-center gap-[var(--space-3)]">
                 <span className="text-2xl">{option.icon}</span>
                 <div className="flex-1">
-                  <span className="text-[length:var(--text-sm,12px)] font-semibold text-text">{option.label}</span>
-                  <p className="text-[length:var(--text-xs,10px)] text-text-dim mt-[var(--space-1)]">{option.description}</p>
+                  <span className="text-[length:var(--text-sm,12px)] font-semibold text-text">
+                    {option.label}
+                  </span>
+                  <p className="text-[length:var(--text-xs,10px)] text-text-dim mt-[var(--space-1)]">
+                    {option.description}
+                  </p>
                 </div>
               </div>
             </OptionTile>
@@ -183,8 +191,12 @@ export const AppearanceSettings = () => {
               <div className="flex items-center gap-[var(--space-3)]">
                 <option.Icon className="size-6 shrink-0 text-text-dim" />
                 <div className="flex-1">
-                  <span className="text-[length:var(--text-sm,12px)] font-semibold text-text">{option.label}</span>
-                  <p className="text-[length:var(--text-xs,10px)] text-text-dim mt-[var(--space-1)]">{option.description}</p>
+                  <span className="text-[length:var(--text-sm,12px)] font-semibold text-text">
+                    {option.label}
+                  </span>
+                  <p className="text-[length:var(--text-xs,10px)] text-text-dim mt-[var(--space-1)]">
+                    {option.description}
+                  </p>
                 </div>
               </div>
             </OptionTile>
@@ -197,7 +209,8 @@ export const AppearanceSettings = () => {
           <div>
             <h3 className="text-[length:var(--text-sm,12px)] font-semibold">Preview</h3>
             <p className="text-[length:var(--text-xs,10px)] text-text-dim mt-[var(--space-1)]">
-              Theme and draft Density preview live in the box below (global + other window after Apply). Density scales all text sizes and spacing.
+              Theme and draft Density preview live in the box below (global + other window after
+              Apply). Density scales all text sizes and spacing.
             </p>
           </div>
           {hasPendingChange && (
@@ -222,14 +235,22 @@ export const AppearanceSettings = () => {
               </TableHeader>
               <TableBody>
                 <TableRow className="border-b border-border hover:bg-[var(--row-hover)]">
-                  <TableCell className="font-mono text-[length:var(--text-xs,10px)]">sample_format</TableCell>
+                  <TableCell className="font-mono text-[length:var(--text-xs,10px)]">
+                    sample_format
+                  </TableCell>
                   <TableCell className="text-text-muted">5 (IEEE Float)</TableCell>
-                  <TableCell className="text-text-dim text-[length:var(--text-xs,10px)]">int16</TableCell>
+                  <TableCell className="text-text-dim text-[length:var(--text-xs,10px)]">
+                    int16
+                  </TableCell>
                 </TableRow>
                 <TableRow className="hover:bg-[var(--row-hover)]">
-                  <TableCell className="font-mono text-[length:var(--text-xs,10px)]">num_samples</TableCell>
+                  <TableCell className="font-mono text-[length:var(--text-xs,10px)]">
+                    num_samples
+                  </TableCell>
                   <TableCell className="text-text-muted">1024</TableCell>
-                  <TableCell className="text-text-dim text-[length:var(--text-xs,10px)]">int16</TableCell>
+                  <TableCell className="text-text-dim text-[length:var(--text-xs,10px)]">
+                    int16
+                  </TableCell>
                 </TableRow>
               </TableBody>
             </Table>

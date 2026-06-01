@@ -96,14 +96,16 @@ describe('updateAppSettings', () => {
 
   it('should resolve on success', async () => {
     mockedInvoke.mockResolvedValueOnce(undefined as never);
-    await expect(updateAppSettings({ theme: 'dark', density: 'standard' })).resolves.toBeUndefined();
+    await expect(
+      updateAppSettings({ theme: 'dark', density: 'standard' })
+    ).resolves.toBeUndefined();
   });
 
   it('should throw on error', async () => {
     mockedInvoke.mockRejectedValueOnce(new Error('invalid settings'));
-    await expect(updateAppSettings({ theme: 'invalid' as never, density: 'compact' } as never)).rejects.toThrow(
-      'invalid settings'
-    );
+    await expect(
+      updateAppSettings({ theme: 'invalid' as never, density: 'compact' } as never)
+    ).rejects.toThrow('invalid settings');
   });
 });
 

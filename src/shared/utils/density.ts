@@ -21,7 +21,7 @@ const ALL_DENSITY_CLASSES = [
  * Apply the correct density class to a host element and remove the others.
  */
 export const applyDensityClass = (host: HTMLElement, density: UiDensity): void => {
-  ALL_DENSITY_CLASSES.forEach((cls) => host.classList.remove(cls));
+  ALL_DENSITY_CLASSES.forEach(cls => host.classList.remove(cls));
   host.classList.add(`${DENSITY_CLASS_PREFIX}${density}`);
 };
 
@@ -29,5 +29,5 @@ export const applyDensityClass = (host: HTMLElement, density: UiDensity): void =
  * Remove all density classes from a host (cleanup).
  */
 export const removeAllDensityClasses = (host: HTMLElement): void => {
-  ALL_DENSITY_CLASSES.forEach((cls) => host.classList.remove(cls));
+  ALL_DENSITY_CLASSES.forEach(cls => host.classList.remove(cls));
 };

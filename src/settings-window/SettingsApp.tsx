@@ -13,6 +13,7 @@
  *
  * @returns Layout that wraps appearance/storage panels, titlebar, and save badges.
  */
+import { useDensity } from '@/app/hooks/useDensity';
 import {
   closeSettingsWindow,
   getAppSettings,
@@ -30,7 +31,6 @@ import { WindowControls } from '@/shared/ui/window-controls';
 import { logoUrl } from '@/shared/utils/assets';
 import { isTauri } from '@/shared/utils/tauri';
 import { applyThemeClass, resolveThemeIsDark } from '@/shared/utils/theme';
-import { useDensity } from '@/app/hooks/useDensity';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useCallback, useEffect, useMemo } from 'react';
@@ -285,7 +285,10 @@ export const SettingsApp = () => {
         className="sticky top-0 z-[200] relative overflow-visible border-b border-[var(--grid)] bg-panel-tint text-text select-none"
         data-tauri-drag-region
       >
-        <div className="flex h-11 items-center justify-between px-[var(--space-4)]" data-tauri-drag-region>
+        <div
+          className="flex h-11 items-center justify-between px-[var(--space-4)]"
+          data-tauri-drag-region
+        >
           <div className="flex items-center gap-6" data-tauri-drag-region>
             <div className="flex items-center gap-[var(--space-3)]" data-tauri-drag-region>
               <img
@@ -329,7 +332,9 @@ export const SettingsApp = () => {
                   onClick={() => setActiveTab(item.id)}
                   className="flex-col items-start gap-[var(--space-1)]"
                 >
-                  <span className="text-[length:var(--text-sm,12px)] font-semibold">{item.label}</span>
+                  <span className="text-[length:var(--text-sm,12px)] font-semibold">
+                    {item.label}
+                  </span>
                   <span className="text-eyebrow">{item.caption}</span>
                 </OptionTile>
               ))}

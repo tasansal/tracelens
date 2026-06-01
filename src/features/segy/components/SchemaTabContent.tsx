@@ -193,7 +193,11 @@ function SchemaToolbar({
     <div className="flex shrink-0 items-center gap-0.5 border-b border-border px-2 py-1.5">
       <Popover open={loadPopoverOpen} onOpenChange={onLoadPopoverChange}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" className="h-7 gap-1 px-2 text-[length:var(--text-sm,12px)]" disabled={loading}>
+          <Button
+            variant="ghost"
+            className="h-7 gap-1 px-2 text-[length:var(--text-sm,12px)]"
+            disabled={loading}
+          >
             <Upload size={11} />
             Load
           </Button>
@@ -282,7 +286,9 @@ function InnerTabBar({
         >
           Binary
           {binaryCount > 0 && (
-            <span className="ml-1 font-mono text-[length:var(--text-xs,10px)] text-accent">{binaryCount}</span>
+            <span className="ml-1 font-mono text-[length:var(--text-xs,10px)] text-accent">
+              {binaryCount}
+            </span>
           )}
         </OptionTile>
         <OptionTile
@@ -292,7 +298,9 @@ function InnerTabBar({
         >
           Trace
           {traceCount > 0 && (
-            <span className="ml-1 font-mono text-[length:var(--text-xs,10px)] text-accent">{traceCount}</span>
+            <span className="ml-1 font-mono text-[length:var(--text-xs,10px)] text-accent">
+              {traceCount}
+            </span>
           )}
         </OptionTile>
       </div>

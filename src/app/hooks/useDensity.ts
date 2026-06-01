@@ -16,7 +16,7 @@ import { useEffect } from 'react';
  * Cleans up on unmount.
  */
 export function useDensity() {
-  const density = useAppStore((state) => state.density);
+  const density = useAppStore(state => state.density);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;

@@ -15,12 +15,12 @@
  * See design-language.md and TraceVisualizationContainer/TraceControlPanel for sibling
  * viz chrome patterns. Audited clean in final 4.2 sweep; no leaks.
  */
+import { normalizeColormap } from '@/features/trace-visualization/renderer/colormaps';
 import {
   pixelToIndex,
   pxPerSample,
   pxPerTrace,
 } from '@/features/trace-visualization/renderer/constants';
-import { normalizeColormap } from '@/features/trace-visualization/renderer/colormaps';
 import { TraceScene } from '@/features/trace-visualization/renderer/traceScene';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import {
@@ -315,8 +315,12 @@ export const TraceCanvas = ({ width, height }: TraceCanvasProps) => {
     return (
       <div className="flex h-full w-full items-center justify-center bg-panel p-6 text-center">
         <div>
-          <p className="text-[length:var(--text-sm,12px)] font-semibold text-text">Trace renderer unavailable</p>
-          <p className="mt-2 max-w-md text-[length:var(--text-xs,10px)] text-text-muted">{sceneError}</p>
+          <p className="text-[length:var(--text-sm,12px)] font-semibold text-text">
+            Trace renderer unavailable
+          </p>
+          <p className="mt-2 max-w-md text-[length:var(--text-xs,10px)] text-text-muted">
+            {sceneError}
+          </p>
         </div>
       </div>
     );

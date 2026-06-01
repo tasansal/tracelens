@@ -147,7 +147,10 @@ function SettingsSection({
   return (
     <div className="space-y-2 pl-2 pr-1 py-1.5" style={{ borderLeft: `2px solid ${accentVar}` }}>
       <div className="flex items-center justify-between">
-        <p className="text-[length:var(--text-xs,10px)] font-semibold tracking-[0.06em]" style={{ color: accentVar }}>
+        <p
+          className="text-[length:var(--text-xs,10px)] font-semibold tracking-[0.06em]"
+          style={{ color: accentVar }}
+        >
           {title}
         </p>
         {badge}
@@ -279,7 +282,10 @@ function AmplitudeScalingSection() {
       {amplitudeScaling.type === 'global-percentile' && (
         <div>
           <div className="mb-1.5 flex items-center gap-3">
-            <label htmlFor="amp-percentile" className="text-[length:var(--text-xs,10px)] font-medium text-text">
+            <label
+              htmlFor="amp-percentile"
+              className="text-[length:var(--text-xs,10px)] font-medium text-text"
+            >
               Percentile
             </label>
             <div className="ml-auto w-[88px] flex justify-end">
@@ -308,7 +314,10 @@ function AmplitudeScalingSection() {
       {amplitudeScaling.type === 'global-fixed' && (
         <div>
           <div className="mb-1.5 flex items-center gap-3">
-            <label htmlFor="amp-gain" className="text-[length:var(--text-xs,10px)] font-medium text-text">
+            <label
+              htmlFor="amp-gain"
+              className="text-[length:var(--text-xs,10px)] font-medium text-text"
+            >
               Gain
             </label>
             <div className="ml-auto w-[88px] flex justify-end">
@@ -346,7 +355,10 @@ function AmplitudeScalingSection() {
       {amplitudeScaling.type === 'agc' && (
         <div className="space-y-3">
           <div>
-            <label htmlFor="agc-window" className="mb-1.5 block text-[length:var(--text-xs,10px)] font-medium text-text">
+            <label
+              htmlFor="agc-window"
+              className="mb-1.5 block text-[length:var(--text-xs,10px)] font-medium text-text"
+            >
               Window (ms)
             </label>
             <input
@@ -365,11 +377,16 @@ function AmplitudeScalingSection() {
               placeholder="Full trace"
               className={cn(fieldClass, 'w-full font-mono tabular-nums')}
             />
-            <p className="mt-1 text-[length:var(--text-xs,10px)] text-text-dim">Empty = full-trace AGC.</p>
+            <p className="mt-1 text-[length:var(--text-xs,10px)] text-text-dim">
+              Empty = full-trace AGC.
+            </p>
           </div>
           <div>
             <div className="mb-1.5 flex items-center gap-3">
-              <label htmlFor="agc-gain" className="text-[length:var(--text-xs,10px)] font-medium text-text">
+              <label
+                htmlFor="agc-gain"
+                className="text-[length:var(--text-xs,10px)] font-medium text-text"
+              >
                 Gain
               </label>
               <div className="ml-auto w-[88px] flex justify-end">
@@ -475,7 +492,10 @@ function RenderSettingsControl() {
           <PopoverTrigger asChild>
             <button
               type="button"
-              className={cn(fieldClass, 'flex items-center gap-1.5 py-1 px-2 text-[length:var(--text-sm,12px)]')}
+              className={cn(
+                fieldClass,
+                'flex items-center gap-1.5 py-1 px-2 text-[length:var(--text-sm,12px)]'
+              )}
             >
               <span>{MODE_LABELS[renderMode]}</span>
               <Settings className="size-3 text-text-dim" aria-hidden />
@@ -487,7 +507,9 @@ function RenderSettingsControl() {
 
       <PopoverContent className="w-72 space-y-2" align="start" side="top">
         <div>
-          <p className="mb-1 text-[length:var(--text-xs,10px)] font-semibold tracking-[0.06em] text-text-dim">Mode</p>
+          <p className="mb-1 text-[length:var(--text-xs,10px)] font-semibold tracking-[0.06em] text-text-dim">
+            Mode
+          </p>
           <Select value={renderMode} onValueChange={v => setRenderMode(v as RenderMode)}>
             <SelectTrigger size="sm" className="w-full">
               <SelectValue />
@@ -568,7 +590,10 @@ function RenderSettingsControl() {
           <SettingsSection title="Wiggle" accentVar="var(--accent-3)">
             <div className="pt-1">
               <div className="mb-1.5 flex items-center gap-3">
-                <label htmlFor="wiggle-scale" className="text-[length:var(--text-xs,10px)] font-medium text-text">
+                <label
+                  htmlFor="wiggle-scale"
+                  className="text-[length:var(--text-xs,10px)] font-medium text-text"
+                >
                   Scale
                 </label>
                 <div className="ml-auto w-[88px] flex justify-end">
@@ -775,13 +800,18 @@ function ScaleControl() {
         </Tooltip>
 
         <PopoverContent className="w-72 space-y-3" align="start" side="top">
-          <div className="text-[length:var(--text-sm,12px)] font-semibold tracking-[0.03em] text-text">View scale</div>
+          <div className="text-[length:var(--text-sm,12px)] font-semibold tracking-[0.03em] text-text">
+            View scale
+          </div>
 
           {/* Horizontal */}
           <div className="space-y-1">
             <div className="flex items-baseline justify-between">
               <div>
-                <label htmlFor="scale-horizontal" className="text-[length:var(--text-sm,12px)] font-medium text-text">
+                <label
+                  htmlFor="scale-horizontal"
+                  className="text-[length:var(--text-sm,12px)] font-medium text-text"
+                >
                   Horizontal
                 </label>
                 <div className="text-[length:var(--text-2xs,9px)] font-mono text-text-dim tracking-[0.05em] leading-none">
@@ -823,7 +853,10 @@ function ScaleControl() {
           <div className="space-y-1">
             <div className="flex items-baseline justify-between">
               <div>
-                <label htmlFor="scale-vertical" className="text-[length:var(--text-sm,12px)] font-medium text-text">
+                <label
+                  htmlFor="scale-vertical"
+                  className="text-[length:var(--text-sm,12px)] font-medium text-text"
+                >
                   Vertical exag.
                 </label>
                 <div className="text-[length:var(--text-2xs,9px)] font-mono text-text-dim tracking-[0.05em] leading-none">

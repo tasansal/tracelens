@@ -55,8 +55,12 @@ function FieldRow({
       <td className="px-2 py-1.5 font-mono text-[length:var(--text-sm,12px)] text-text-dim">
         {field.byte_start}–{field.byte_end}
       </td>
-      <td className="px-2 py-1.5 font-mono text-[length:var(--text-sm,12px)] text-accent-2">{field.data_type}</td>
-      <td className="px-2 py-1.5 text-[length:var(--text-xs,10px)] text-text-dim">{field.description || '—'}</td>
+      <td className="px-2 py-1.5 font-mono text-[length:var(--text-sm,12px)] text-accent-2">
+        {field.data_type}
+      </td>
+      <td className="px-2 py-1.5 text-[length:var(--text-xs,10px)] text-text-dim">
+        {field.description || '—'}
+      </td>
       <td className="py-1.5 pl-2 pr-3">
         {isCustom && (
           <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -128,7 +132,9 @@ export const SchemaFieldList = ({
           </span>
           Show standard fields
         </button>
-        <span className="font-mono text-[length:var(--text-xs,10px)] text-text-muted">{customFields.length} custom</span>
+        <span className="font-mono text-[length:var(--text-xs,10px)] text-text-muted">
+          {customFields.length} custom
+        </span>
       </div>
 
       {/* Scrollable table */}
@@ -157,7 +163,10 @@ export const SchemaFieldList = ({
                 ))
               : !showStandard && (
                   <tr>
-                    <td colSpan={5} className="px-3 py-8 text-center text-[length:var(--text-xs,10px)] text-text-muted">
+                    <td
+                      colSpan={5}
+                      className="px-3 py-8 text-center text-[length:var(--text-xs,10px)] text-text-muted"
+                    >
                       No custom fields. Click &ldquo;+ Add Field&rdquo; to create one.
                     </td>
                   </tr>
@@ -179,7 +188,10 @@ export const SchemaFieldList = ({
                 )}
                 {standardFieldsLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-3 py-4 text-center text-[length:var(--text-xs,10px)] text-text-muted">
+                    <td
+                      colSpan={5}
+                      className="px-3 py-4 text-center text-[length:var(--text-xs,10px)] text-text-muted"
+                    >
                       Loading standard fields…
                     </td>
                   </tr>

@@ -348,7 +348,9 @@ export const StorageSettingsPanel = () => {
           <TabsContent value="s3" className="space-y-6">
             <section className={cardClassName}>
               <div className="mb-[var(--space-4)]">
-                <h3 className="text-[length:var(--text-sm,12px)] font-semibold">AWS S3 Credentials</h3>
+                <h3 className="text-[length:var(--text-sm,12px)] font-semibold">
+                  AWS S3 Credentials
+                </h3>
                 <p className="text-[length:var(--text-xs,10px)] text-text-dim">
                   Used when opening s3:// files. Leave empty to use env vars or IAM roles.
                 </p>
@@ -401,7 +403,10 @@ export const StorageSettingsPanel = () => {
                     className="mt-[var(--space-1)]"
                   />
                   <div className="flex-1">
-                    <Label htmlFor="s3SkipSignature" className="text-[length:var(--text-sm,12px)] font-medium text-text">
+                    <Label
+                      htmlFor="s3SkipSignature"
+                      className="text-[length:var(--text-sm,12px)] font-medium text-text"
+                    >
                       Anonymous Access (Public Buckets)
                     </Label>
                     <p className="text-[length:var(--text-xs,10px)] text-text-dim mt-[var(--space-1)]">
@@ -425,7 +430,9 @@ export const StorageSettingsPanel = () => {
                 className="flex w-full items-center justify-between text-left p-0 h-auto focus-ring"
               >
                 <div>
-                  <h3 className="text-[length:var(--text-sm,12px)] font-semibold">Advanced Options</h3>
+                  <h3 className="text-[length:var(--text-sm,12px)] font-semibold">
+                    Advanced Options
+                  </h3>
                   <p className="text-[length:var(--text-xs,10px)] text-text-dim">
                     Session tokens and custom endpoints for S3-compatible services.
                   </p>
@@ -470,7 +477,9 @@ export const StorageSettingsPanel = () => {
           <TabsContent value="gcs" className="space-y-6">
             <section className={cardClassName}>
               <div className="mb-[var(--space-4)]">
-                <h3 className="text-[length:var(--text-sm,12px)] font-semibold">Google Cloud Storage Credentials</h3>
+                <h3 className="text-[length:var(--text-sm,12px)] font-semibold">
+                  Google Cloud Storage Credentials
+                </h3>
                 <p className="text-[length:var(--text-xs,10px)] text-text-dim">
                   Used when opening `gs://` files. Choose one auth mode; defaults to ADC.
                 </p>
@@ -578,7 +587,9 @@ export const StorageSettingsPanel = () => {
           <TabsContent value="azure" className="space-y-6">
             <section className={cardClassName}>
               <div className="mb-[var(--space-4)]">
-                <h3 className="text-[length:var(--text-sm,12px)] font-semibold">Azure Blob Storage Credentials</h3>
+                <h3 className="text-[length:var(--text-sm,12px)] font-semibold">
+                  Azure Blob Storage Credentials
+                </h3>
                 <p className="text-[length:var(--text-xs,10px)] text-text-dim">
                   Used for <span className="font-mono">az://</span> and Azure Blob HTTPS URLs. Keep
                   credentials empty to use managed identity / environment-based auth.
@@ -613,8 +624,12 @@ export const StorageSettingsPanel = () => {
                         selected={azureAuthMode === option.mode}
                         onClick={() => setAzureAuthMode(option.mode)}
                       >
-                        <div className="text-[length:var(--text-sm,12px)] font-semibold">{option.title}</div>
-                        <div className="mt-[var(--space-1)] text-[length:var(--text-xs,10px)] text-text-dim">{option.description}</div>
+                        <div className="text-[length:var(--text-sm,12px)] font-semibold">
+                          {option.title}
+                        </div>
+                        <div className="mt-[var(--space-1)] text-[length:var(--text-xs,10px)] text-text-dim">
+                          {option.description}
+                        </div>
                       </OptionTile>
                     ))}
                   </div>
@@ -677,7 +692,9 @@ export const StorageSettingsPanel = () => {
                 className="flex w-full items-center justify-between text-left p-0 h-auto focus-ring"
               >
                 <div>
-                  <h3 className="text-[length:var(--text-sm,12px)] font-semibold">Advanced Options</h3>
+                  <h3 className="text-[length:var(--text-sm,12px)] font-semibold">
+                    Advanced Options
+                  </h3>
                   <p className="text-[length:var(--text-xs,10px)] text-text-dim">
                     Custom endpoint for Azurite or private Azure cloud endpoints.
                   </p>
