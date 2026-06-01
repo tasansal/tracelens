@@ -12,7 +12,7 @@
  */
 import { Button } from '@/shared/ui/button';
 import { softCardClassName } from '@/shared/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { useEffect, useRef, useState } from 'react';
@@ -56,6 +56,9 @@ export const UriInputDialog = ({
       <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Open Remote SEG-Y File</DialogTitle>
+          <DialogDescription>
+            Enter the URI of a remote SEG-Y file (S3, GCS, Azure, or HTTP).
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
