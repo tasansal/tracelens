@@ -12,7 +12,13 @@
  */
 import { Button } from '@/shared/ui/button';
 import { softCardClassName } from '@/shared/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/ui/dialog';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
 import { useEffect, useRef, useState } from 'react';
