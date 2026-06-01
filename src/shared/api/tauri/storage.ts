@@ -5,7 +5,7 @@
 /**
  * AWS S3 configuration
  */
-export interface S3Config {
+interface S3Config {
   region: string;
   accessKeyId?: string;
   secretAccessKey?: string;
@@ -17,7 +17,7 @@ export interface S3Config {
 /**
  * Google Cloud Storage configuration
  */
-export interface GcsConfig {
+interface GcsConfig {
   serviceAccountKeyPath?: string;
   serviceAccountKey?: string;
   applicationCredentialsPath?: string;
@@ -27,7 +27,7 @@ export interface GcsConfig {
 /**
  * Azure Blob Storage configuration
  */
-export interface AzureConfig {
+interface AzureConfig {
   accountName: string;
   accessKey?: string;
   sasToken?: string;
@@ -37,7 +37,7 @@ export interface AzureConfig {
 /**
  * HTTP configuration
  */
-export interface HttpConfig {
+interface HttpConfig {
   headers: Record<string, string>;
   timeoutSecs: number;
 }
@@ -45,9 +45,9 @@ export interface HttpConfig {
 /**
  * Performance tuning configuration
  */
-export interface PerformanceConfig {
+interface PerformanceConfig {
   chunkSizeMb: number;
-  sparseThreshold: number;
+  readCacheMb: number;
   renderChunkTraces: number;
 }
 

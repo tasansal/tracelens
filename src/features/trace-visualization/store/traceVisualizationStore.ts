@@ -19,28 +19,29 @@ interface TraceVisualizationState {
   // View configuration
   renderMode: RenderMode;
   colormap: ColormapType;
+  /** When true, the selected colormap is inverted (e.g. seismic becomes red-white-blue). */
+  invertColormap: boolean;
   amplitudeScaling: AmplitudeScaling;
   amplitudeStats: AmplitudeStats | null;
+  amplitudeScanFailed: boolean;
   viewport: ViewportConfig;
   wiggleConfig: WiggleConfig;
 
-  // UI state
-  zoomLevel: number;
-  zoomLevelY: number;
+  // UI state — independent per-axis zoom
+  /** Horizontal zoom. At 1.0, INITIAL_VISIBLE_TRACES (1000) traces fill the viewport width. */
+  zoomX: number;
+  /** Vertical zoom. At 1.0, all samples fill the viewport height. Cannot go below 1.0. */
+  zoomY: number;
   panOffset: { x: number; y: number };
-  canvasSize: { width: number; height: number };
 
   // Actions
   setRenderMode: (mode: RenderMode) => void;
   setColormap: (colormap: ColormapType) => void;
+  setInvertColormap: (invert: boolean) => void;
   setAmplitudeScaling: (scaling: AmplitudeScaling) => void;
-  setAmplitudeStats: (stats: AmplitudeStats | null) => void;
   setWiggleConfig: (config: Partial<WiggleConfig>) => void;
   updateViewport: (viewport: Partial<ViewportConfig>) => void;
-  setZoomLevel: (zoom: number) => void;
-  setZoomLevelY: (zoom: number) => void;
   setPanOffset: (offset: { x: number; y: number }) => void;
-  setCanvasSize: (size: { width: number; height: number }) => void;
   resetView: () => void;
 }
 
@@ -52,16 +53,12 @@ const DEFAULT_VIEWPORT: ViewportConfig = {
   height: 600,
 };
 
-/**
- * Default wiggle rendering parameters.
- */
 const DEFAULT_WIGGLE_CONFIG: WiggleConfig = {
-  lineWidth: 1.0,
   lineColor: [0, 0, 0],
-  fillPositive: true,
-  fillNegative: false,
+  wiggleScale: 2.0,
   positiveFillColor: [0, 0, 0],
-  negativeFillColor: [255, 0, 0],
+  negativeFillColor: [255, 255, 255],
+  backgroundColor: [255, 255, 255],
 };
 
 /**
@@ -73,25 +70,27 @@ export const useTraceVisualizationStore = create<TraceVisualizationState>(set =>
   // Initial state
   renderMode: 'variable-density',
   colormap: 'grayscale',
+  invertColormap: false,
   amplitudeScaling: { type: 'global-percentile', clipValue: 1.0 },
   amplitudeStats: null,
+  amplitudeScanFailed: false,
   viewport: DEFAULT_VIEWPORT,
   wiggleConfig: DEFAULT_WIGGLE_CONFIG,
-  zoomLevel: 1.0,
-  zoomLevelY: 1.0,
+  zoomX: 1.0,
+  zoomY: 1.0,
   panOffset: { x: 0, y: 0 },
-  canvasSize: { width: 800, height: 600 },
 
   // Actions
   setRenderMode: mode => set({ renderMode: mode }),
   setColormap: colormap => set({ colormap }),
+  setInvertColormap: invert => set({ invertColormap: invert }),
   setAmplitudeScaling: scaling => set({ amplitudeScaling: scaling }),
-  setAmplitudeStats: stats => set({ amplitudeStats: stats }),
   setWiggleConfig: partial => {
     const clamped: Partial<WiggleConfig> = { ...partial };
     if (clamped.lineColor) clamped.lineColor = clampRgb(clamped.lineColor);
     if (clamped.positiveFillColor) clamped.positiveFillColor = clampRgb(clamped.positiveFillColor);
     if (clamped.negativeFillColor) clamped.negativeFillColor = clampRgb(clamped.negativeFillColor);
+    if (clamped.backgroundColor) clamped.backgroundColor = clampRgb(clamped.backgroundColor);
     set(state => ({
       wiggleConfig: { ...state.wiggleConfig, ...clamped },
     }));
@@ -100,15 +99,12 @@ export const useTraceVisualizationStore = create<TraceVisualizationState>(set =>
     set(state => ({
       viewport: { ...state.viewport, ...partial },
     })),
-  setZoomLevel: zoom => set({ zoomLevel: zoom }),
-  setZoomLevelY: zoom => set({ zoomLevelY: zoom }),
   setPanOffset: offset => set({ panOffset: offset }),
-  setCanvasSize: size => set({ canvasSize: size }),
   resetView: () =>
     set({
       viewport: DEFAULT_VIEWPORT,
-      zoomLevel: 1.0,
-      zoomLevelY: 1.0,
+      zoomX: 1.0,
+      zoomY: 1.0,
       panOffset: { x: 0, y: 0 },
     }),
 }));

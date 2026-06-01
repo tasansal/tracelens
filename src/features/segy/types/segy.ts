@@ -6,15 +6,14 @@ import type { SegyRevision } from '@/shared/api/tauri/segy';
 /**
  * Textual header is exposed as an array of 40 lines.
  */
-export interface TextualHeader {
+interface TextualHeader {
   lines: string[];
 }
 
 /**
- * Dynamic header maps keyed by backend field specs.
+ * Dynamic header map keyed by backend field specs.
  */
-export type BinaryHeader = Record<string, unknown>;
-export type TraceHeader = Record<string, unknown>;
+type BinaryHeader = Record<string, unknown>;
 
 /**
  * Aggregate SEG-Y metadata loaded from the backend.

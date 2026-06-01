@@ -1,21 +1,23 @@
 //! SEG-Y reader implementation with storage abstraction.
 //!
 //! `SegyReader` uses the storage abstraction layer to support both local (memory-mapped)
-//! and remote (S3, GCS, Azure, HTTP) SEG-Y files. The WindowCache enables efficient chunked
+//! and remote (S3, GCS, Azure, HTTP) SEG-Y files. The ChunkCache enables efficient chunked
 //! loading for remote storage. `SegyReaderState` caches the latest reader for Tauri commands.
 
 use crate::error::AppError;
+use crate::segy::agc::{AgcOptions, AgcSpec, resolve as resolve_agc};
+use crate::segy::chunk_cache::{ChunkCache, TraceChunk};
 use crate::segy::constants::FILE_HEADER_SIZE;
+use crate::segy::header_spec::SegyFormatSpec;
 use crate::segy::io;
 use crate::segy::storage::SegyStorage;
-use crate::segy::window_cache::WindowCache;
 use crate::segy::{
     BinaryHeader, SegyData, SegyFileConfig, SegyRevision, TextualHeader, TraceBlock, TraceData,
 };
 use crate::storage_config;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 /// SEG-Y reader with storage abstraction and windowed caching.
 pub struct SegyReader {
@@ -27,7 +29,7 @@ pub struct SegyReader {
     total_traces: Option<usize>,
     config: SegyFileConfig,
     storage: SegyStorage,
-    window_cache: Arc<Mutex<WindowCache>>,
+    chunk_cache: Arc<ChunkCache>,
     detected_revision: SegyRevision,
 }
 
@@ -101,12 +103,31 @@ impl SegyReader {
         let total_traces =
             trace_block_size.and_then(|size| io::compute_total_traces(file_size, size));
 
-        // Initialize window cache with user-configured parameters.
-        let window_cache = Arc::new(Mutex::new(WindowCache::with_params(
+        // Initialize the chunk cache. Its read-cache budget (MiB) divided by
+        // the chunk size gives the number of resident chunks, floored at 1 so
+        // at least one chunk is always available. When chunk_size_mb exceeds
+        // read_cache_mb the cache will hold one chunk that is larger than the
+        // stated budget — unavoidable since we always need room for one read.
+        let max_chunks =
+            (performance_config.read_cache_mb / performance_config.chunk_size_mb.max(1)).max(1);
+        if performance_config.chunk_size_mb == 0 {
+            log::warn!(
+                "chunk_size_mb is 0; clamped to 1 MiB for chunk-size calculation — \
+                 set a positive value to avoid excessive cache fragmentation"
+            );
+        } else if performance_config.chunk_size_mb >= performance_config.read_cache_mb {
+            log::warn!(
+                "chunk_size_mb ({}) equals or exceeds read_cache_mb ({}); cache will hold 1 chunk ({} MiB)",
+                performance_config.chunk_size_mb,
+                performance_config.read_cache_mb,
+                performance_config.chunk_size_mb,
+            );
+        }
+        let chunk_cache = Arc::new(ChunkCache::with_params(
             config.clone(),
-            performance_config.chunk_size_mb,
-            performance_config.sparse_threshold,
-        )));
+            performance_config.chunk_size_mb.max(1),
+            max_chunks,
+        ));
 
         Ok(Self {
             uri: uri.to_string(),
@@ -117,7 +138,7 @@ impl SegyReader {
             total_traces,
             config,
             storage,
-            window_cache,
+            chunk_cache,
             detected_revision,
         })
     }
@@ -127,22 +148,6 @@ impl SegyReader {
     /// Uses default provider credential chain (env vars, IAM roles, etc.)
     pub async fn open(uri: &str) -> Result<Self, AppError> {
         Self::open_with_config(uri, None).await
-    }
-
-    /// Open a SEG-Y file on a blocking thread to avoid stalling the async runtime.
-    ///
-    /// This is a transitional wrapper that will be removed once all callers are fully async.
-    pub async fn open_async(
-        uri: String,
-        config: Option<storage_config::StorageConfig>,
-    ) -> Result<Self, AppError> {
-        tokio::task::spawn_blocking(move || {
-            tokio::runtime::Handle::current().block_on(Self::open_with_config(&uri, config))
-        })
-        .await
-        .map_err(|e| AppError::IoError {
-            message: format!("SEG-Y open task failed: {}", e),
-        })?
     }
 
     /// Create a lightweight data summary for frontend consumption.
@@ -171,13 +176,14 @@ impl SegyReader {
 
     /// Load a single trace block (header + data) by index.
     ///
-    /// Uses sparse vectored I/O for efficient single-trace access on remote storage.
+    /// Reads the trace directly from storage with a single ranged fetch — the
+    /// chunk cache is intentionally bypassed so hover/readout queries don't
+    /// perturb the LRU during pan/zoom.
     pub async fn load_single_trace(
         &self,
         trace_index: usize,
         max_samples: Option<usize>,
     ) -> Result<TraceBlock, AppError> {
-        // Validate trace index
         if let Some(total_traces) = self.total_traces
             && trace_index >= total_traces
         {
@@ -189,46 +195,34 @@ impl SegyReader {
             });
         }
 
-        // Use window cache to fetch the single trace (uses vectored I/O for remote)
-        let mut cache = self.window_cache.lock().await;
-        let mut traces = cache
-            .get_sparse_traces(&[trace_index], &self.storage)
-            .await?;
+        let trace_size = self.config.trace_block_size()?;
+        let format = self.config.data_sample_format_parsed()?;
+        let offset = FILE_HEADER_SIZE as u64 + trace_index as u64 * trace_size as u64;
+        let bytes = self.storage.read_range(offset, trace_size).await?;
 
-        if traces.is_empty() {
-            return Err(AppError::SegyError {
-                message: format!("Failed to load trace {}", trace_index),
-            });
-        }
+        let trace = io::parse_trace_block(
+            &bytes,
+            format,
+            self.config.samples_per_trace,
+            self.config.byte_order,
+        )
+        .map_err(|e| AppError::ParseError {
+            message: format!("Failed to parse trace {}: {}", trace_index, e),
+        })?;
 
-        let trace = traces.remove(0);
         Ok(apply_trace_limit(trace, max_samples))
     }
 
-    /// Load only trace sample data for a contiguous range of traces.
-    ///
-    /// More efficient than loading full `TraceBlock` values when only sample
-    /// data is needed.
-    pub async fn load_trace_data_range(
+    /// Acquire a covering window. The cache does its own internal locking and
+    /// runs network I/O lock-free, so concurrent fetches parallelize naturally.
+    async fn get_or_load_window(
         &self,
-        start_index: usize,
+        start_trace: usize,
         count: usize,
-        max_samples: Option<usize>,
-    ) -> Result<Vec<TraceData>, AppError> {
-        io::validate_trace_range(&self.config, start_index, count, self.total_traces)?;
-        if count == 0 {
-            return Ok(Vec::new());
-        }
-
-        // Load full traces from window cache
-        let mut cache = self.window_cache.lock().await;
-        let traces = cache.get_traces(start_index, count, &self.storage).await?;
-
-        // Extract just the data portion
-        Ok(traces
-            .into_iter()
-            .map(|trace| apply_data_limit(trace.data, max_samples))
-            .collect())
+    ) -> Result<Arc<TraceChunk>, AppError> {
+        self.chunk_cache
+            .get_or_load(start_trace, count, &self.storage)
+            .await
     }
 
     /// Load trace data from multiple disjoint blocks concurrently.
@@ -294,6 +288,7 @@ impl SegyReader {
         trace_count: usize,
         start_sample: usize,
         sample_count: usize,
+        agc: Option<AgcOptions>,
     ) -> Result<Vec<TraceData>, AppError> {
         io::validate_trace_range(&self.config, start_trace, trace_count, self.total_traces)?;
         if trace_count == 0 {
@@ -310,18 +305,26 @@ impl SegyReader {
                 ),
             });
         }
+        if sample_count == 0 {
+            return Ok(Vec::new());
+        }
 
-        // Load trace data with sample range filtering
-        let mut cache = self.window_cache.lock().await;
-        cache
-            .get_trace_data_with_range(
-                start_trace,
-                trace_count,
-                start_sample,
-                sample_count,
-                &self.storage,
-            )
-            .await
+        // Resolve the AGC window (ms → samples) using this file's sample
+        // interval; `None` leaves samples un-normalized.
+        let agc_spec: Option<AgcSpec> =
+            agc.map(|opts| resolve_agc(opts, self.binary_header.sample_interval_us));
+
+        let window = self.get_or_load_window(start_trace, trace_count).await?;
+        // Parse outside the cache lock so other tile fetches can proceed in
+        // parallel against the same (or different) cached windows.
+        window.extract_trace_data_with_range(
+            start_trace,
+            trace_count,
+            start_sample,
+            sample_count,
+            &self.config,
+            agc_spec.as_ref(),
+        )
     }
 }
 
@@ -329,6 +332,7 @@ impl SegyReader {
 pub struct SegyReaderState {
     reader: RwLock<Option<Arc<SegyReader>>>,
     overrides: RwLock<HashMap<String, SegyRevision>>,
+    custom_specs: RwLock<HashMap<String, SegyFormatSpec>>,
 }
 
 impl Default for SegyReaderState {
@@ -336,6 +340,7 @@ impl Default for SegyReaderState {
         Self {
             reader: RwLock::new(None),
             overrides: RwLock::new(HashMap::new()),
+            custom_specs: RwLock::new(HashMap::new()),
         }
     }
 }
@@ -369,13 +374,53 @@ impl SegyReaderState {
         overrides.get(file_path).copied().unwrap_or(detected)
     }
 
+    /// Store a custom spec for a specific file path.
+    ///
+    /// Per D-12c, custom spec persists in memory for the session and survives
+    /// file close/reopen.
+    pub async fn set_custom_spec(&self, file_path: String, spec: SegyFormatSpec) {
+        let mut specs = self.custom_specs.write().await;
+        specs.insert(file_path, spec);
+    }
+
+    /// Retrieve a custom spec for a file, if one exists.
+    pub async fn get_custom_spec(&self, file_path: &str) -> Option<SegyFormatSpec> {
+        let specs = self.custom_specs.read().await;
+        specs.get(file_path).cloned()
+    }
+
+    /// Remove a custom spec for a file.
+    pub async fn clear_custom_spec(&self, file_path: &str) {
+        let mut specs = self.custom_specs.write().await;
+        specs.remove(file_path);
+    }
+
+    /// Get or create a merged spec (standard + custom) for a file.
+    ///
+    /// If a custom spec exists, merge its fields with the standard spec.
+    /// Custom fields override standard fields at the same byte position.
+    ///
+    /// Now invoked by `get_binary_header_data` and `get_trace_header_data`
+    /// (Phase 02.1) so that custom fields appear in UI header tables.
+    pub async fn get_active_spec(
+        &self,
+        file_path: &str,
+        standard_spec: &SegyFormatSpec,
+    ) -> SegyFormatSpec {
+        let custom = self.get_custom_spec(file_path).await;
+        match custom {
+            Some(custom_spec) => merge_specs(standard_spec, &custom_spec),
+            None => standard_spec.clone(),
+        }
+    }
+
     /// Open a new reader and cache it, replacing any previous reader.
     pub async fn open(
         &self,
         uri: String,
         config: Option<storage_config::StorageConfig>,
     ) -> Result<Arc<SegyReader>, AppError> {
-        let reader = SegyReader::open_async(uri.clone(), config).await?;
+        let reader = SegyReader::open_with_config(&uri, config).await?;
         let reader = Arc::new(reader);
 
         let mut guard = self.reader.write().await;
@@ -414,11 +459,58 @@ fn apply_trace_limit(trace: TraceBlock, max_samples: Option<usize>) -> TraceBloc
     }
 }
 
-/// Apply a sample limit to raw trace data.
-fn apply_data_limit(data: TraceData, max_samples: Option<usize>) -> TraceData {
-    match max_samples {
-        Some(limit) => data.downsample(limit),
-        None => data,
+/// Merge a standard spec with a custom spec.
+///
+/// Custom fields override standard fields at the same byte position.
+/// Custom-only fields are added to the appropriate header section.
+fn merge_specs(standard: &SegyFormatSpec, custom: &SegyFormatSpec) -> SegyFormatSpec {
+    use std::collections::HashSet;
+
+    // All fields use 1-based local offsets relative to their header block: binary 1–400,
+    // trace 1–240. No offset translation needed.
+    let custom_binary_map: HashSet<u16> = custom
+        .binary_header
+        .fields
+        .iter()
+        .map(|f| f.byte_start)
+        .collect();
+    let custom_trace_map: HashSet<u16> = custom
+        .trace_header
+        .fields
+        .iter()
+        .map(|f| f.byte_start)
+        .collect();
+
+    let binary_fields: Vec<_> = standard
+        .binary_header
+        .fields
+        .iter()
+        .filter(|f| !custom_binary_map.contains(&f.byte_start))
+        .cloned()
+        .chain(custom.binary_header.fields.iter().cloned())
+        .collect();
+
+    // Trace header: start with standard fields, replace with custom fields
+    let trace_fields: Vec<_> = standard
+        .trace_header
+        .fields
+        .iter()
+        .filter(|f| !custom_trace_map.contains(&f.byte_start))
+        .chain(custom.trace_header.fields.iter())
+        .cloned()
+        .collect();
+
+    SegyFormatSpec {
+        version: format!("{} + Custom", standard.version),
+        reference: standard.reference.clone(),
+        binary_header: crate::segy::header_spec::BinaryHeaderSpec {
+            size: standard.binary_header.size,
+            fields: binary_fields,
+        },
+        trace_header: crate::segy::header_spec::TraceHeaderSpec {
+            size: standard.trace_header.size,
+            fields: trace_fields,
+        },
     }
 }
 

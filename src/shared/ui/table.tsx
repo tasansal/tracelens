@@ -9,7 +9,7 @@ const Table = ({ className, containerClassName, ...props }: TableProps) => (
   <div data-slot="table-container" className={cn('relative w-full', containerClassName)}>
     <table
       data-slot="table"
-      className={cn('w-full caption-bottom text-sm', className)}
+      className={cn('w-full caption-bottom text-[length:var(--text-sm,12px)]', className)}
       {...props}
     />
   </div>

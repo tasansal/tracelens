@@ -6,16 +6,8 @@ function Dialog(props: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 
-function DialogTrigger(props: React.ComponentProps<typeof DialogPrimitive.Trigger>) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />;
-}
-
 function DialogPortal(props: React.ComponentProps<typeof DialogPrimitive.Portal>) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
-}
-
-function DialogClose(props: React.ComponentProps<typeof DialogPrimitive.Close>) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />;
 }
 
 function DialogOverlay({
@@ -25,17 +17,26 @@ function DialogOverlay({
   return (
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
-      className={cn('fixed inset-0 z-50 bg-[rgba(8,10,12,0.6)] backdrop-blur-[6px]', className)}
+      className={cn('fixed inset-0 z-50 bg-[var(--overlay-dim)] backdrop-blur-[6px]', className)}
       {...props}
     />
   );
 }
 
+const dialogSizes = {
+  sm: 'sm:max-w-sm',
+  md: 'sm:max-w-[560px]',
+  lg: 'sm:max-w-[840px]',
+} as const;
+
 function DialogContent({
   className,
   children,
+  size,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content>) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  size?: keyof typeof dialogSizes;
+}) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -43,6 +44,7 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           'fixed left-[50%] top-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-[var(--radius-lg)] border border-border bg-panel p-6 shadow-[var(--shadow)] outline-none sm:max-w-lg',
+          size && dialogSizes[size],
           className
         )}
         {...props}
@@ -67,7 +69,7 @@ function DialogTitle({ className, ...props }: React.ComponentProps<typeof Dialog
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn('text-base font-semibold text-text', className)}
+      className={cn('text-headline display-tight text-text', className)}
       {...props}
     />
   );
@@ -80,20 +82,10 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn('text-sm text-text-dim', className)}
+      className={cn('text-[length:var(--text-sm,12px)] text-text-dim', className)}
       {...props}
     />
   );
 }
 
-export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogTrigger,
-};
+export { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle };

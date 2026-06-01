@@ -18,12 +18,29 @@ pub enum ThemePreference {
     System,
 }
 
-/// Application settings
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+/// UI density levels for scaling text and spacing globally (for power users).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UiDensity {
+    #[default]
+    Compact,
+    Standard,
+    Spacious,
+}
+
+/// Application settings (theme + density for UI scaling, etc.)
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct AppSettings {
     /// Theme preference (light, dark, or system)
     #[serde(default)]
     pub theme: ThemePreference,
+
+    /// UI density preference (compact, standard, or spacious).
+    ///
+    /// Uses `#[serde(default)]` for smooth migration: pre-existing settings files
+    /// without this field will load as `Compact` (the power-user default).
+    #[serde(default)]
+    pub density: UiDensity,
 }
 
 /// Build the file path where app settings are stored in the user profile.
@@ -108,6 +125,7 @@ mod tests {
     fn test_serialize_settings() {
         let settings = AppSettings {
             theme: ThemePreference::Dark,
+            density: UiDensity::Compact,
         };
 
         let json = serde_json::to_string(&settings).unwrap();
@@ -119,5 +137,82 @@ mod tests {
         let json = r#"{"theme":"light"}"#;
         let settings: AppSettings = serde_json::from_str(json).unwrap();
         assert_eq!(settings.theme, ThemePreference::Light);
+    }
+
+    #[test]
+    fn test_app_settings_default() {
+        let settings = AppSettings::default();
+        assert_eq!(settings.theme, ThemePreference::System);
+    }
+
+    #[test]
+    fn test_app_settings_roundtrip() {
+        let original = AppSettings {
+            theme: ThemePreference::Dark,
+            density: UiDensity::Compact,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let restored: AppSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(original, restored);
+    }
+
+    #[test]
+    fn test_theme_preference_serialization() {
+        let light = serde_json::to_string(&ThemePreference::Light).unwrap();
+        assert_eq!(light, r#""light""#);
+
+        let dark = serde_json::to_string(&ThemePreference::Dark).unwrap();
+        assert_eq!(dark, r#""dark""#);
+
+        let system = serde_json::to_string(&ThemePreference::System).unwrap();
+        assert_eq!(system, r#""system""#);
+    }
+
+    #[test]
+    fn test_theme_preference_deserialization() {
+        let light: ThemePreference = serde_json::from_str(r#""light""#).unwrap();
+        assert_eq!(light, ThemePreference::Light);
+
+        let dark: ThemePreference = serde_json::from_str(r#""dark""#).unwrap();
+        assert_eq!(dark, ThemePreference::Dark);
+    }
+
+    #[test]
+    fn test_app_settings_serialize_default_theme() {
+        let settings = AppSettings::default();
+        let json = serde_json::to_string(&settings).unwrap();
+        assert!(json.contains("system"));
+    }
+
+    #[test]
+    fn test_density_field_serialization_and_default() {
+        // Default density is Compact (via derive + #[default] + #[serde(default)])
+        let settings = AppSettings::default();
+        assert_eq!(settings.density, UiDensity::Compact);
+
+        let json = serde_json::to_string(&settings).unwrap();
+        assert!(json.contains("\"density\":\"compact\""));
+        assert!(json.contains("\"theme\":\"system\""));
+
+        // Explicit Spacious + roundtrip
+        let original = AppSettings {
+            theme: ThemePreference::Light,
+            density: UiDensity::Spacious,
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        assert!(json.contains("\"density\":\"spacious\""));
+        let restored: AppSettings = serde_json::from_str(&json).unwrap();
+        assert_eq!(original, restored);
+
+        // Deserialize JSON missing density field -> uses #[serde(default)] = Compact
+        let json_missing = r#"{"theme":"dark"}"#;
+        let s: AppSettings = serde_json::from_str(json_missing).unwrap();
+        assert_eq!(s.theme, ThemePreference::Dark);
+        assert_eq!(s.density, UiDensity::Compact);
+
+        // Deserialize explicit "standard"
+        let json_std = r#"{"theme":"system","density":"standard"}"#;
+        let s2: AppSettings = serde_json::from_str(json_std).unwrap();
+        assert_eq!(s2.density, UiDensity::Standard);
     }
 }

@@ -1,7 +1,7 @@
 /**
  * Settings window store for managing settings state and persistence.
  */
-import type { AppSettings, ThemePreference } from '@/shared/api/tauri/settings';
+import type { AppSettings, ThemePreference, UiDensity } from '@/shared/api/tauri/settings';
 import type { StorageConfig } from '@/shared/api/tauri/storage';
 import { create } from 'zustand';
 
@@ -23,6 +23,7 @@ interface SettingsState {
   setAppSettings: (settings: AppSettings) => void;
   setStorageConfig: (config: StorageConfig) => void;
   setTheme: (theme: ThemePreference) => void;
+  setDensity: (density: UiDensity) => void;
   setActiveTab: (tab: string) => void;
   setLoading: (loading: boolean) => void;
 }
@@ -46,6 +47,13 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const current = get().appSettings;
     if (current && current.theme !== theme) {
       set({ appSettings: { ...current, theme } });
+    }
+  },
+
+  setDensity: density => {
+    const current = get().appSettings;
+    if (current && current.density !== density) {
+      set({ appSettings: { ...current, density } });
     }
   },
 

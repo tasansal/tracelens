@@ -1,13 +1,27 @@
 /**
  * Dialog for entering remote file URIs (S3, GCS, Azure, HTTP).
  *
+ * Typography (Task 4.2 final sweep): URI examples in the softCard block use raw
+ * `font-mono` on full example strings (technical identifiers / URL schemes per
+ * 4.2-mono rules; treated as code snippets, not prose). No other custom typography;
+ * relies on shared Label (proportional text-sm), Button, Input (fieldClass), and
+ * softCardClassName. No text-[Npx], no eyebrow on descriptions. Clean; aligns with
+ * StorageSettingsPanel patterns for remote auth help text.
+ *
  * @returns Dialog that validates URIs, shows examples, and forwards submit/cancel actions.
  */
 import { Button } from '@/shared/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/shared/ui/dialog';
+import { softCardClassName } from '@/shared/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/shared/ui/dialog';
 import { Input } from '@/shared/ui/input';
 import { Label } from '@/shared/ui/label';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface UriInputDialogProps {
   isOpen: boolean;
@@ -23,6 +37,11 @@ export const UriInputDialog = ({
   onOpenSettings,
 }: UriInputDialogProps) => {
   const [uri, setUri] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isOpen) inputRef.current?.focus();
+  }, [isOpen]);
 
   const handleSubmit = () => {
     if (uri.trim()) {
@@ -32,7 +51,7 @@ export const UriInputDialog = ({
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSubmit();
     }
@@ -40,28 +59,31 @@ export const UriInputDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent size="lg">
         <DialogHeader>
           <DialogTitle>Open Remote SEG-Y File</DialogTitle>
+          <DialogDescription>
+            Enter the URI of a remote SEG-Y file (S3, GCS, Azure, or HTTP).
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 mt-4">
           <div className="space-y-2">
             <Label htmlFor="uri">File URI</Label>
             <Input
+              ref={inputRef}
               id="uri"
               placeholder="s3://bucket/file.sgy or gs://bucket/file.sgy or https://..."
               value={uri}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUri(e.target.value)}
-              onKeyPress={handleKeyPress}
-              autoFocus
+              onKeyDown={handleKeyDown}
             />
             <p className="text-sm text-text-muted">
               Enter a remote file URI. Supported protocols: S3, GCS, Azure Blob, HTTP/HTTPS
             </p>
           </div>
 
-          <div className="space-y-3 rounded-lg border border-border bg-panel-muted p-4">
+          <div className={softCardClassName}>
             <p className="text-sm font-semibold text-text">Examples:</p>
             <div className="space-y-1 text-sm text-text-muted">
               <p className="font-mono">s3://my-bucket/seismic/survey.sgy</p>
@@ -74,7 +96,7 @@ export const UriInputDialog = ({
             </div>
           </div>
 
-          <div className="rounded-lg border border-accent/20 bg-accent/5 p-4">
+          <div className="rounded-[var(--radius-lg)] border border-accent/20 bg-accent/5 p-4">
             <p className="text-sm text-text">
               <span className="font-semibold">Note:</span> Configure cloud credentials in{' '}
               {onOpenSettings ? (
@@ -94,8 +116,8 @@ export const UriInputDialog = ({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-6">
-          <Button variant="primary" onClick={onClose}>
+        <div className="mt-4 flex justify-end gap-2">
+          <Button variant="tonal" onClick={onClose}>
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={!uri.trim()}>

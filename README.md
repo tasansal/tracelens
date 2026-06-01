@@ -16,6 +16,7 @@ Minerals, supplied as a public dataset.
 - **Interactive Viewport** - Trace range controls, pan/zoom, and resizable panels
 - **Performance-Focused I/O** - Memory-mapped reads with on-demand trace loading and async rendering
 - **Remote File Support** - Load SEG-Y files from local disk, S3, GCS, Azure Blob Storage, and HTTPS endpoints
+- **GPU Accelerated Rendering** - Extremely fast WebGL-based rendering for up to tens of thousands of traces when
 - **Tiled Rendering** - Efficient canvas rendering with viewport-based tile loading for smooth interaction
 - **Settings Persistence** - User preferences saved between sessions
 

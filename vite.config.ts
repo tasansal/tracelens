@@ -1,12 +1,25 @@
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import tsconfigPaths from 'vite-tsconfig-paths';
+
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'));
+const now = new Date();
+const buildStamp = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}`;
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), tsconfigPaths()],
+  plugins: [react(), tailwindcss()],
+
+  resolve: {
+    tsconfigPaths: true,
+  },
+
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __APP_BUILD__: JSON.stringify(buildStamp),
+  },
 
   // Prevent vite from obscuring rust errors
   clearScreen: false,

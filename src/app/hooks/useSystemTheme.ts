@@ -2,12 +2,12 @@
  * Hook that keeps app theme in sync with OS color scheme preference.
  */
 import { useAppStore } from '@/shared/store/appStore';
+import { applyThemeClass } from '@/shared/utils/theme';
 import { useEffect } from 'react';
 
 /**
- * Subscribe to `prefers-color-scheme` changes and update the app store.
- *
- * @returns Hook that applies OS theme changes and updates root class names.
+ * Subscribe to `prefers-color-scheme` changes, update the app store, and
+ * toggle the `theme-dark`/`theme-light` class on the document root.
  */
 export function useSystemTheme() {
   const isDarkMode = useAppStore(state => state.isDarkMode);
@@ -17,6 +17,9 @@ export function useSystemTheme() {
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
+      // Only follow the OS when the user hasn't pinned an explicit light/dark
+      // theme; otherwise an OS switch would override their choice.
+      if (useAppStore.getState().themePreference !== 'system') return;
       useAppStore.setState({ isDarkMode: e.matches });
     };
 
@@ -27,9 +30,7 @@ export function useSystemTheme() {
   useEffect(() => {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    const themeClass = isDarkMode ? 'theme-dark' : 'theme-light';
-    root.classList.remove('theme-dark', 'theme-light');
-    root.classList.add(themeClass);
+    applyThemeClass(root, isDarkMode);
     return () => {
       root.classList.remove('theme-dark', 'theme-light');
     };

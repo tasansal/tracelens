@@ -1,5 +1,10 @@
 /**
  * Revision detection error dialog shown when SEG-Y revision detection fails.
+ *
+ * Typography: uses proportional text-sm / text-[length:var(--text-xs,10px)] text-text-dim for labels and descriptions
+ * inside OptionTile choices (per design-language.md 4.2-mono rules; avoids text-[Npx] leaks;
+ * final sweep confirmed)
+ * and any mono on prose). Matches AppearanceSettings pattern.
  */
 import type { SegyRevision } from '@/shared/api/tauri/segy';
 import { Button } from '@/shared/ui/button';
@@ -10,7 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog';
-import { cn } from '@/shared/utils/cn';
+import { OptionTile } from '@/shared/ui/option-tile';
 import { useState } from 'react';
 
 interface RevisionDetectionDialogProps {
@@ -49,7 +54,7 @@ export const RevisionDetectionDialog = ({
         if (!open) onClose();
       }}
     >
-      <DialogContent className="max-w-md">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Revision Detection Failed</DialogTitle>
           <DialogDescription>
@@ -59,41 +64,39 @@ export const RevisionDetectionDialog = ({
 
         <div className="flex flex-col gap-2 py-2">
           {REVISION_OPTIONS.map(option => (
-            <button
+            <OptionTile
               key={option.value}
-              type="button"
+              selected={selectedRevision === option.value}
               onClick={() => setSelectedRevision(option.value)}
-              className={cn(
-                'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent/50',
-                selectedRevision === option.value
-                  ? 'border-primary bg-accent/10 ring-2 ring-primary'
-                  : 'border-border'
-              )}
             >
-              <div
-                className={cn(
-                  'h-4 w-4 rounded-full border',
+              <span
+                aria-hidden="true"
+                className={
                   selectedRevision === option.value
-                    ? 'border-primary bg-primary'
-                    : 'border-muted-foreground'
+                    ? 'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--accent-2-muted)] bg-panel-muted'
+                    : 'h-3.5 w-3.5 shrink-0 rounded-full border border-border'
+                }
+              >
+                {selectedRevision === option.value && (
+                  <span className="size-1.5 rounded-full bg-accent-2" />
                 )}
-              />
-              <div>
-                <div className="text-sm font-medium">{option.label}</div>
-                <div className="text-xs text-muted-foreground">{option.description}</div>
+              </span>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[length:var(--text-sm,12px)] font-semibold text-text">
+                  {option.label}
+                </span>
+                <span className="text-[length:var(--text-xs,10px)] text-text-dim">
+                  {option.description}
+                </span>
               </div>
-            </button>
+            </OptionTile>
           ))}
         </div>
 
         <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full px-4 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/50"
-          >
+          <Button variant="tonal" onClick={onClose}>
             Cancel
-          </button>
+          </Button>
           <Button onClick={handleConfirm}>
             Use {REVISION_OPTIONS.find(o => o.value === selectedRevision)?.label}
           </Button>

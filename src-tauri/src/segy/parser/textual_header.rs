@@ -125,6 +125,7 @@ impl Default for TextualHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
 
     #[test]
     fn test_textual_header_size() {
@@ -136,5 +137,49 @@ mod tests {
     fn test_invalid_size() {
         let data = vec![0u8; 100];
         assert!(TextualHeader::new(data).is_err());
+    }
+
+    #[test]
+    fn test_read_valid_textual_header() {
+        use crate::segy::fixtures::generate_valid_textual_header_bytes;
+
+        let header_bytes = generate_valid_textual_header_bytes();
+        let header = TextualHeader::from_reader(&mut Cursor::new(header_bytes)).unwrap();
+
+        assert_eq!(header.lines.len(), 40);
+        for line in &header.lines {
+            assert_eq!(line.len(), 80);
+        }
+    }
+
+    #[test]
+    fn test_read_truncated_textual_header() {
+        let truncated = vec![0x40u8; 1600]; // Half of 3200
+        let result = TextualHeader::from_reader(&mut Cursor::new(truncated));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_empty_textual_header() {
+        let empty: Vec<u8> = vec![];
+        let result = TextualHeader::from_reader(&mut Cursor::new(empty));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_default_textual_header() {
+        let header = TextualHeader::default();
+        assert_eq!(header.lines.len(), 40);
+        assert_eq!(header.encoding(), TextEncoding::Ebcdic);
+        assert_eq!(header.raw_data().len(), 3200);
+        // EBCDIC space is 0x40
+        assert!(header.raw_data().iter().all(|&b| b == 0x40));
+    }
+
+    #[test]
+    fn test_textual_header_new_wrong_size() {
+        assert!(TextualHeader::new(vec![0u8; 0]).is_err());
+        assert!(TextualHeader::new(vec![0u8; 3199]).is_err());
+        assert!(TextualHeader::new(vec![0u8; 3201]).is_err());
     }
 }

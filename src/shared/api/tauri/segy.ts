@@ -1,26 +1,15 @@
 /**
  * Tauri command wrappers for SEG-Y parsing and rendering services.
  */
-import type { HeaderFieldSpec } from '@/features/segy/types/headerSpec';
+import type { HeaderFieldSpec, SegyFormatSpec } from '@/features/segy/types/headerSpec';
 import type { SegyData } from '@/features/segy/types/segy';
-import type {
-  AmplitudeStats,
-  RenderedTile,
-  TileRequest,
-} from '@/features/trace-visualization/types/rendering';
+import type { AmplitudeStats } from '@/features/trace-visualization/types/rendering';
 import { invoke } from '@tauri-apps/api/core';
 
 /**
  * SEG-Y revision types matching the backend enum.
  */
 export type SegyRevision = 'Rev0' | 'Rev1' | 'Rev2' | 'Rev21' | 'Unknown';
-
-/**
- * Header-only payload for an individual trace.
- */
-export interface SingleTrace {
-  header: Record<string, unknown>;
-}
 
 /**
  * Header field data with resolved values.
@@ -43,28 +32,11 @@ export async function loadSegyFile(filePath: string): Promise<SegyData> {
 }
 
 /**
- * Load a single trace header with optional sample cap for preview.
- */
-export async function loadSingleTrace(params: {
-  filePath: string;
-  traceIndex: number;
-  maxSamples: number;
-}): Promise<SingleTrace> {
-  return invoke<SingleTrace>('load_single_trace', {
-    filePath: params.filePath,
-    traceIndex: params.traceIndex,
-    maxSamples: params.maxSamples,
-  });
-}
-
-/**
  * Fetch backend spec for binary header fields.
  * @param revision Optional SEG-Y revision. If undefined, uses default (Rev 0).
  */
 export async function getBinaryHeaderSpec(revision?: SegyRevision): Promise<HeaderFieldSpec[]> {
-  return revision
-    ? invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision })
-    : invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision: null });
+  return invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision: revision ?? null });
 }
 
 /**
@@ -72,9 +44,7 @@ export async function getBinaryHeaderSpec(revision?: SegyRevision): Promise<Head
  * @param revision Optional SEG-Y revision. If undefined, uses default (Rev 0).
  */
 export async function getTraceHeaderSpec(revision?: SegyRevision): Promise<HeaderFieldSpec[]> {
-  return revision
-    ? invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision })
-    : invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision: null });
+  return invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision: revision ?? null });
 }
 
 /**
@@ -108,25 +78,65 @@ export async function setActiveRevision(filePath: string, revision: SegyRevision
 }
 
 /**
- * Render a 2D tile with Lanczos3 interpolation.
- *
- * This enables continuous tiled rendering for performance:
- * - 2D tiles: trace columns × sample rows
- * - Viewport-based fetching — only visible tiles are rendered
- * - Always uses Lanczos3 for scientific accuracy
- *
- * @param filePath Path to the SEG-Y file
- * @param tileRequest Tile configuration (trace range, sample range, output size)
- * @returns Rendered tile with positioning metadata
+ * Key, display name, and byte size for a supported scalar type.
+ * Canonical source — owned by the Rust backend.
  */
-export async function renderTile(
-  filePath: string,
-  tileRequest: TileRequest
-): Promise<RenderedTile> {
-  return invoke<RenderedTile>('render_tile', {
-    filePath,
-    tileRequest,
+export interface ScalarTypeInfo {
+  key: string;
+  label: string;
+  size: number;
+}
+
+// Cached promise — the list is static for the lifetime of the app.
+let _scalarTypesPromise: Promise<ScalarTypeInfo[]> | null = null;
+
+/**
+ * Return all supported scalar types with display names and byte sizes.
+ * Result is cached after the first call — subsequent calls are free.
+ */
+export function listScalarTypes(): Promise<ScalarTypeInfo[]> {
+  if (!_scalarTypesPromise) {
+    _scalarTypesPromise = invoke<ScalarTypeInfo[]>('list_scalar_types');
+  }
+  return _scalarTypesPromise;
+}
+
+/**
+ * Fetch a rectangular block of raw amplitude samples as a Float32Array.
+ *
+ * The backend returns a contiguous LE f32 byte buffer laid out row-major by
+ * trace (trace 0's samples, then trace 1's, ...). Short traces are zero-padded
+ * to `sampleCount` so the layout is fixed-size and uploadable as a GPU texture.
+ *
+ * @returns Float32Array of length traceCount * sampleCount
+ */
+/**
+ * AGC (automatic gain control) options for {@link fetchTraceSamples}. When
+ * provided, the backend returns per-trace gain-normalized samples instead of
+ * raw amplitudes. `windowMs` is the sliding-window length in milliseconds;
+ * `null` requests full-trace AGC (a single gain per trace).
+ */
+export interface AgcOptions {
+  windowMs: number | null;
+}
+
+export async function fetchTraceSamples(params: {
+  filePath: string;
+  startTrace: number;
+  traceCount: number;
+  startSample: number;
+  sampleCount: number;
+  agc?: AgcOptions;
+}): Promise<Float32Array> {
+  const buffer = await invoke<ArrayBuffer>('fetch_trace_samples', {
+    filePath: params.filePath,
+    startTrace: params.startTrace,
+    traceCount: params.traceCount,
+    startSample: params.startSample,
+    sampleCount: params.sampleCount,
+    agc: params.agc,
   });
+  return new Float32Array(buffer);
 }
 
 /**
@@ -149,4 +159,125 @@ export async function scanAmplitudeRange(
     filePath,
     percentile: percentile ?? null,
   });
+}
+
+// ============================================================================
+// Custom Spec API
+// ============================================================================
+
+/**
+ * Load a custom spec from a local file or remote URI.
+ * @param filePath The SEG-Y file path this spec applies to
+ * @param uri Local file path or remote URI (s3://, gs://, az://, https://)
+ * @returns The loaded SegyFormatSpec
+ */
+export async function loadCustomSpec(filePath: string, uri: string): Promise<SegyFormatSpec> {
+  return invoke<SegyFormatSpec>('load_custom_spec', { filePath, uri });
+}
+
+/**
+ * Save the current custom spec to a local file.
+ * Remote URI saving is not yet supported.
+ * @param filePath The SEG-Y file path the spec is associated with
+ * @param uri Local file path to save to
+ */
+export async function saveCustomSpec(filePath: string, uri: string): Promise<void> {
+  return invoke('save_custom_spec', { filePath, uri });
+}
+
+/**
+ * Get the current custom spec for a file.
+ * @param filePath The SEG-Y file path
+ * @returns The custom spec if one exists, null otherwise
+ */
+export async function getCustomSpec(filePath: string): Promise<SegyFormatSpec | null> {
+  return invoke<SegyFormatSpec | null>('get_custom_spec', { filePath });
+}
+
+/**
+ * Clear the custom spec for a file.
+ * @param filePath The SEG-Y file path
+ */
+export async function clearCustomSpec(filePath: string): Promise<void> {
+  return invoke('clear_custom_spec', { filePath });
+}
+
+/**
+ * Add a custom field to the spec for a file.
+ * @param filePath The SEG-Y file path
+ * @param headerType "binary" or "trace"
+ * @param field The HeaderFieldSpec to add
+ * @returns Updated spec
+ */
+export async function addCustomField(
+  filePath: string,
+  headerType: 'binary' | 'trace',
+  field: HeaderFieldSpec
+): Promise<SegyFormatSpec> {
+  return invoke<SegyFormatSpec>('add_custom_field', { filePath, headerType, field });
+}
+
+/**
+ * Update an existing custom field.
+ * @param filePath The SEG-Y file path
+ * @param headerType "binary" or "trace"
+ * @param fieldKey The field key to update
+ * @param field The new HeaderFieldSpec
+ * @returns Updated spec
+ */
+export async function updateCustomField(
+  filePath: string,
+  headerType: 'binary' | 'trace',
+  fieldKey: string,
+  field: HeaderFieldSpec
+): Promise<SegyFormatSpec> {
+  return invoke<SegyFormatSpec>('update_custom_field', {
+    filePath,
+    headerType,
+    fieldKey,
+    field,
+  });
+}
+
+/**
+ * Delete a custom field from the spec.
+ * @param filePath The SEG-Y file path
+ * @param headerType "binary" or "trace"
+ * @param fieldKey The field key to delete
+ * @returns Updated spec
+ */
+export async function deleteCustomField(
+  filePath: string,
+  headerType: 'binary' | 'trace',
+  fieldKey: string
+): Promise<SegyFormatSpec> {
+  return invoke<SegyFormatSpec>('delete_custom_field', { filePath, headerType, fieldKey });
+}
+
+/**
+ * Get the active (merged) spec for a file.
+ * @param filePath The SEG-Y file path
+ * @returns Merged spec (standard + custom)
+ */
+export async function getActiveSpec(filePath: string): Promise<SegyFormatSpec> {
+  return invoke<SegyFormatSpec>('get_active_spec', { filePath });
+}
+
+/**
+ * Get the raw amplitude value for a single sample.
+ *
+ * Served from the window cache when the trace is within the currently cached
+ * range — no additional I/O for any point visible on screen.
+ *
+ * @param filePath Path to the SEG-Y file
+ * @param traceIndex Zero-based trace index
+ * @param sampleIndex Zero-based sample index within the trace
+ * @returns Raw un-normalized amplitude as a number
+ */
+export async function getSampleValue(
+  filePath: string,
+  traceIndex: number,
+  sampleIndex: number
+): Promise<number> {
+  return invoke<number>('get_sample_value', { filePath, traceIndex, sampleIndex });
 }

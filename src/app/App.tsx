@@ -3,6 +3,7 @@
  * Keeps high-level app state (loading/errors) in sync with stores and commands.
  */
 import { AppHeader } from '@/app/components/AppHeader';
+import { useDensity } from '@/app/hooks/useDensity';
 import { useSystemTheme } from '@/app/hooks/useSystemTheme';
 import { UriInputDialog } from '@/features/file/components/UriInputDialog';
 import { RevisionDetectionDialog } from '@/features/segy/components/RevisionDetectionDialog';
@@ -30,6 +31,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 
+const AUTH_FAILURE_RE =
+  /(authentication|authorization|forbidden|unauthorized|status code: 40[13]|signature|sas)/i;
+
 const formatLoadError = (error: unknown, uri: string): string => {
   const parsed = parseBackendError(error);
   const message = parsed?.message ?? getErrorMessage(error);
@@ -37,15 +41,9 @@ const formatLoadError = (error: unknown, uri: string): string => {
   const isAzureUri =
     uri.startsWith('az://') || uri.startsWith('azure://') || uri.includes('.blob.core.windows.net');
 
-  // Use error type for auth detection when available, fall back to regex for untyped errors
-  const looksLikeAuthFailure = parsed
-    ? parsed.name === 'IoError' &&
-      /(authentication|authorization|forbidden|unauthorized|status code: 40[13]|signature|sas)/i.test(
-        message
-      )
-    : /(authentication|authorization|forbidden|unauthorized|status code: 40[13]|signature|sas)/i.test(
-        message
-      );
+  // Typed IoError errors get a stricter match; untyped errors fall back to regex alone.
+  const looksLikeAuthFailure =
+    AUTH_FAILURE_RE.test(message) && (!parsed || parsed.name === 'IoError');
 
   if (!isAzureUri || !looksLikeAuthFailure) {
     return message;
@@ -62,6 +60,7 @@ const formatLoadError = (error: unknown, uri: string): string => {
  */
 export const App = () => {
   useSystemTheme();
+  useDensity();
 
   const {
     filePath,
@@ -69,8 +68,6 @@ export const App = () => {
     segyData,
     showRevisionDialog,
     setShowRevisionDialog,
-    setLoading,
-    setSegyData,
     setFilePath,
     setError,
     applyTheme,
@@ -81,8 +78,7 @@ export const App = () => {
     setHeaderView,
     sliderValue,
     setSliderValue,
-    currentTrace,
-    loadingTrace,
+    traceId,
     resetTraceState,
     currentRevision,
     setActiveRevision,
@@ -91,6 +87,7 @@ export const App = () => {
   const [isDragActive, setIsDragActive] = useState(false);
   const [isUriDialogOpen, setIsUriDialogOpen] = useState(false);
   const isLoadingRef = useRef(isLoading);
+  const loadRequestIdRef = useRef(0);
 
   useEffect(() => {
     isLoadingRef.current = isLoading;
@@ -140,35 +137,48 @@ export const App = () => {
    */
   const loadSegyData = useCallback(
     async (path: string) => {
-      setLoading(true);
-      setError(null);
+      const requestId = ++loadRequestIdRef.current;
+      const isCurrentRequest = () => requestId === loadRequestIdRef.current;
+
+      useAppStore.setState({ isLoading: true, error: null });
       toast.loading('Loading SEG-Y file...', { id: 'loading' });
 
       try {
         const data = await loadSegyFileCommand(path);
+        if (!isCurrentRequest()) return;
 
-        setSegyData(data);
+        useAppStore.setState({ segyData: data });
         resetTraceState();
 
-        // Reset zoom to 1.0 (shows INITIAL_VISIBLE_TRACES = 500 traces wide)
-        // and pan to origin.
-        const vizStore = useTraceVisualizationStore.getState();
-        vizStore.setZoomLevel(1.0);
-        vizStore.setZoomLevelY(1.0);
-        vizStore.setPanOffset({ x: 0, y: 0 });
+        // Reset zoom to defaults (zoomX=1 shows INITIAL_VISIBLE_TRACES=1000 traces wide,
+        // zoomY=1 fits all samples in height) and pan to origin.
+        useTraceVisualizationStore.setState({
+          zoomX: 1.0,
+          zoomY: 1.0,
+          panOffset: { x: 0, y: 0 },
+          amplitudeScanFailed: false,
+        });
+
+        // Clear any stale trace highlight/lock from previous file
+        useAppStore.getState().setTraceLock(null);
+        useAppStore.getState().setTraceJump(null);
 
         // Scan traces to compute global amplitude statistics
         try {
           const stats = await scanAmplitudeRange(path);
+          if (!isCurrentRequest()) return;
           // Use pre-computed percentile clip value as global normalization
-          const vizState = useTraceVisualizationStore.getState();
-          vizState.setAmplitudeStats(stats);
-          vizState.setAmplitudeScaling({
-            type: 'global-percentile',
-            clipValue: stats.percentileClip,
+          useTraceVisualizationStore.setState({
+            amplitudeStats: stats,
+            amplitudeScaling: {
+              type: 'global-percentile',
+              clipValue: stats.percentileClip,
+            },
           });
         } catch (scanError) {
+          if (!isCurrentRequest()) return;
           console.warn('Amplitude scan failed, using default scaling:', scanError);
+          useTraceVisualizationStore.setState({ amplitudeScanFailed: true });
         }
 
         toast.success(
@@ -176,15 +186,18 @@ export const App = () => {
           { id: 'loading' }
         );
       } catch (error) {
+        if (!isCurrentRequest()) return;
         const errorMsg = formatLoadError(error, path);
-        setError(errorMsg);
+        useAppStore.setState({ error: errorMsg });
         toast.error(`Failed to load SEG-Y: ${errorMsg}`, { id: 'loading' });
         console.error(error);
       } finally {
-        setLoading(false);
+        if (isCurrentRequest()) {
+          useAppStore.setState({ isLoading: false });
+        }
       }
     },
-    [resetTraceState, setError, setLoading, setSegyData]
+    [resetTraceState]
   );
 
   const handleFileLoad = useCallback(
@@ -402,7 +415,7 @@ export const App = () => {
           onConfirm={handleRevisionConfirm}
         />
 
-        <main className="flex flex-1 overflow-hidden px-4 pb-4 pt-3">
+        <main className="flex flex-1 overflow-hidden px-3 pb-2 pt-2">
           {isLoading && <SegyLoadingState />}
 
           {!isLoading && !segyData && (
@@ -414,28 +427,44 @@ export const App = () => {
           )}
 
           {!isLoading && segyData && (
-            <div className="h-full w-full flex-1 overflow-hidden rounded-[var(--radius-xl)] border border-border bg-panel-tint shadow-[var(--shadow)]">
+            <div className="h-full w-full flex-1 overflow-hidden rounded-[var(--radius-xl)] border border-border bg-panel-tint shadow-[var(--shadow)] animate-[rise-in_0.5s_ease-out] motion-reduce:animate-none">
               <PanelGroup orientation="horizontal" className="h-full w-full">
                 <Panel id="header-panel" defaultSize="37%" minSize="10%" maxSize="45%">
-                  <SegyHeaderPanel
-                    filePath={filePath!}
-                    segyData={segyData}
-                    headerView={headerView}
-                    onHeaderViewChange={setHeaderView}
-                    sliderValue={sliderValue}
-                    onSliderChange={setSliderValue}
-                    currentTrace={currentTrace}
-                    loadingTrace={loadingTrace}
-                    currentRevision={currentRevision}
-                    setActiveRevision={setActiveRevision}
-                    revisionKey={revisionKey}
-                  />
+                  <div
+                    className="h-full animate-[rise-in_0.45s_ease-out] motion-reduce:animate-none"
+                    style={{ animationDelay: '80ms', animationFillMode: 'both' }}
+                  >
+                    <SegyHeaderPanel
+                      filePath={filePath!}
+                      segyData={segyData}
+                      headerView={headerView}
+                      onHeaderViewChange={setHeaderView}
+                      sliderValue={sliderValue}
+                      traceId={traceId}
+                      onSliderChange={setSliderValue}
+                      currentRevision={currentRevision}
+                      setActiveRevision={setActiveRevision}
+                      revisionKey={revisionKey}
+                    />
+                  </div>
                 </Panel>
 
-                <PanelResizeHandle className="relative w-1.5 cursor-col-resize bg-gradient-to-b from-transparent via-accent-2 to-transparent opacity-60 transition-transform hover:scale-x-125 motion-reduce:transition-none after:absolute after:inset-y-1.5 after:inset-x-0 after:bg-[var(--accent-2-muted)] after:opacity-80 after:content-['']" />
+                <PanelResizeHandle className="group relative w-1.5 cursor-col-resize bg-gradient-to-b from-transparent via-accent-2/40 to-transparent transition-all duration-200 hover:via-accent-2/70 motion-reduce:transition-none">
+                  {/* Grip dots — fade in on hover to reveal resize affordance */}
+                  <div className="absolute inset-y-0 left-0 right-0 flex flex-col items-center justify-center gap-0.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 motion-reduce:transition-none">
+                    <div className="size-[3px] rounded-full bg-accent-2" />
+                    <div className="size-[3px] rounded-full bg-accent-2" />
+                    <div className="size-[3px] rounded-full bg-accent-2" />
+                  </div>
+                </PanelResizeHandle>
 
                 <Panel id="visualization-panel" defaultSize="63%" minSize="40%">
-                  <TraceVisualizationContainer />
+                  <div
+                    className="h-full animate-[rise-in_0.45s_ease-out] motion-reduce:animate-none"
+                    style={{ animationDelay: '160ms', animationFillMode: 'both' }}
+                  >
+                    <TraceVisualizationContainer />
+                  </div>
                 </Panel>
               </PanelGroup>
             </div>

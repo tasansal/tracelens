@@ -91,7 +91,7 @@ pub struct BinaryHeader {
 
 /// Byte order for reading binary data
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Endianness {
+pub(crate) enum Endianness {
     Big,
     Little,
 }
@@ -160,7 +160,7 @@ impl BinaryHeader {
     /// Parse a binary header from a reader with specified endianness
     ///
     /// This is split out to allow an endianness probe before decoding fields.
-    fn from_reader_with_endianness<R: Read>(
+    pub(crate) fn from_reader_with_endianness<R: Read>(
         mut reader: R,
         endianness: Endianness,
     ) -> io::Result<Self> {
@@ -228,6 +228,7 @@ impl Default for BinaryHeader {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
 
     #[test]
     fn test_trace_block_size() {
@@ -238,5 +239,171 @@ mod tests {
         };
 
         assert_eq!(header.trace_block_size(), 240 + 1000 * 4);
+    }
+
+    #[test]
+    fn test_trace_block_size_int16_format() {
+        let header = BinaryHeader {
+            samples_per_trace: 500,
+            data_sample_format: DataSampleFormat::Int16,
+            ..Default::default()
+        };
+
+        assert_eq!(header.trace_block_size(), 240 + 500 * 2);
+    }
+
+    #[test]
+    fn test_trace_block_size_int8_format() {
+        let header = BinaryHeader {
+            samples_per_trace: 1000,
+            data_sample_format: DataSampleFormat::Int8,
+            ..Default::default()
+        };
+
+        assert_eq!(header.trace_block_size(), 240 + 1000);
+    }
+
+    #[test]
+    fn test_read_valid_binary_header() {
+        use crate::segy::fixtures::create_minimal_segy_file;
+
+        let file = create_minimal_segy_file(10, 100, 5);
+        // Skip textual header (3200 bytes) to get binary header
+        let binary_bytes = &file.bytes[3200..3600];
+        let header = BinaryHeader::from_reader(Cursor::new(binary_bytes)).unwrap();
+
+        assert_eq!(header.samples_per_trace, 100);
+        assert_eq!(header.data_sample_format, DataSampleFormat::IeeeFloat32);
+        assert_eq!(header.sample_interval_us, 4000);
+    }
+
+    #[test]
+    fn test_read_valid_all_formats() {
+        use crate::segy::fixtures::create_segy_file_all_formats;
+
+        let files = create_segy_file_all_formats();
+        let expected_formats = [
+            DataSampleFormat::IbmFloat32,
+            DataSampleFormat::Int32,
+            DataSampleFormat::Int16,
+            DataSampleFormat::FixedPointWithGain,
+            DataSampleFormat::IeeeFloat32,
+            DataSampleFormat::Int8,
+        ];
+
+        for (file, expected) in files.iter().zip(expected_formats.iter()) {
+            let binary_bytes = &file.bytes[3200..3600];
+            let header = BinaryHeader::from_reader(Cursor::new(binary_bytes)).unwrap();
+            assert_eq!(
+                header.data_sample_format, *expected,
+                "Format mismatch for file with expected_format={}",
+                file.expected_format
+            );
+        }
+    }
+
+    #[test]
+    fn test_read_truncated_binary_header() {
+        use crate::segy::fixtures::{MalformedVariant, create_malformed_segy};
+
+        let bytes = create_malformed_segy(MalformedVariant::TruncatedBinaryHeader);
+        // Skip textual header (3200 bytes), try to read truncated binary header
+        let truncated = &bytes[3200..];
+        let result = BinaryHeader::from_reader(Cursor::new(truncated));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_empty_input() {
+        let empty: Vec<u8> = vec![];
+        let result = BinaryHeader::from_reader(Cursor::new(empty));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_too_short_input() {
+        let short = vec![0u8; 100]; // Less than 400 bytes
+        let result = BinaryHeader::from_reader(Cursor::new(short));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_invalid_format_code() {
+        use crate::segy::fixtures::{MalformedVariant, create_malformed_segy};
+
+        let bytes = create_malformed_segy(MalformedVariant::InvalidFormatCode);
+        let binary_bytes = &bytes[3200..3600];
+        let result = BinaryHeader::from_reader(Cursor::new(binary_bytes));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_bytes_per_sample() {
+        let header = BinaryHeader {
+            data_sample_format: DataSampleFormat::IbmFloat32,
+            ..Default::default()
+        };
+        assert_eq!(header.bytes_per_sample(), 4);
+
+        let header = BinaryHeader {
+            data_sample_format: DataSampleFormat::Int32,
+            ..Default::default()
+        };
+        assert_eq!(header.bytes_per_sample(), 4);
+
+        let header = BinaryHeader {
+            data_sample_format: DataSampleFormat::Int16,
+            ..Default::default()
+        };
+        assert_eq!(header.bytes_per_sample(), 2);
+
+        let header = BinaryHeader {
+            data_sample_format: DataSampleFormat::FixedPointWithGain,
+            ..Default::default()
+        };
+        assert_eq!(header.bytes_per_sample(), 4);
+
+        let header = BinaryHeader {
+            data_sample_format: DataSampleFormat::IeeeFloat32,
+            ..Default::default()
+        };
+        assert_eq!(header.bytes_per_sample(), 4);
+
+        let header = BinaryHeader {
+            data_sample_format: DataSampleFormat::Int8,
+            ..Default::default()
+        };
+        assert_eq!(header.bytes_per_sample(), 1);
+    }
+
+    #[test]
+    fn test_data_sample_format_from_code() {
+        assert_eq!(
+            DataSampleFormat::from_code(1),
+            Ok(DataSampleFormat::IbmFloat32)
+        );
+        assert_eq!(DataSampleFormat::from_code(2), Ok(DataSampleFormat::Int32));
+        assert_eq!(DataSampleFormat::from_code(3), Ok(DataSampleFormat::Int16));
+        assert_eq!(
+            DataSampleFormat::from_code(4),
+            Ok(DataSampleFormat::FixedPointWithGain)
+        );
+        assert_eq!(
+            DataSampleFormat::from_code(5),
+            Ok(DataSampleFormat::IeeeFloat32)
+        );
+        assert_eq!(DataSampleFormat::from_code(8), Ok(DataSampleFormat::Int8));
+        assert!(DataSampleFormat::from_code(99).is_err());
+        assert!(DataSampleFormat::from_code(0).is_err());
+    }
+
+    #[test]
+    fn test_default_binary_header() {
+        let header = BinaryHeader::default();
+        assert_eq!(header.sample_interval_us, 1000);
+        assert_eq!(header.samples_per_trace, 0);
+        assert_eq!(header.data_sample_format, DataSampleFormat::IbmFloat32);
+        assert_eq!(header.byte_order, ByteOrder::BigEndian);
+        assert_eq!(header.unassigned.len(), BinaryHeader::SIZE);
     }
 }

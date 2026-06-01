@@ -1,9 +1,12 @@
 /**
  * Table view for the SEG-Y trace header with spec-driven fields.
  */
-import { getTraceHeaderData, type HeaderFieldData } from '@/shared/api/tauri/segy';
-import { useEffect, useState } from 'react';
+import { useCustomSpecStore } from '@/features/segy/store/customSpecStore';
+import { getTraceHeaderData } from '@/shared/api/tauri/segy';
+import { useDataFetch } from '@/shared/hooks/useDataFetch';
+import { useCallback, useMemo } from 'react';
 import { HeaderSpecTable } from './HeaderSpecTable';
+import { mergeCustomFields } from './mergeCustomFields';
 
 interface TraceHeaderTableProps {
   /** Path to the SEG-Y file */
@@ -19,41 +22,29 @@ export const TraceHeaderTable = ({
   traceIndex,
   revisionKey = 0,
 }: TraceHeaderTableProps) => {
-  const [fieldData, setFieldData] = useState<HeaderFieldData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const customSpec = useCustomSpecStore(s => s.customSpec);
+  const fetchData = useCallback(() => {
+    if (!filePath) {
+      throw new Error('filePath is required');
+    }
+    return getTraceHeaderData(filePath, traceIndex);
+  }, [filePath, traceIndex]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const {
+    data: fieldData,
+    loading,
+    error,
+  } = useDataFetch(fetchData, [revisionKey, customSpec, traceIndex, filePath]);
 
-    getTraceHeaderData(filePath, traceIndex)
-      .then(data => {
-        if (isMounted) {
-          setFieldData(data);
-        }
-      })
-      .catch(err => {
-        if (isMounted) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error('Failed to load trace header data:', msg);
-          setError(msg);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [filePath, traceIndex, revisionKey]);
+  const customFields = useMemo(
+    () => mergeCustomFields(customSpec?.trace_header?.fields, fieldData),
+    [customSpec, fieldData]
+  );
 
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center bg-panel">
-        <div className="text-xs text-text-muted">Loading...</div>
+        <div className="text-[length:var(--text-xs,10px)] text-text-muted">Loading…</div>
       </div>
     );
   }
@@ -61,10 +52,16 @@ export const TraceHeaderTable = ({
   if (error) {
     return (
       <div className="flex h-full items-center justify-center bg-panel">
-        <div className="text-xs text-red-500">Error: {error}</div>
+        <div className="text-[length:var(--text-xs,10px)] text-red-500">Error: {error}</div>
       </div>
     );
   }
 
-  return <HeaderSpecTable title={`Trace #${traceIndex + 1} Header`} fieldData={fieldData} />;
+  return (
+    <HeaderSpecTable
+      fieldData={fieldData || []}
+      customFields={customFields}
+      showCustomIndicator={customFields.length > 0}
+    />
+  );
 };

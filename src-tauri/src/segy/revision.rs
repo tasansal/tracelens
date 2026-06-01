@@ -38,49 +38,42 @@ impl fmt::Display for SegyRevision {
     }
 }
 
-/// Detect SEG-Y revision from binary header unassigned bytes.
+/// Detect SEG-Y revision from binary header bytes.
 ///
-/// Reads bytes 3501-3502 of the binary header (unassigned[240..242]).
+/// Reads bytes 3501-3502 of the file's binary header (offset 300 within the 400-byte
+/// binary header block that starts at file byte 3201).
 /// Per SEG-Y Rev 1 spec: 0 = Rev 0, 1 = Rev 1, anything else = Unknown.
 ///
 /// # Arguments
 ///
-/// * `unassigned` - The unassigned bytes from the binary header (bytes 3261-3600, 340 bytes)
+/// * `header_bytes` - The full 400-byte binary header buffer (bytes 3201-3600 of the file)
 /// * `byte_order` - The detected byte order of the file (from BinaryHeader.byte_order)
 pub fn detect_revision_from_binary_header(
-    unassigned: &[u8],
+    header_bytes: &[u8],
     byte_order: crate::segy::ByteOrder,
 ) -> SegyRevision {
-    // SEG-Y Rev 1 spec: bytes 3501-3502 of binary header
-    // File byte 3501 = unassigned[3501 - 3261] = unassigned[240]
-    const REVISION_OFFSET: usize = 240;
+    // SEG-Y Rev 1 spec: revision number is at file bytes 3501-3502.
+    // Binary header starts at file byte 3201, so offset = 3501 - 3201 = 300.
+    const REVISION_OFFSET: usize = 300;
 
-    if unassigned.len() < REVISION_OFFSET + 2 {
+    if header_bytes.len() < REVISION_OFFSET + 2 {
         return SegyRevision::Unknown;
     }
 
-    let raw = &unassigned[REVISION_OFFSET..REVISION_OFFSET + 2];
+    let raw = &header_bytes[REVISION_OFFSET..REVISION_OFFSET + 2];
     let value = match byte_order {
         crate::segy::ByteOrder::BigEndian => BigEndian::read_i16(raw),
         crate::segy::ByteOrder::LittleEndian => LittleEndian::read_i16(raw),
     };
 
+    // After byte-order-correct parsing:
+    //   Rev 0 → 0x0000 → value 0 in either byte order
+    //   Rev 1 → 0x0100 → value 256 in BE, value 1 in LE
+    // Both representations of the same revision are accepted for tolerance against
+    // non-standard files that wrote the revision field in the wrong byte order.
     match value {
         0 => SegyRevision::Rev0,
-        1 => {
-            if matches!(byte_order, crate::segy::ByteOrder::LittleEndian) {
-                SegyRevision::Rev1
-            } else {
-                SegyRevision::Unknown
-            }
-        }
-        256 => {
-            if matches!(byte_order, crate::segy::ByteOrder::BigEndian) {
-                SegyRevision::Rev1
-            } else {
-                SegyRevision::Unknown
-            }
-        }
+        1 | 256 => SegyRevision::Rev1,
         _ => SegyRevision::Unknown,
     }
 }
@@ -108,10 +101,10 @@ mod tests {
 
     #[test]
     fn test_detect_rev0_big_endian() {
-        let mut unassigned = vec![0u8; 340];
-        // Bytes 240-241: 0x00, 0x00 = 0 (Rev 0) in big-endian
-        unassigned[240] = 0x00;
-        unassigned[241] = 0x00;
+        // Full 400-byte binary header buffer; revision field at offset 300 (file bytes 3501-3502)
+        let mut unassigned = vec![0u8; 400];
+        unassigned[300] = 0x00;
+        unassigned[301] = 0x00;
         assert_eq!(
             detect_revision_from_binary_header(&unassigned, crate::segy::ByteOrder::BigEndian),
             SegyRevision::Rev0
@@ -120,11 +113,11 @@ mod tests {
 
     #[test]
     fn test_detect_rev1_big_endian() {
-        let mut unassigned = vec![0u8; 340];
-        // Bytes 240-241: 0x01, 0x00 = 256 (Rev 1) in big-endian
-        // BigEndian: 0x0100 = 256
-        unassigned[240] = 0x01;
-        unassigned[241] = 0x00;
+        // Full 400-byte binary header buffer; revision field at offset 300 (file bytes 3501-3502)
+        // BigEndian: 0x0100 = 256, which is accepted as Rev 1
+        let mut unassigned = vec![0u8; 400];
+        unassigned[300] = 0x01;
+        unassigned[301] = 0x00;
         assert_eq!(
             detect_revision_from_binary_header(&unassigned, crate::segy::ByteOrder::BigEndian),
             SegyRevision::Rev1
@@ -133,10 +126,9 @@ mod tests {
 
     #[test]
     fn test_detect_unknown_invalid_value() {
-        let mut unassigned = vec![0u8; 340];
-        // Bytes 240-241: 0x00, 0x02 = 2 (Unknown)
-        unassigned[240] = 0x00;
-        unassigned[241] = 0x02;
+        let mut unassigned = vec![0u8; 400];
+        unassigned[300] = 0x00;
+        unassigned[301] = 0x02;
         assert_eq!(
             detect_revision_from_binary_header(&unassigned, crate::segy::ByteOrder::BigEndian),
             SegyRevision::Unknown
@@ -153,6 +145,7 @@ mod tests {
 
     #[test]
     fn test_detect_unknown_short_slice() {
+        // Buffer shorter than 302 bytes — cannot read revision field
         let unassigned = vec![0u8; 100];
         assert_eq!(
             detect_revision_from_binary_header(&unassigned, crate::segy::ByteOrder::BigEndian),
@@ -162,10 +155,36 @@ mod tests {
 
     #[test]
     fn test_detect_rev1_little_endian() {
-        let mut unassigned = vec![0u8; 340];
-        // Bytes 240-241: 0x01, 0x00 = 1 (Rev 1) in little-endian
-        unassigned[240] = 0x01;
-        unassigned[241] = 0x00;
+        // LittleEndian: [0x01, 0x00] = 1, which is Rev 1
+        let mut unassigned = vec![0u8; 400];
+        unassigned[300] = 0x01;
+        unassigned[301] = 0x00;
+        assert_eq!(
+            detect_revision_from_binary_header(&unassigned, crate::segy::ByteOrder::LittleEndian),
+            SegyRevision::Rev1
+        );
+    }
+
+    #[test]
+    fn test_detect_rev1_big_endian_reversed_bytes() {
+        // Regression: a file that stored the revision as [0x00, 0x01] in a big-endian
+        // context (value=1 after BE parse). Previously returned Unknown; must now return Rev1
+        // to tolerate non-standard files that wrote the revision field in the wrong byte order.
+        let mut unassigned = vec![0u8; 400];
+        unassigned[300] = 0x00;
+        unassigned[301] = 0x01;
+        assert_eq!(
+            detect_revision_from_binary_header(&unassigned, crate::segy::ByteOrder::BigEndian),
+            SegyRevision::Rev1
+        );
+    }
+
+    #[test]
+    fn test_detect_rev1_little_endian_reversed_bytes() {
+        // Symmetric regression: [0x00, 0x01] in LE gives value=256, now also Rev1.
+        let mut unassigned = vec![0u8; 400];
+        unassigned[300] = 0x00;
+        unassigned[301] = 0x01;
         assert_eq!(
             detect_revision_from_binary_header(&unassigned, crate::segy::ByteOrder::LittleEndian),
             SegyRevision::Rev1

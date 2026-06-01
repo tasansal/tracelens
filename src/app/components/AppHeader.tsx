@@ -1,5 +1,15 @@
 /**
  * Header bar with app branding, file actions, and quick SEG-Y metadata status.
+ *
+ * Typography (Task 4.2 final sweep): Defines `ghostButtonClass` (text-[12px] uppercase
+ * tracking-[0.12em] + display-tight on titlebar "TraceLens" label) and `statusPillBase`
+ * (text-[11px] text-text-muted) — both intentionally local chrome treatments (documented
+ * exceptions in design-language.md; low ROI to extract). Titlebar identity uses the
+ * canonical display-tight + tracking pattern (see SettingsApp for parallel "Settings").
+ * Status pills for SEG-Y metadata are dense header chrome. Dropdown shortcuts use
+ * shared DropdownMenuShortcut (.text-eyebrow). All per 4.2 rules + prior branding
+ * cleanup chunk. No prose leaks. Final sweep confirms; see design doc for ghost vs
+ * Button.ghost distinctions.
  */
 import { formatByteOrder, formatTextEncoding } from '@/features/segy/types/segy';
 import { openSettingsWindow } from '@/shared/api/tauri/settings';
@@ -12,25 +22,19 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu';
+import { WindowControls } from '@/shared/ui/window-controls';
+import { logoUrl } from '@/shared/utils/assets';
 import { cn } from '@/shared/utils/cn';
 import { isTauri } from '@/shared/utils/tauri';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useEffect } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import toast from 'react-hot-toast';
 
-const logoUrl = new URL('../../../src-tauri/icons/64x64.png', import.meta.url).toString();
 const ghostButtonClass =
-  'rounded-full border border-border px-3 py-1.5 text-[12px] uppercase tracking-[0.12em] text-text transition-colors duration-200 hover:border-transparent hover:bg-panel-muted motion-reduce:transition-none';
+  'rounded-full border border-border px-3 py-1 text-[12px] uppercase tracking-[0.12em] text-text transition-colors duration-200 hover:border-transparent hover:bg-panel-muted motion-reduce:transition-none';
 const statusPillBase =
-  'inline-flex items-center rounded-full border border-border bg-panel-muted px-3 py-1.5 text-[11px] text-text-muted';
+  'inline-flex items-center rounded-full border border-border bg-panel-muted px-3 py-1 text-[11px] text-text-muted';
 const statusDotClass =
   'h-1.5 w-1.5 rounded-full bg-accent-2 shadow-[0_0_12px_var(--accent-2-glow)]';
-const titlebarButtonClass =
-  'inline-flex h-7 w-[30px] items-center justify-center rounded-lg border border-border bg-panel-muted text-text transition duration-200 ease-out hover:border-transparent hover:bg-panel-strong active:translate-y-px motion-reduce:transition-none';
-const titlebarCloseButtonClass = cn(
-  titlebarButtonClass,
-  'hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink hover:shadow-[0_8px_18px_var(--accent-glow)]'
-);
 
 /**
  * Props for AppHeader component.
@@ -54,20 +58,24 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
   const { segyData } = useAppStore();
   const inTauri = isTauri();
 
-  // Register keyboard shortcuts for file operations
+  // Wrap callbacks as Effect Events so the keydown listener doesn't re-subscribe
+  // every time the parent re-renders with fresh callback identities.
+  const triggerLocalOpen = useEffectEvent(() => onFileSelect());
+  const triggerRemoteOpen = useEffectEvent(() => onRemoteFileSelect());
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'O') {
         e.preventDefault();
-        onRemoteFileSelect();
+        triggerRemoteOpen();
       } else if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
         e.preventDefault();
-        onFileSelect();
+        triggerLocalOpen();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onFileSelect, onRemoteFileSelect]);
+  }, []);
 
   const handleOpenSettings = async () => {
     try {
@@ -78,73 +86,26 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
     }
   };
 
-  const handleMinimize = async () => {
-    try {
-      const appWindow = getCurrentWindow();
-      await appWindow.minimize();
-    } catch (error) {
-      console.error('Failed to minimize window:', error);
-      toast.error('Failed to minimize window');
-    }
-  };
-
-  /**
-   * Toggles the window between maximized and normal state.
-   */
-  const toggleMaximize = async () => {
-    if (!inTauri) return;
-    try {
-      const appWindow = getCurrentWindow();
-      const isMaximized = await appWindow.isMaximized();
-      if (isMaximized) {
-        await appWindow.unmaximize();
-      } else {
-        await appWindow.maximize();
-      }
-    } catch (error) {
-      console.error('Failed to toggle window maximize state:', error);
-      toast.error('Failed to toggle window size');
-    }
-  };
-
-  const handleClose = async () => {
-    try {
-      const appWindow = getCurrentWindow();
-      await appWindow.close();
-    } catch (error) {
-      console.error('Failed to close window:', error);
-      toast.error('Failed to close window');
-    }
-  };
-
   return (
     <header
       className="sticky top-0 z-[200] relative overflow-visible border-b border-[var(--grid)] bg-panel-tint text-text select-none"
       data-tauri-drag-region
     >
-      <div className="flex h-16 items-center justify-between px-4" data-tauri-drag-region>
+      <div className="flex h-11 items-center justify-between px-4" data-tauri-drag-region>
         <div className="flex items-center gap-6" data-tauri-drag-region>
           <div className="flex items-center gap-3" data-tauri-drag-region>
             <img
               src={logoUrl}
               alt="TraceLens logo"
-              className="h-8 w-8 rounded-md border border-border bg-panel-strong"
+              className="size-8 rounded-[var(--radius-sm)] border border-border bg-panel-strong"
               data-tauri-drag-region
             />
-            <div className="flex flex-col leading-none" data-tauri-drag-region>
-              <span
-                className="text-sm font-extrabold uppercase tracking-[0.2em] text-text"
-                data-tauri-drag-region
-              >
-                TraceLens
-              </span>
-              <span
-                className="text-[10px] uppercase tracking-[0.24em] text-text-dim"
-                data-tauri-drag-region
-              >
-                SEG-Y Workbench
-              </span>
-            </div>
+            <span
+              className="display-tight text-sm font-extrabold uppercase tracking-[0.2em] text-text"
+              data-tauri-drag-region
+            >
+              TraceLens
+            </span>
           </div>
           <nav className="flex items-center gap-2" data-tauri-drag-region>
             <DropdownMenu>
@@ -153,13 +114,13 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
                   File
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" sideOffset={10} className="w-60">
+              <DropdownMenuContent align="start" sideOffset={10}>
                 <DropdownMenuItem
                   onSelect={() => {
                     onFileSelect();
                   }}
                 >
-                  <span className="font-semibold">Open Local File...</span>
+                  <span className="font-semibold">Open Local File…</span>
                   <DropdownMenuShortcut>Ctrl+O</DropdownMenuShortcut>
                 </DropdownMenuItem>
 
@@ -168,7 +129,7 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
                     onRemoteFileSelect();
                   }}
                 >
-                  <span className="font-semibold">Open Remote File...</span>
+                  <span className="whitespace-nowrap font-semibold">Open Remote File…</span>
                   <DropdownMenuShortcut>Ctrl+Shift+O</DropdownMenuShortcut>
                 </DropdownMenuItem>
 
@@ -201,92 +162,40 @@ export const AppHeader = ({ onFileSelect, onRemoteFileSelect, onExit }: AppHeade
             <>
               {/* Full status bar for large screens */}
               <div
-                className={cn(statusPillBase, 'hidden gap-4 lg:inline-flex')}
+                className={cn(statusPillBase, 'hidden gap-1 lg:inline-flex')}
                 data-tauri-drag-region
               >
                 <div className="flex items-center gap-2" data-tauri-drag-region>
                   <span className={statusDotClass} data-tauri-drag-region></span>
                   {(segyData.file_size / 1024 / 1024).toFixed(2)} MB
                 </div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
                 <div data-tauri-drag-region>{segyData.total_traces ?? '?'} traces</div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
                 <div data-tauri-drag-region>{formatTextEncoding(segyData.text_encoding)}</div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
                 <div data-tauri-drag-region>{formatByteOrder(segyData.byte_order)}</div>
               </div>
 
-              {/* Abbreviated status for mobile */}
-              <div className={cn(statusPillBase, 'gap-2 lg:hidden')} data-tauri-drag-region>
+              {/* Compact status on narrow windows */}
+              <div className={cn(statusPillBase, 'gap-1 lg:hidden')} data-tauri-drag-region>
                 <span className={statusDotClass} data-tauri-drag-region></span>
                 <div data-tauri-drag-region>{(segyData.file_size / 1024 / 1024).toFixed(1)} MB</div>
-                <div className="h-3 w-px bg-border" data-tauri-drag-region></div>
+                <span className="text-border/60 mx-1 select-none" data-tauri-drag-region>
+                  ·
+                </span>
                 <div data-tauri-drag-region>{segyData.total_traces ?? '?'} tr</div>
               </div>
             </>
           )}
 
-          {inTauri && (
-            <div className="inline-flex items-center gap-1.5 ml-1.5" data-tauri-drag-region="false">
-              <button
-                type="button"
-                onClick={handleMinimize}
-                className={titlebarButtonClass}
-                data-tauri-drag-region="false"
-                aria-label="Minimize window"
-              >
-                <svg
-                  className="h-3 w-3 stroke-current"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M2 6h8"></path>
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={toggleMaximize}
-                className={titlebarButtonClass}
-                data-tauri-drag-region="false"
-                aria-label="Toggle maximize window"
-              >
-                <svg
-                  className="h-3 w-3 stroke-current"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="2.25" y="2.25" width="7.5" height="7.5" rx="1"></rect>
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleClose}
-                className={titlebarCloseButtonClass}
-                data-tauri-drag-region="false"
-                aria-label="Close window"
-              >
-                <svg
-                  className="h-3 w-3 stroke-current"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M3 3l6 6M9 3L3 9"></path>
-                </svg>
-              </button>
-            </div>
-          )}
+          <WindowControls />
         </div>
       </div>
     </header>

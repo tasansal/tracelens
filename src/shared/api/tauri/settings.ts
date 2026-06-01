@@ -10,10 +10,17 @@ import type { StorageConfig } from './storage';
 export type ThemePreference = 'light' | 'dark' | 'system';
 
 /**
+ * UI Density presets (power-user density control).
+ * Affects text sizes and spacing across the entire app (both windows).
+ */
+export type UiDensity = 'compact' | 'standard' | 'spacious';
+
+/**
  * Application settings
  */
 export interface AppSettings {
   theme: ThemePreference;
+  density: UiDensity;
 }
 
 /**

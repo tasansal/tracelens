@@ -1,264 +1,430 @@
 /**
- * Continuous 2D tiled canvas renderer with Lanczos3 interpolation.
+ * Trace rendering canvas backed by a PixiJS `TraceScene`.
  *
- * Implements:
- * - 2D tile grid positioned by trace column and sample row
- * - Viewport-based panning fetches new trace ranges on demand
- * - Single-pass Lanczos3 rendering for scientific accuracy
- * - Pan and zoom interactions with debounced re-rendering
+ * All interaction logic (wheel gestures, keyboard shortcuts, drag pan) is
+ * handled by `useCanvasInteraction`. This component owns only the canvas DOM
+ * node and rendering concerns.
  *
- * @returns Canvas element that paints tile layers and responds to pan/zoom input.
+ * Typography (Task 4.2 final sweep): The crosshair status overlay uses a local
+ * StatusItem helper with `font-mono text-[length:var(--text-xs,10px)] tabular-nums` (ultra-dense numeric
+ * data: trace/sample indices, time, amplitude in canvas HUD; short code labels
+ * inherit mono appropriately). The hint affordance at end of bar uses `.text-eyebrow`
+ * (short formulaic instruction in viz chrome, per 4.2-mono "slightly longer" allowance
+ * for dense technical surfaces). No long prose. The 10px size is justified micro
+ * for the 22px status bar (distinct from eyebrow 10px which carries uppercase/dim).
+ * See design-language.md and TraceVisualizationContainer/TraceControlPanel for sibling
+ * viz chrome patterns. Audited clean in final 4.2 sweep; no leaks.
  */
+import { normalizeColormap } from '@/features/trace-visualization/renderer/colormaps';
 import {
-  INITIAL_VISIBLE_TRACES,
-  useTileRenderer,
-} from '@/features/trace-visualization/hooks/useTileRenderer';
+  pixelToIndex,
+  pxPerSample,
+  pxPerTrace,
+} from '@/features/trace-visualization/renderer/constants';
+import { TraceScene } from '@/features/trace-visualization/renderer/traceScene';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
+import {
+  agcClip,
+  type ColormapType,
+  type RenderMode,
+  type RgbColor,
+} from '@/features/trace-visualization/types/rendering';
 import { useAppStore } from '@/shared/store/appStore';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useReducer, useRef, type RefObject } from 'react';
+import { useCanvasInteraction } from '../hooks/useCanvasInteraction';
+
+type SceneStatus = { kind: 'init' } | { kind: 'ready' } | { kind: 'error'; message: string };
+
+type SceneStatusAction = { type: 'init' } | { type: 'ready' } | { type: 'error'; message: string };
+
+const INIT_STATUS: SceneStatus = { kind: 'init' };
+
+function sceneStatusReducer(_: SceneStatus, action: SceneStatusAction): SceneStatus {
+  switch (action.type) {
+    case 'init':
+      return { kind: 'init' };
+    case 'ready':
+      return { kind: 'ready' };
+    case 'error':
+      return { kind: 'error', message: action.message };
+  }
+}
+
+function formatAmplitude(v: number): string {
+  if (v === 0) return '0';
+  const abs = Math.abs(v);
+  if (abs < 0.001 || abs >= 1e6) return v.toExponential(3);
+  return v.toPrecision(4);
+}
+
+function StatusItem({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <span className="font-mono text-[length:var(--text-xs,10px)] tabular-nums text-text-muted">
+      <span className="text-text-dim">{label} </span>
+      <span className="text-text">{children}</span>
+    </span>
+  );
+}
 
 interface TraceCanvasProps {
   width: number;
   height: number;
 }
 
+interface TraceSceneParams {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  width: number;
+  height: number;
+  filePath: string | null;
+  colormap: ColormapType;
+  invertColormap: boolean;
+  clipValue: number;
+  renderMode: RenderMode;
+  lineColor: RgbColor | null;
+  wiggleScale: number;
+  positiveFillColor: RgbColor | null;
+  negativeFillColor: RgbColor | null;
+  backgroundColor: RgbColor | null;
+  totalTraces: number;
+  totalSamples: number;
+  zoomX: number;
+  zoomY: number;
+  panOffset: { x: number; y: number };
+  agcEnabled: boolean;
+  agcWindowMs: number | null;
+}
+
+function useTraceScene({
+  canvasRef,
+  width,
+  height,
+  filePath,
+  colormap,
+  invertColormap,
+  clipValue,
+  renderMode,
+  lineColor,
+  wiggleScale,
+  positiveFillColor,
+  negativeFillColor,
+  backgroundColor,
+  totalTraces,
+  totalSamples,
+  zoomX,
+  zoomY,
+  panOffset,
+  agcEnabled,
+  agcWindowMs,
+}: TraceSceneParams) {
+  const sceneRef = useRef<TraceScene | null>(null);
+  // Single state machine — ready and error are mutually exclusive, dispatched
+  // actions document the transitions and avoid cascading setState.
+  const [status, dispatchStatus] = useReducer(sceneStatusReducer, INIT_STATUS);
+  const sceneReady = status.kind === 'ready';
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scene = new TraceScene();
+    sceneRef.current = scene;
+    let cancelled = false;
+    dispatchStatus({ type: 'init' });
+    void scene
+      .init(canvas, width, height)
+      .then(() => {
+        if (cancelled) {
+          scene.destroy();
+          return;
+        }
+        dispatchStatus({ type: 'ready' });
+      })
+      .catch(error => {
+        if (cancelled) return;
+        console.error('Failed to initialize trace renderer:', error);
+        scene.destroy();
+        sceneRef.current = null;
+        dispatchStatus({
+          type: 'error',
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+    return () => {
+      cancelled = true;
+      dispatchStatus({ type: 'init' });
+      sceneRef.current = null;
+      scene.destroy();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvasRef]);
+
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.resize(width, height);
+  }, [sceneReady, width, height]);
+
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.setFilePath(filePath);
+  }, [sceneReady, filePath]);
+
+  // Live colormap (and invert) updates.
+  // The caller (outer TraceCanvas) is responsible for passing already-normalized values.
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.setColormap(colormap, invertColormap);
+  }, [sceneReady, colormap, invertColormap]);
+
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.setClipValue(clipValue);
+  }, [sceneReady, clipValue]);
+
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.setRenderMode(renderMode);
+  }, [sceneReady, renderMode]);
+
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.setWiggleConfig({
+      lineColor,
+      wiggleScale,
+      positiveFillColor,
+      negativeFillColor,
+      backgroundColor,
+    });
+  }, [sceneReady, lineColor, wiggleScale, positiveFillColor, negativeFillColor, backgroundColor]);
+
+  // AGC changes the sample data, so this runs before the viewport update below
+  // (which re-requests tiles). setAmplitudeAgc invalidates + refetches on change.
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.setAmplitudeAgc(agcEnabled ? { windowMs: agcWindowMs } : null);
+  }, [sceneReady, agcEnabled, agcWindowMs]);
+
+  useEffect(() => {
+    if (!sceneReady) return;
+    sceneRef.current?.update({
+      viewportWidth: width,
+      viewportHeight: height,
+      totalTraces,
+      totalSamples,
+      zoomX,
+      zoomY,
+      panX: panOffset.x,
+      panY: panOffset.y,
+    });
+  }, [
+    sceneReady,
+    width,
+    height,
+    totalTraces,
+    totalSamples,
+    zoomX,
+    zoomY,
+    panOffset.x,
+    panOffset.y,
+  ]);
+
+  return {
+    sceneRef,
+    sceneError: status.kind === 'error' ? status.message : null,
+  };
+}
+
 export const TraceCanvas = ({ width, height }: TraceCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const {
-    zoomLevel,
-    zoomLevelY,
+    zoomX,
+    zoomY,
     panOffset,
-    setZoomLevel,
-    setZoomLevelY,
-    setPanOffset,
-    setCanvasSize,
+    colormap,
+    invertColormap,
+    amplitudeScaling,
+    renderMode,
+    wiggleConfig,
   } = useTraceVisualizationStore();
 
-  const { tiles, loadVisibleTiles, pixelsPerTrace, pixelsPerSample } = useTileRenderer();
+  const { segyData, filePath } = useAppStore();
 
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const totalTraces = segyData?.total_traces ?? 0;
+  const totalSamples = (segyData?.binary_header?.samples_per_trace as number | undefined) ?? 0;
 
-  // Keep refs in sync so the wheel handler always reads the latest values
-  // without needing to re-register the listener on every zoom/pan change.
-  const zoomRef = useRef(zoomLevel);
-  const zoomYRef = useRef(zoomLevelY);
-  const panRef = useRef(panOffset);
-  useEffect(() => {
-    zoomRef.current = zoomLevel;
-  }, [zoomLevel]);
-  useEffect(() => {
-    zoomYRef.current = zoomLevelY;
-  }, [zoomLevelY]);
-  useEffect(() => {
-    panRef.current = panOffset;
-  }, [panOffset]);
+  const clipValue =
+    amplitudeScaling.type === 'global-percentile' || amplitudeScaling.type === 'global-fixed'
+      ? amplitudeScaling.clipValue
+      : agcClip(amplitudeScaling.gainDb ?? -6);
 
-  // Update canvas size in store
-  useEffect(() => {
-    setCanvasSize({ width, height });
-  }, [width, height, setCanvasSize]);
+  const agcEnabled = amplitudeScaling.type === 'agc';
+  const agcWindowMs = agcEnabled ? (amplitudeScaling.windowSize ?? null) : null;
 
-  // Load tiles when viewport/zoom/pan changes
-  useEffect(() => {
-    loadVisibleTiles();
-  }, [loadVisibleTiles]);
+  // Legacy migration — normalize once, very early.
+  // All effects below and the scene creation will use these clean values.
+  const { colormap: effectiveColormap, invert: effectiveInvert } = normalizeColormap(
+    colormap,
+    invertColormap
+  );
 
-  // Render tiles to canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const { sceneRef, sceneError } = useTraceScene({
+    canvasRef,
+    width,
+    height,
+    filePath,
+    colormap: effectiveColormap,
+    invertColormap: effectiveInvert,
+    clipValue,
+    renderMode,
+    lineColor: wiggleConfig.lineColor,
+    wiggleScale: wiggleConfig.wiggleScale,
+    positiveFillColor: wiggleConfig.positiveFillColor,
+    negativeFillColor: wiggleConfig.negativeFillColor,
+    backgroundColor: wiggleConfig.backgroundColor,
+    totalTraces,
+    totalSamples,
+    zoomX,
+    zoomY,
+    panOffset,
+    agcEnabled,
+    agcWindowMs,
+  });
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  const {
+    isDragging,
+    showCrosshair,
+    cursor,
+    lockedTraceIdx,
+    sampleValue,
+    onMouseDown,
+    onMouseMove,
+    onMouseUp,
+    onDoubleClick,
+    onMouseLeave,
+  } = useCanvasInteraction({
+    canvasRef,
+    sceneRef,
+    width,
+    height,
+    totalTraces,
+    totalSamples,
+    filePath,
+    disabled: Boolean(sceneError),
+  });
 
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+  if (sceneError) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-panel p-6 text-center">
+        <div>
+          <p className="text-[length:var(--text-sm,12px)] font-semibold text-text">
+            Trace renderer unavailable
+          </p>
+          <p className="mt-2 max-w-md text-[length:var(--text-xs,10px)] text-text-muted">
+            {sceneError}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-    // Enable image smoothing for high-quality tile display
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-
-    // Render each tile at its data-space position, transformed by pan/zoom.
-    // Adjacent tiles share the same boundary value (tile N's startTrace +
-    // traceCount === tile N+1's startTrace), so rounding the boundary points
-    // with Math.round guarantees they snap to the identical pixel — no gap,
-    // no overlap.
-    tiles.forEach(tile => {
-      if (tile.image) {
-        const x = Math.round(tile.startTrace * pixelsPerTrace + panOffset.x);
-        const y = Math.round(tile.startSample * pixelsPerSample + panOffset.y);
-        const xEnd = Math.round((tile.startTrace + tile.traceCount) * pixelsPerTrace + panOffset.x);
-        const yEnd = Math.round(
-          (tile.startSample + tile.sampleCount) * pixelsPerSample + panOffset.y
-        );
-
-        const w = xEnd - x;
-        const h = yEnd - y;
-
-        if (w > 0 && h > 0 && tile.sourceWidth > 0 && tile.sourceHeight > 0) {
-          ctx.drawImage(
-            tile.image,
-            tile.sourceX,
-            tile.sourceY,
-            tile.sourceWidth,
-            tile.sourceHeight,
-            x,
-            y,
-            w,
-            h
-          );
-        }
-      }
-    });
-  }, [tiles, width, height, panOffset, pixelsPerTrace, pixelsPerSample]);
-
-  // Mouse wheel zoom (centered on cursor) — registered once and reads
-  // current zoom/pan from refs to avoid stale closures and re-registration.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    // Accumulator + rAF-based throttle so rapid-fire wheel events are
-    // batched into a single zoom update per animation frame.
-    let accumulatedX = 0;
-    let accumulatedY = 0;
-    let rafId: number | null = null;
-    let lastCursorX = 0;
-    let lastCursorY = 0;
-
-    const applyZoom = () => {
-      rafId = null;
-
-      const curPan = panRef.current;
-      const totalTraces = useAppStore.getState().segyData?.total_traces ?? 0;
-
-      let newPanX = curPan.x;
-      let newPanY = curPan.y;
-
-      // --- Vertical zoom (Shift+scroll) ---
-      if (accumulatedY !== 0) {
-        const dyV = accumulatedY;
-        accumulatedY = 0;
-
-        const curZoomY = zoomYRef.current;
-        const zoomSpeed = 0.002;
-        const clamped = Math.max(-150, Math.min(150, dyV));
-        const factor = Math.exp(-clamped * zoomSpeed);
-
-        // Min vertical zoom = 1.0 (all samples fit). Max = 50 (very zoomed in).
-        const minZoomY = 1;
-        const maxZoomY = 50;
-        const newZoomY = Math.max(minZoomY, Math.min(maxZoomY, curZoomY * factor));
-
-        // Vertical pan adjustment so point under cursor stays fixed
-        const scaleY = newZoomY / curZoomY;
-        newPanY = lastCursorY - scaleY * (lastCursorY - curPan.y);
-
-        setZoomLevelY(newZoomY);
-      }
-
-      // --- Horizontal zoom (regular scroll) ---
-      if (accumulatedX !== 0) {
-        const dyH = accumulatedX;
-        accumulatedX = 0;
-
-        const curZoom = zoomRef.current;
-        const zoomSpeed = 0.002;
-        const clamped = Math.max(-150, Math.min(150, dyH));
-        const factor = Math.exp(-clamped * zoomSpeed);
-
-        // Min zoom: show all traces. Max zoom: ~10 traces visible.
-        const minZoom =
-          totalTraces > INITIAL_VISIBLE_TRACES ? INITIAL_VISIBLE_TRACES / totalTraces : 1;
-        const maxZoom = Math.max(50, INITIAL_VISIBLE_TRACES / 10);
-        const newZoom = Math.max(minZoom, Math.min(maxZoom, curZoom * factor));
-
-        // Horizontal pan adjustment so point under cursor stays fixed
-        const scaleX = newZoom / curZoom;
-        newPanX = lastCursorX - scaleX * (lastCursorX - curPan.x);
-
-        setZoomLevel(newZoom);
-      }
-
-      setPanOffset({ x: newPanX, y: newPanY });
-    };
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-
-      // Normalize deltaY across browsers / input devices
-      let dy = e.deltaY;
-      if (e.deltaMode === 1) dy *= 16; // line mode → approximate pixels
-      if (e.deltaMode === 2) dy *= 100; // page mode → approximate pixels
-
-      // Ignore negligible scroll impulses (< 1 px)
-      if (Math.abs(dy) < 1) return;
-
-      // Clamp individual event contribution to ±50 px so a single high-res
-      // scroll tick can never jump more than ~1% zoom.
-      const clampedDy = Math.max(-50, Math.min(50, dy));
-
-      // Remember cursor position for zoom-toward-cursor
-      const rect = canvas.getBoundingClientRect();
-      lastCursorX = e.clientX - rect.left;
-      lastCursorY = e.clientY - rect.top;
-
-      // Shift+scroll → vertical zoom, regular scroll → horizontal zoom
-      if (e.shiftKey) {
-        accumulatedY += clampedDy;
-      } else {
-        accumulatedX += clampedDy;
-      }
-
-      // Schedule a single update per animation frame
-      if (rafId === null) {
-        rafId = requestAnimationFrame(applyZoom);
-      }
-    };
-
-    canvas.addEventListener('wheel', handleWheel, { passive: false });
-    return () => {
-      canvas.removeEventListener('wheel', handleWheel);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
-  }, [setZoomLevel, setZoomLevelY, setPanOffset]);
-
-  // Mouse drag pan
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    setIsDragging(true);
-    setDragStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDragging) return;
-    setPanOffset({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y,
-    });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const handleMouseLeave = () => {
-    setIsDragging(false);
-  };
+  const pixelsPerTrace = pxPerTrace(width, zoomX);
+  const pixelsPerSample = pxPerSample(height, totalSamples, zoomY);
+  const traceIdx = cursor ? pixelToIndex(cursor.x, panOffset.x, pixelsPerTrace, totalTraces) : null;
+  const sampleIdx = cursor
+    ? pixelToIndex(cursor.y, panOffset.y, pixelsPerSample, totalSamples)
+    : null;
+  const dtRaw = segyData?.binary_header?.['sample_interval_us'];
+  const sampleIntervalUs = typeof dtRaw === 'number' && dtRaw > 0 ? dtRaw : 4000;
+  const timeSec = sampleIdx !== null ? (sampleIdx * sampleIntervalUs) / 1_000_000 : null;
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      style={{
-        cursor: isDragging ? 'grabbing' : 'grab',
-        display: 'block',
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseLeave}
-    />
+    <div className="relative h-full w-full" onMouseLeave={onMouseLeave}>
+      <canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab', display: 'block' }}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onDoubleClick={onDoubleClick}
+      />
+
+      {showCrosshair && (lockedTraceIdx !== null || cursor) && (
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          width={width}
+          height={height}
+        >
+          {lockedTraceIdx !== null &&
+            (() => {
+              const centerX = Math.round(lockedTraceIdx * pixelsPerTrace + panOffset.x);
+              const bandWidth = Math.max(1, Math.round(pixelsPerTrace));
+              const bandLeft = centerX - Math.floor(bandWidth / 2);
+              return (
+                <>
+                  <rect
+                    x={bandLeft}
+                    y={0}
+                    width={bandWidth}
+                    height={height}
+                    fill="var(--accent)"
+                    fillOpacity={0.1}
+                  />
+                  <line
+                    x1={centerX}
+                    y1={0}
+                    x2={centerX}
+                    y2={height}
+                    stroke="var(--accent)"
+                    strokeWidth={1.5}
+                    strokeOpacity={0.7}
+                  />
+                </>
+              );
+            })()}
+          {cursor && (
+            <>
+              <line
+                x1={cursor.x}
+                y1={0}
+                x2={cursor.x}
+                y2={height}
+                stroke="var(--accent-2)"
+                strokeWidth={1}
+                strokeOpacity={0.45}
+                strokeDasharray="4 3"
+              />
+              <line
+                x1={0}
+                y1={cursor.y}
+                x2={width}
+                y2={cursor.y}
+                stroke="var(--accent-2)"
+                strokeWidth={1}
+                strokeOpacity={0.45}
+                strokeDasharray="4 3"
+              />
+              <circle cx={cursor.x} cy={cursor.y} r={3} fill="var(--accent-2)" fillOpacity={0.7} />
+            </>
+          )}
+        </svg>
+      )}
+
+      {showCrosshair && cursor && traceIdx !== null && sampleIdx !== null && (
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 right-0 flex items-center gap-4 bg-[var(--panel-tint)] px-3 backdrop-blur-sm"
+          style={{ height: 22 }}
+        >
+          <StatusItem label="TR">{(traceIdx + 1).toLocaleString()}</StatusItem>
+          <StatusItem label="SMP">{(sampleIdx + 1).toLocaleString()}</StatusItem>
+          {timeSec !== null && <StatusItem label="T">{timeSec.toFixed(3)}s</StatusItem>}
+          {sampleValue !== null && (
+            <StatusItem label="AMP">{formatAmplitude(sampleValue)}</StatusItem>
+          )}
+          <span className="ml-auto text-eyebrow">DBL-CLICK: trace header · C: toggle</span>
+        </div>
+      )}
+    </div>
   );
 };

@@ -1,8 +1,19 @@
 /**
  * Settings window root component with sidebar navigation and custom titlebar.
  *
+ * Typography (Task 4.2 final sweep): Titlebar "Settings" uses the documented
+ * display-tight + text-sm font-extrabold uppercase tracking-[0.2em] pattern
+ * (justified chrome-specific for window titles; see AppHeader for "TraceLens"
+ * parallel and design-language.md). Sub-label "TraceLens" uses .text-eyebrow
+ * (correct). Sidebar captions use .text-eyebrow. Save status badges use
+ * text-eyebrow (or + text-accent). Footer uses font-mono text-[10px] for
+ * version/build (data). All other content (forms, help) via shared Label
+ * (proportional) + panels audited in Storage/Appearance. Branding chunk cleaned
+ * duplication; final sweep confirms no leaks, full 4.2-mono compliance.
+ *
  * @returns Layout that wraps appearance/storage panels, titlebar, and save badges.
  */
+import { useDensity } from '@/app/hooks/useDensity';
 import {
   closeSettingsWindow,
   getAppSettings,
@@ -12,135 +23,48 @@ import {
   type AppSettings,
   type ThemePreference,
 } from '@/shared/api/tauri/settings';
+import { useAutoSave } from '@/shared/hooks/useAutoSave';
 import { useAppStore } from '@/shared/store/appStore';
-import { cn } from '@/shared/utils/cn';
+import { Button } from '@/shared/ui/button';
+import { OptionTile } from '@/shared/ui/option-tile';
+import { WindowControls } from '@/shared/ui/window-controls';
+import { logoUrl } from '@/shared/utils/assets';
 import { isTauri } from '@/shared/utils/tauri';
+import { applyThemeClass, resolveThemeIsDark } from '@/shared/utils/theme';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { AppearanceSettings } from './components/AppearanceSettings';
 import { StorageSettingsPanel } from './components/StorageSettingsPanel';
 import { useSettingsStore } from './store/settingsStore';
-
-const AUTO_SAVE_DEBOUNCE_MS = 450;
-const SAVE_BADGE_RESET_MS = 1800;
-
-const logoUrl = new URL('../../src-tauri/icons/64x64.png', import.meta.url).toString();
 
 const sidebarItems = [
   { id: 'appearance', label: 'Appearance', caption: 'Theme' },
   { id: 'storage', label: 'Storage', caption: 'Cloud backends' },
 ] as const;
 
-const titlebarButtonClass =
-  'inline-flex h-7 w-[30px] items-center justify-center rounded-lg border border-border bg-panel-muted text-text transition duration-200 ease-out hover:border-transparent hover:bg-panel-strong active:translate-y-px motion-reduce:transition-none';
-const titlebarCloseButtonClass = cn(
-  titlebarButtonClass,
-  'hover:bg-[linear-gradient(130deg,var(--accent),var(--accent-3))] hover:text-accent-ink hover:shadow-[0_8px_18px_var(--accent-glow)]'
-);
-
-type SaveState = 'idle' | 'saving' | 'saved' | 'error';
-
-/**
- * Get system theme preference
- */
-const getSystemTheme = () => {
-  if (typeof window === 'undefined') return false;
-  return window.matchMedia('(prefers-color-scheme: dark)').matches;
-};
-
-/**
- * Apply theme to document root (entire settings window)
- */
 const applyThemeToDocument = (theme: ThemePreference) => {
-  const isDark = theme === 'system' ? getSystemTheme() : theme === 'dark';
-  const themeClass = isDark ? 'theme-dark' : 'theme-light';
-
-  document.documentElement.classList.remove('theme-dark', 'theme-light');
-  document.documentElement.classList.add(themeClass);
+  applyThemeClass(document.documentElement, resolveThemeIsDark(theme));
 };
 
-/**
- * Apply theme to preview container only
- */
 const applyThemeToPreview = (theme: ThemePreference) => {
-  const previewContainer = document.getElementById('theme-preview-container');
-  if (!previewContainer) return;
-
-  const isDark = theme === 'system' ? getSystemTheme() : theme === 'dark';
-  const themeClass = isDark ? 'theme-dark' : 'theme-light';
-
-  previewContainer.classList.remove('theme-dark', 'theme-light');
-  previewContainer.classList.add(themeClass);
+  const preview = document.getElementById('theme-preview-container');
+  if (preview) applyThemeClass(preview, resolveThemeIsDark(theme));
 };
 
 /**
  * Settings application component.
  */
 export const SettingsApp = () => {
+  useDensity();
   const { applyTheme: applyThemeToStore } = useAppStore();
-  const {
-    appSettings,
-    storageConfig,
-    isLoading,
-    activeTab,
-    setAppSettings,
-    setStorageConfig,
-    setActiveTab,
-    setLoading,
-  } = useSettingsStore();
+  const { appSettings, storageConfig, isLoading, activeTab, setAppSettings, setActiveTab } =
+    useSettingsStore();
 
   const inTauri = isTauri();
-  const appWindow = inTauri ? getCurrentWindow() : null;
-  const [appSaveState, setAppSaveState] = useState<SaveState>('idle');
-  const [storageSaveState, setStorageSaveState] = useState<SaveState>('idle');
-  const lastPersistedThemeRef = useRef<ThemePreference | null>(null);
-  const lastPersistedStorageRef = useRef<string | null>(null);
-  const appSavedResetTimerRef = useRef<number | null>(null);
-  const storageSavedResetTimerRef = useRef<number | null>(null);
-
-  const clearSavedBadgeTimer = useCallback((target: 'app' | 'storage') => {
-    if (target === 'app' && appSavedResetTimerRef.current !== null) {
-      window.clearTimeout(appSavedResetTimerRef.current);
-      appSavedResetTimerRef.current = null;
-    }
-    if (target === 'storage' && storageSavedResetTimerRef.current !== null) {
-      window.clearTimeout(storageSavedResetTimerRef.current);
-      storageSavedResetTimerRef.current = null;
-    }
-  }, []);
-
-  const scheduleSavedBadgeReset = useCallback(
-    (target: 'app' | 'storage') => {
-      clearSavedBadgeTimer(target);
-      const timeoutId = window.setTimeout(() => {
-        if (target === 'app') {
-          setAppSaveState(current => (current === 'saved' ? 'idle' : current));
-          appSavedResetTimerRef.current = null;
-          return;
-        }
-        setStorageSaveState(current => (current === 'saved' ? 'idle' : current));
-        storageSavedResetTimerRef.current = null;
-      }, SAVE_BADGE_RESET_MS);
-
-      if (target === 'app') {
-        appSavedResetTimerRef.current = timeoutId;
-      } else {
-        storageSavedResetTimerRef.current = timeoutId;
-      }
-    },
-    [clearSavedBadgeTimer]
-  );
-
-  // Clear pending save badge timers on unmount.
-  useEffect(
-    () => () => {
-      clearSavedBadgeTimer('app');
-      clearSavedBadgeTimer('storage');
-    },
-    [clearSavedBadgeTimer]
-  );
+  // Memoized — getCurrentWindow() should not be called on every render.
+  const appWindow = useMemo(() => (inTauri ? getCurrentWindow() : null), [inTauri]);
 
   // Load settings on mount and apply theme.
   useEffect(() => {
@@ -153,30 +77,30 @@ export const SettingsApp = () => {
 
     if (!inTauri) {
       // Mock data for web dev mode.
-      const mockAppSettings = { theme: 'system' as ThemePreference };
+      const mockAppSettings = { theme: 'system' as ThemePreference, density: 'compact' as const };
       const mockStorageConfig = {
-        performance: { chunkSizeMb: 8, sparseThreshold: 64, renderChunkTraces: 128 },
+        performance: { chunkSizeMb: 8, readCacheMb: 32, renderChunkTraces: 128 },
       };
-      setAppSettings(mockAppSettings);
-      setStorageConfig(mockStorageConfig);
-      lastPersistedThemeRef.current = mockAppSettings.theme;
-      lastPersistedStorageRef.current = JSON.stringify(mockStorageConfig);
+      useSettingsStore.setState({
+        appSettings: mockAppSettings,
+        storageConfig: mockStorageConfig,
+        isLoading: false,
+      });
       applyThemeToDocument(mockAppSettings.theme);
-      setLoading(false);
       return;
     }
 
     const loadSettings = async () => {
-      setLoading(true);
+      useSettingsStore.setState({ isLoading: true });
       try {
         const [appSettingsData, storageConfigData] = await Promise.all([
           getAppSettings(),
           getStorageConfigSettings(),
         ]);
-        setAppSettings(appSettingsData);
-        setStorageConfig(storageConfigData);
-        lastPersistedThemeRef.current = appSettingsData.theme;
-        lastPersistedStorageRef.current = JSON.stringify(storageConfigData);
+        useSettingsStore.setState({
+          appSettings: appSettingsData,
+          storageConfig: storageConfigData,
+        });
 
         // Apply theme to settings window.
         applyThemeToDocument(appSettingsData.theme);
@@ -186,12 +110,12 @@ export const SettingsApp = () => {
         console.error('Failed to load settings:', error);
         toast.error('Failed to load settings');
       } finally {
-        setLoading(false);
+        useSettingsStore.setState({ isLoading: false });
       }
     };
 
     loadSettings();
-  }, [inTauri, setAppSettings, setStorageConfig, setActiveTab, setLoading, applyThemeToStore]);
+  }, [inTauri, setActiveTab, applyThemeToStore]);
 
   // Apply selected theme immediately in the settings UI.
   useEffect(() => {
@@ -214,27 +138,47 @@ export const SettingsApp = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [appSettings]);
 
+  const { saveState: appSaveState, markPersisted: markAppPersisted } = useAutoSave<AppSettings>({
+    value: appSettings,
+    enabled: inTauri && !isLoading,
+    persist: updateAppSettings,
+    errorMessage: 'Failed to save appearance settings',
+  });
+
+  const { saveState: storageSaveState } = useAutoSave({
+    value: storageConfig,
+    enabled: inTauri && !isLoading,
+    persist: updateStorageConfigSettings,
+    errorMessage: 'Failed to save storage settings',
+  });
+
   // Listen for settings changes from main window or other sources.
   useEffect(() => {
     if (!inTauri) return;
 
+    let mounted = true;
     let unlistenSettings: (() => void) | undefined;
     let unlistenTab: (() => void) | undefined;
 
     const setupListeners = async () => {
       unlistenSettings = await listen<AppSettings>('settings:changed', event => {
         const newSettings = event.payload;
+        markAppPersisted(newSettings);
         setAppSettings(newSettings);
         applyThemeToDocument(newSettings.theme);
         applyThemeToPreview(newSettings.theme);
         applyThemeToStore(newSettings);
-        lastPersistedThemeRef.current = newSettings.theme;
       });
 
       unlistenTab = await listen<string>('settings:set-tab', event => {
-        const tab = event.payload;
-        setActiveTab(tab);
+        setActiveTab(event.payload);
       });
+
+      // If the component unmounted while awaiting, tear down immediately.
+      if (!mounted) {
+        unlistenSettings();
+        unlistenTab();
+      }
     };
 
     setupListeners().catch(error => {
@@ -242,76 +186,11 @@ export const SettingsApp = () => {
     });
 
     return () => {
-      if (unlistenSettings) {
-        unlistenSettings();
-      }
-      if (unlistenTab) {
-        unlistenTab();
-      }
+      mounted = false;
+      unlistenSettings?.();
+      unlistenTab?.();
     };
-  }, [inTauri, setAppSettings, setActiveTab, applyThemeToStore]);
-
-  // Auto-save app settings changes (debounced).
-  useEffect(() => {
-    if (!inTauri || !appSettings || isLoading) return;
-    if (lastPersistedThemeRef.current === null) {
-      lastPersistedThemeRef.current = appSettings.theme;
-      return;
-    }
-    if (appSettings.theme === lastPersistedThemeRef.current) return;
-
-    clearSavedBadgeTimer('app');
-    setAppSaveState('saving');
-
-    const themeToPersist = appSettings.theme;
-    const settingsToPersist = appSettings;
-    const saveTimer = window.setTimeout(async () => {
-      try {
-        await updateAppSettings(settingsToPersist);
-        lastPersistedThemeRef.current = themeToPersist;
-        setAppSaveState('saved');
-        scheduleSavedBadgeReset('app');
-      } catch (error) {
-        console.error('Failed to save appearance settings:', error);
-        setAppSaveState('error');
-        toast.error('Failed to save appearance settings');
-      }
-    }, AUTO_SAVE_DEBOUNCE_MS);
-
-    return () => window.clearTimeout(saveTimer);
-  }, [inTauri, appSettings, isLoading, scheduleSavedBadgeReset, clearSavedBadgeTimer]);
-
-  // Auto-save storage config changes (debounced, session-only in-memory backend state).
-  useEffect(() => {
-    if (!inTauri || !storageConfig || isLoading) return;
-
-    const serializedStorageConfig = JSON.stringify(storageConfig);
-    if (lastPersistedStorageRef.current === null) {
-      lastPersistedStorageRef.current = serializedStorageConfig;
-      return;
-    }
-    if (serializedStorageConfig === lastPersistedStorageRef.current) return;
-
-    clearSavedBadgeTimer('storage');
-    setStorageSaveState('saving');
-
-    const configToPersist = storageConfig;
-    const serializedToPersist = serializedStorageConfig;
-    const saveTimer = window.setTimeout(async () => {
-      try {
-        await updateStorageConfigSettings(configToPersist);
-        lastPersistedStorageRef.current = serializedToPersist;
-        setStorageSaveState('saved');
-        scheduleSavedBadgeReset('storage');
-      } catch (error) {
-        console.error('Failed to save storage settings:', error);
-        setStorageSaveState('error');
-        toast.error('Failed to save storage settings');
-      }
-    }, AUTO_SAVE_DEBOUNCE_MS);
-
-    return () => window.clearTimeout(saveTimer);
-  }, [inTauri, storageConfig, isLoading, scheduleSavedBadgeReset, clearSavedBadgeTimer]);
+  }, [inTauri, setAppSettings, setActiveTab, applyThemeToStore, markAppPersisted]);
 
   const closeSettings = useCallback(async () => {
     if (!inTauri) {
@@ -363,21 +242,6 @@ export const SettingsApp = () => {
     };
   }, [inTauri, appWindow, closeSettings]);
 
-  const toggleMaximize = async () => {
-    if (!inTauri || !appWindow) return;
-    try {
-      const isMaximized = await appWindow.isMaximized();
-      if (isMaximized) {
-        await appWindow.unmaximize();
-      } else {
-        await appWindow.maximize();
-      }
-    } catch (error) {
-      console.error('Failed to toggle window maximize state:', error);
-      toast.error('Failed to toggle window size');
-    }
-  };
-
   const saveStatusLabel =
     appSaveState === 'saving' || storageSaveState === 'saving'
       ? 'Saving...'
@@ -387,10 +251,31 @@ export const SettingsApp = () => {
           ? 'Saved'
           : null;
   const saveStatusClassName =
-    saveStatusLabel === 'Failed to save'
-      ? 'text-[11px] font-mono uppercase tracking-[0.2em] text-accent'
-      : 'text-[11px] font-mono uppercase tracking-[0.2em] text-text-dim';
+    saveStatusLabel === 'Failed to save' ? 'text-eyebrow text-accent' : 'text-eyebrow';
 
+  /*
+   * Root shell for the settings window (form/preferences context).
+   *
+   * Structural parity with main window's .app-shell (same flex h-screen layout,
+   * bg-bg, isolate for stacking, relative positioning).
+   *
+   * Subtle atmosphere treatment (Task 3.5) is applied automatically via
+   * .settings-shell::before (soft dual radial glows) + ::after (very faint grid)
+   * defined in src/index.css.
+   *
+   * - Uses shared tokens (--grid, --grid-size, --accent-glow, --accent-2-glow,
+   *   --settings-grid-opacity, --settings-glow-opacity) for visual kinship.
+   * - Intensities deliberately low (grid ~0.11, glow ~0.18) — does not compete
+   *   with content, cards (unified in 3.3), or controls.
+   * - Explicitly NO film grain (unlike dark .app-shell) to preserve calm,
+   *   readable form UI.
+   * - The `isolate` + `relative` + `> * { z-index: 1 }` (in CSS) keep all
+   *   UI layers (header z-[200], cards, sidebar, footer) above the backdrop.
+   *
+   * This directly addresses the highest-severity "two apps" divergence from
+   * the Task 3.1 audit (atmosphere was the primary remaining gap after 3.3/3.4).
+   * See design-language.md Windows section and index.css for full rationale.
+   */
   return (
     <div className="settings-shell relative flex h-screen flex-col overflow-hidden bg-bg text-text isolate">
       <Toaster position="top-right" />
@@ -400,130 +285,58 @@ export const SettingsApp = () => {
         className="sticky top-0 z-[200] relative overflow-visible border-b border-[var(--grid)] bg-panel-tint text-text select-none"
         data-tauri-drag-region
       >
-        <div className="flex h-16 items-center justify-between px-4" data-tauri-drag-region>
+        <div
+          className="flex h-11 items-center justify-between px-[var(--space-4)]"
+          data-tauri-drag-region
+        >
           <div className="flex items-center gap-6" data-tauri-drag-region>
-            <div className="flex items-center gap-3" data-tauri-drag-region>
+            <div className="flex items-center gap-[var(--space-3)]" data-tauri-drag-region>
               <img
                 src={logoUrl}
                 alt="TraceLens logo"
-                className="h-8 w-8 rounded-md border border-border bg-panel-strong"
+                className="size-8 rounded-[var(--radius-sm)] border border-border bg-panel-strong"
                 data-tauri-drag-region
               />
               <div className="flex flex-col leading-none" data-tauri-drag-region>
                 <span
-                  className="text-sm font-extrabold uppercase tracking-[0.2em] text-text"
+                  className="display-tight text-[length:var(--text-sm,12px)] font-extrabold uppercase tracking-[0.2em] text-text"
                   data-tauri-drag-region
                 >
                   Settings
                 </span>
-                <span
-                  className="text-[10px] uppercase tracking-[0.24em] text-text-dim"
-                  data-tauri-drag-region
-                >
+                <span className="text-eyebrow" data-tauri-drag-region>
                   TraceLens
                 </span>
               </div>
             </div>
           </div>
 
-          {inTauri && (
-            <div className="inline-flex items-center gap-1.5 ml-1.5" data-tauri-drag-region="false">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!appWindow) return;
-                  try {
-                    await appWindow.minimize();
-                  } catch (error) {
-                    console.error('Failed to minimize window:', error);
-                    toast.error('Failed to minimize window');
-                  }
-                }}
-                className={titlebarButtonClass}
-                data-tauri-drag-region="false"
-                aria-label="Minimize window"
-              >
-                <svg
-                  className="h-3 w-3 stroke-current"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M2 6h8"></path>
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={toggleMaximize}
-                className={titlebarButtonClass}
-                data-tauri-drag-region="false"
-                aria-label="Toggle maximize window"
-              >
-                <svg
-                  className="h-3 w-3 stroke-current"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <rect x="2.25" y="2.25" width="7.5" height="7.5" rx="1"></rect>
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={closeSettings}
-                className={titlebarCloseButtonClass}
-                data-tauri-drag-region="false"
-                aria-label="Close window"
-              >
-                <svg
-                  className="h-3 w-3 stroke-current"
-                  viewBox="0 0 12 12"
-                  fill="none"
-                  strokeWidth={1.6}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M3 3l6 6M9 3L3 9"></path>
-                </svg>
-              </button>
-            </div>
-          )}
+          <WindowControls onClose={closeSettings} />
         </div>
       </header>
 
       {/* Main content with sidebar */}
       <main className="flex flex-1 overflow-hidden">
         {isLoading ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-text-muted">
-            Loading settings...
+          <div className="flex flex-1 items-center justify-center text-[length:var(--text-sm,12px)] text-text-muted">
+            Loading settings…
           </div>
         ) : (
           <div className="flex h-full w-full">
             {/* Sidebar */}
-            <aside className="w-56 border-r border-border bg-panel-muted p-4 flex flex-col gap-2">
+            <aside className="w-56 border-r border-border bg-panel-muted p-[var(--space-4)] flex flex-col gap-[var(--space-2)]">
               {sidebarItems.map(item => (
-                <button
+                <OptionTile
                   key={item.id}
+                  selected={activeTab === item.id}
                   onClick={() => setActiveTab(item.id)}
-                  className={cn(
-                    'flex flex-col items-start gap-1 rounded-[14px] border px-4 py-3 text-left transition duration-200',
-                    activeTab === item.id
-                      ? 'border-[rgba(255,255,255,0.08)] bg-panel text-text shadow-[0_10px_30px_-18px_var(--accent-glow)]'
-                      : 'border-transparent text-text-muted hover:border-border hover:bg-panel-strong'
-                  )}
+                  className="flex-col items-start gap-[var(--space-1)]"
                 >
-                  <span className="text-sm font-semibold">{item.label}</span>
-                  <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-dim">
-                    {item.caption}
+                  <span className="text-[length:var(--text-sm,12px)] font-semibold">
+                    {item.label}
                   </span>
-                </button>
+                  <span className="text-eyebrow">{item.caption}</span>
+                </OptionTile>
               ))}
             </aside>
 
@@ -536,21 +349,22 @@ export const SettingsApp = () => {
 
               {/* Footer with info + close button */}
               <footer className="flex items-center justify-between border-t border-border bg-panel-muted px-6 py-4">
-                <div className="flex items-center gap-3">
-                  <p className="text-xs text-text-dim">
+                <div className="flex items-center gap-[var(--space-3)]">
+                  <p className="text-[length:var(--text-xs,10px)] text-text-dim">
                     {activeTab === 'storage'
                       ? 'Storage settings are session-only (ephemeral)'
                       : 'App settings stored in ~/.tracelens'}
                   </p>
                   {saveStatusLabel && <p className={saveStatusClassName}>{saveStatusLabel}</p>}
                 </div>
-                <button
-                  type="button"
-                  onClick={closeSettings}
-                  className="rounded-full border border-border px-4 py-2 text-[11px] font-mono uppercase tracking-[0.2em] text-text transition-colors duration-200 hover:border-transparent hover:bg-panel-strong"
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-[var(--space-4)]">
+                  <span className="font-mono text-[length:var(--text-2xs,9px)] text-text-dim">
+                    v{__APP_VERSION__} · {__APP_BUILD__}
+                  </span>
+                  <Button variant="tonal" onClick={closeSettings}>
+                    Close
+                  </Button>
+                </div>
               </footer>
             </div>
           </div>

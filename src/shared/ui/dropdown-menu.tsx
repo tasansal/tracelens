@@ -21,7 +21,7 @@ function DropdownMenuContent({
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
-          'z-50 min-w-[10rem] rounded-xl border border-border bg-panel p-1.5 text-text shadow-[var(--shadow)] outline-none',
+          'z-50 min-w-[10rem] rounded-[var(--radius-lg)] border border-border bg-panel p-1.5 text-text shadow-[var(--shadow)] outline-none',
           className
         )}
         {...props}
@@ -38,7 +38,7 @@ function DropdownMenuItem({
     <DropdownMenuPrimitive.Item
       data-slot="dropdown-menu-item"
       className={cn(
-        'flex cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-2 text-sm text-text outline-none transition-colors duration-200 hover:bg-panel-strong focus:bg-panel-strong data-[disabled]:pointer-events-none data-[disabled]:opacity-50 motion-reduce:transition-none',
+        'flex cursor-pointer select-none items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2 text-[length:var(--text-sm,12px)] text-text outline-none transition-colors duration-200 hover:bg-panel-strong focus:bg-panel-strong data-[disabled]:pointer-events-none data-[disabled]:opacity-50 motion-reduce:transition-none',
         className
       )}
       {...props}
@@ -63,7 +63,7 @@ function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<'spa
   return (
     <span
       data-slot="dropdown-menu-shortcut"
-      className={cn('ml-auto text-[10px] uppercase tracking-[0.24em] text-text-dim', className)}
+      className={cn('ml-auto shrink-0 whitespace-nowrap text-eyebrow', className)}
       {...props}
     />
   );

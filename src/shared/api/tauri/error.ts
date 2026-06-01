@@ -5,7 +5,7 @@
  * and a `message` field.
  */
 
-export type AppErrorName =
+type AppErrorName =
   | 'IoError'
   | 'ParseError'
   | 'ValidationError'

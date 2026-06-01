@@ -105,17 +105,31 @@ pub struct HttpConfig {
     pub timeout_secs: u64,
 }
 
-/// Performance tuning configuration
+/// Performance tuning configuration.
+///
+/// These defaults were chosen empirically and should only be changed if
+/// profiling data justifies the deviation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PerformanceConfig {
-    /// Chunk size in MiB for remote file loading (8-32 MiB range)
+    /// Chunk size in MiB for remote sliding-window reads (default 16).
+    ///
+    /// 16 MiB is the crossover point where S3 GET latency (~50 ms) amortizes
+    /// to < 1 % overhead at common broadband speeds. Smaller values increase
+    /// request count; larger values waste bandwidth on seeks.
     #[serde(default = "default_chunk_size", alias = "chunk_size_mb")]
     pub chunk_size_mb: usize,
-    /// Threshold for sparse vs chunked access (number of traces)
-    #[serde(default = "default_sparse_threshold", alias = "sparse_threshold")]
-    pub sparse_threshold: usize,
-    /// Target traces per render chunk for progressive rendering (32-256 range)
+    /// Resident read-cache budget in MiB for the raw-byte chunk cache (default
+    /// 32). Divided by `chunk_size_mb` to cap how many chunks stay in memory.
+    /// Larger values keep more of a wide viewport hot across pan/zoom and AGC
+    /// window changes, at the cost of host memory.
+    #[serde(default = "default_read_cache_mb", alias = "read_cache_mb")]
+    pub read_cache_mb: usize,
+    /// Traces loaded per render pass for progressive display (default 128).
+    ///
+    /// 128 matches the tile width; halving it doubles the IPC round-trips with
+    /// no visible quality improvement. Doubling it delays the first-pixel time
+    /// on slow links.
     #[serde(default = "default_render_chunk_traces", alias = "render_chunk_traces")]
     pub render_chunk_traces: usize,
 }
@@ -124,18 +138,18 @@ impl Default for PerformanceConfig {
     fn default() -> Self {
         PerformanceConfig {
             chunk_size_mb: default_chunk_size(),
-            sparse_threshold: default_sparse_threshold(),
+            read_cache_mb: default_read_cache_mb(),
             render_chunk_traces: default_render_chunk_traces(),
         }
     }
 }
 
 fn default_chunk_size() -> usize {
-    16
+    8
 }
 
-fn default_sparse_threshold() -> usize {
-    64
+fn default_read_cache_mb() -> usize {
+    32
 }
 
 fn default_render_chunk_traces() -> usize {
@@ -181,8 +195,7 @@ mod tests {
         assert!(config.aws_s3.is_none());
         assert!(config.gcp_gcs.is_none());
         assert!(config.azure_blob.is_none());
-        assert_eq!(config.performance.chunk_size_mb, 16);
-        assert_eq!(config.performance.sparse_threshold, 64);
+        assert_eq!(config.performance.chunk_size_mb, 8);
     }
 
     #[test]
@@ -221,7 +234,6 @@ mod tests {
             },
             "performance": {
                 "chunkSizeMb": 24,
-                "sparseThreshold": 96,
                 "renderChunkTraces": 192
             }
         }"#;
@@ -233,7 +245,6 @@ mod tests {
             "storageacct"
         );
         assert_eq!(config.performance.chunk_size_mb, 24);
-        assert_eq!(config.performance.sparse_threshold, 96);
         assert_eq!(config.performance.render_chunk_traces, 192);
     }
 
@@ -246,7 +257,6 @@ mod tests {
             },
             "performance": {
                 "chunkSizeMb": 16,
-                "sparseThreshold": 64,
                 "renderChunkTraces": 128
             }
         }"#;
@@ -271,7 +281,6 @@ mod tests {
             },
             "performance": {
                 "chunk_size_mb": 20,
-                "sparse_threshold": 80,
                 "render_chunk_traces": 160
             }
         }"#;
@@ -281,7 +290,103 @@ mod tests {
         assert_eq!(s3.access_key_id.as_deref(), Some("AKIA_LEGACY"));
         assert!(s3.skip_signature);
         assert_eq!(config.performance.chunk_size_mb, 20);
-        assert_eq!(config.performance.sparse_threshold, 80);
         assert_eq!(config.performance.render_chunk_traces, 160);
+    }
+
+    #[test]
+    fn test_storage_config_roundtrip() {
+        let original = StorageConfig {
+            aws_s3: Some(S3Config {
+                region: "eu-west-1".to_string(),
+                access_key_id: Some("AKIA_TEST".to_string()),
+                secret_access_key: Some("secret".to_string()),
+                session_token: None,
+                endpoint: Some("https://minio.local".to_string()),
+                skip_signature: false,
+            }),
+            gcp_gcs: None,
+            azure_blob: None,
+            http: None,
+            performance: PerformanceConfig::default(),
+        };
+        let json = serde_json::to_string(&original).unwrap();
+        let restored: StorageConfig = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.aws_s3.as_ref().unwrap().region, "eu-west-1");
+        assert_eq!(
+            restored.aws_s3.as_ref().unwrap().endpoint.as_deref(),
+            Some("https://minio.local")
+        );
+    }
+
+    #[test]
+    fn test_storage_config_invalid_json() {
+        let malformed = r#"{"awsS3": {broken}"#;
+        let result: Result<StorageConfig, _> = serde_json::from_str(malformed);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_http_config_default_timeout() {
+        let config = HttpConfig {
+            headers: std::collections::HashMap::new(),
+            timeout_secs: 30,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("timeoutSecs"));
+    }
+
+    #[test]
+    fn test_performance_config_defaults() {
+        let perf = PerformanceConfig::default();
+        assert_eq!(perf.chunk_size_mb, 8);
+        assert_eq!(perf.read_cache_mb, 32);
+        assert_eq!(perf.render_chunk_traces, 128);
+    }
+
+    #[test]
+    fn test_storage_config_state_get_set() {
+        let state = StorageConfigState::default();
+        let config = state.config.blocking_read().clone();
+        assert!(config.aws_s3.is_none());
+
+        let new_config = StorageConfig {
+            aws_s3: Some(S3Config {
+                region: "us-west-2".to_string(),
+                access_key_id: None,
+                secret_access_key: None,
+                session_token: None,
+                endpoint: None,
+                skip_signature: false,
+            }),
+            ..Default::default()
+        };
+        state.config.blocking_write().clone_from(&new_config);
+        let retrieved = state.config.blocking_read().clone();
+        assert_eq!(retrieved.aws_s3.as_ref().unwrap().region, "us-west-2");
+    }
+
+    #[test]
+    fn test_azure_config_serialization() {
+        let config = AzureConfig {
+            account_name: "myaccount".to_string(),
+            access_key: Some("key123".to_string()),
+            sas_token: None,
+            endpoint: None,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("myaccount"));
+        assert!(json.contains("key123"));
+    }
+
+    #[test]
+    fn test_gcs_config_serialization() {
+        let config = GcsConfig {
+            service_account_key_path: Some("/path/to/key.json".to_string()),
+            service_account_key: None,
+            application_credentials_path: None,
+            skip_signature: false,
+        };
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("/path/to/key.json"));
     }
 }
