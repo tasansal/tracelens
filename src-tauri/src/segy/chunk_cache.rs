@@ -9,7 +9,7 @@ use crate::segy::agc::{AgcSpec, apply_agc};
 use crate::segy::constants::FILE_HEADER_SIZE;
 use crate::segy::io;
 use crate::segy::model::SegyFileConfig;
-use crate::segy::parser::{TraceBlock, TraceData};
+use crate::segy::parser::TraceData;
 use crate::segy::storage::SegyStorage;
 use bytes::Bytes;
 use std::collections::{HashMap, VecDeque};
@@ -94,55 +94,47 @@ impl ChunkCache {
         let needed_traces_from_chunk_start = end_trace - chunk_start;
 
         loop {
-            // Brief lock — try cache, then either claim the load or get a
-            // `Notify` to wait on.
-            let action = {
-                let mut inner = self.inner.lock().await;
-                if let Some(w) = inner.find(start_trace, count) {
-                    return Ok(w);
-                }
-                match inner.in_flight.get(&chunk_start) {
-                    Some(n) => Action::Wait(n.clone()),
-                    None => {
-                        let notify = Arc::new(Notify::new());
-                        inner.in_flight.insert(chunk_start, notify);
-                        Action::Load
-                    }
-                }
-            };
-
-            match action {
-                Action::Wait(notify) => {
-                    notify.notified().await;
-                    // Loop and re-check; the chunk should now be cached. If
-                    // the loader failed, we'll register as the new loader.
-                    continue;
-                }
-                Action::Load => {
-                    let result = self
-                        .load_chunk_io(
-                            chunk_start,
-                            needed_traces_from_chunk_start,
-                            trace_size,
-                            storage,
-                        )
-                        .await;
-
-                    let mut inner = self.inner.lock().await;
-                    let notify = inner.in_flight.remove(&chunk_start);
-                    if let Some(n) = &notify {
-                        n.notify_waiters();
-                    }
-
-                    match result {
-                        Ok(chunk) => {
-                            inner.insert(chunk.clone());
-                            return Ok(chunk);
-                        }
-                        Err(e) => return Err(e),
-                    }
-                }
+            // Brief lock — try cache, then either wait on an in-flight load or
+            // claim the load ourselves.
+            let mut inner = self.inner.lock().await;
+            if let Some(w) = inner.find(start_trace, count) {
+                return Ok(w);
             }
+
+            if let Some(notify) = inner.in_flight.get(&chunk_start).cloned() {
+                // Register as a waiter *before* releasing the lock. `notify_waiters`
+                // stores no permit, so a wakeup fired between unlocking and the
+                // first poll would be lost; `enable()` registers us now so the
+                // loader cannot signal completion before we are listening.
+                let mut notified = Box::pin(notify.notified());
+                notified.as_mut().enable();
+                drop(inner);
+                notified.await;
+                // Re-check; the chunk should now be cached. If the loader failed,
+                // we claim the load ourselves on the next iteration.
+                continue;
+            }
+
+            // No in-flight load — claim it.
+            inner.in_flight.insert(chunk_start, Arc::new(Notify::new()));
+            drop(inner);
+
+            let result = self
+                .load_chunk_io(
+                    chunk_start,
+                    needed_traces_from_chunk_start,
+                    trace_size,
+                    storage,
+                )
+                .await;
+
+            let mut inner = self.inner.lock().await;
+            if let Some(notify) = inner.in_flight.remove(&chunk_start) {
+                notify.notify_waiters();
+            }
+            let chunk = result?;
+            inner.insert(chunk.clone());
+            return Ok(chunk);
         }
     }
 
@@ -217,11 +209,6 @@ impl ChunkCacheInner {
     }
 }
 
-enum Action {
-    Wait(Arc<Notify>),
-    Load,
-}
-
 /// A chunk of cached trace bytes, kept alive via `Arc` so multiple tile
 /// fetches can parse from the same chunk in parallel without copying.
 pub struct TraceChunk {
@@ -232,13 +219,9 @@ pub struct TraceChunk {
 }
 
 impl TraceChunk {
-    /// Parse `count` full trace blocks (header + samples) from this chunk.
-    pub fn extract_traces(
-        &self,
-        start_trace: usize,
-        count: usize,
-        config: &SegyFileConfig,
-    ) -> Result<Vec<TraceBlock>, AppError> {
+    /// Validate that `start_trace..start_trace+count` lies within this chunk and
+    /// return the byte offset of the first requested trace.
+    fn checked_start_byte(&self, start_trace: usize, count: usize) -> Result<usize, AppError> {
         if start_trace < self.start_trace
             || start_trace + count > self.start_trace + self.trace_count
         {
@@ -252,31 +235,7 @@ impl TraceChunk {
                 ),
             });
         }
-
-        let offset_in_chunk = start_trace - self.start_trace;
-        let start_byte = offset_in_chunk * self.trace_size;
-        let format = config.data_sample_format_parsed()?;
-
-        let mut traces = Vec::with_capacity(count);
-        for i in 0..count {
-            let trace_start = start_byte + (i * self.trace_size);
-            let trace_end = trace_start + self.trace_size;
-
-            let trace_bytes = &self.data[trace_start..trace_end];
-            let trace = io::parse_trace_block(
-                trace_bytes,
-                format,
-                config.samples_per_trace,
-                config.byte_order,
-            )
-            .map_err(|e| AppError::ParseError {
-                message: format!("Failed to parse trace: {}", e),
-            })?;
-
-            traces.push(trace);
-        }
-
-        Ok(traces)
+        Ok((start_trace - self.start_trace) * self.trace_size)
     }
 
     /// Parse only a sample sub-range from each of `count` traces. Optimized
@@ -290,22 +249,7 @@ impl TraceChunk {
         config: &SegyFileConfig,
         agc: Option<&AgcSpec>,
     ) -> Result<Vec<TraceData>, AppError> {
-        if start_trace < self.start_trace
-            || start_trace + count > self.start_trace + self.trace_count
-        {
-            return Err(AppError::InvalidRange {
-                message: format!(
-                    "Requested traces {}..{} outside chunk {}..{}",
-                    start_trace,
-                    start_trace + count,
-                    self.start_trace,
-                    self.start_trace + self.trace_count
-                ),
-            });
-        }
-
-        let offset_in_chunk = start_trace - self.start_trace;
-        let start_byte = offset_in_chunk * self.trace_size;
+        let start_byte = self.checked_start_byte(start_trace, count)?;
         let format = config.data_sample_format_parsed()?;
 
         let mut trace_data = Vec::with_capacity(count);
@@ -411,8 +355,8 @@ mod tests {
             DEFAULT_MAX_CHUNKS,
         ));
         let chunk = cache.get_or_load(0, 5, &storage).await.unwrap();
-        let traces = chunk.extract_traces(0, 5, &config).unwrap();
-        assert_eq!(traces.len(), 5);
+        assert_eq!(chunk.start_trace, 0);
+        assert!(chunk.trace_count >= 5, "chunk should cover the requested traces");
     }
 
     #[tokio::test]

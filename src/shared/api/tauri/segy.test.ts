@@ -12,7 +12,6 @@ import {
   getTraceHeaderSpec,
   loadCustomSpec,
   loadSegyFile,
-  loadSingleTrace,
   saveCustomSpec,
   scanAmplitudeRange,
   setActiveRevision,
@@ -50,36 +49,6 @@ describe('loadSegyFile', () => {
   it('should throw on error', async () => {
     mockedInvoke.mockRejectedValueOnce(new Error('file not found'));
     await expect(loadSegyFile('/path/to/file.segy')).rejects.toThrow('file not found');
-  });
-});
-
-describe('loadSingleTrace', () => {
-  it('should call invoke with correct command name and camelCase params', async () => {
-    mockedInvoke.mockResolvedValueOnce({} as never);
-    await loadSingleTrace({ filePath: '/path.segy', traceIndex: 5, maxSamples: 100 });
-    expect(invoke).toHaveBeenCalledWith('load_single_trace', {
-      filePath: '/path.segy',
-      traceIndex: 5,
-      maxSamples: 100,
-    });
-  });
-
-  it('should return response on success', async () => {
-    const mockData = { header: { traceNumber: 1 } };
-    mockedInvoke.mockResolvedValueOnce(mockData as never);
-    const result = await loadSingleTrace({
-      filePath: '/path.segy',
-      traceIndex: 0,
-      maxSamples: 50,
-    });
-    expect(result).toEqual(mockData);
-  });
-
-  it('should throw on error', async () => {
-    mockedInvoke.mockRejectedValueOnce(new Error('trace out of range'));
-    await expect(
-      loadSingleTrace({ filePath: '/path.segy', traceIndex: 999, maxSamples: 50 })
-    ).rejects.toThrow('trace out of range');
   });
 });
 

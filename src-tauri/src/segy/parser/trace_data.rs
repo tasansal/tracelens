@@ -14,30 +14,6 @@ use std::io::{self, Read};
 
 use super::binary_header::DataSampleFormat;
 
-/// Sample format enum for runtime format representation
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SampleFormat {
-    IbmFloat32,
-    Int32,
-    Int16,
-    FixedPointWithGain,
-    IeeeFloat32,
-    Int8,
-}
-
-impl From<DataSampleFormat> for SampleFormat {
-    fn from(format: DataSampleFormat) -> Self {
-        match format {
-            DataSampleFormat::IbmFloat32 => Self::IbmFloat32,
-            DataSampleFormat::Int32 => Self::Int32,
-            DataSampleFormat::Int16 => Self::Int16,
-            DataSampleFormat::FixedPointWithGain => Self::FixedPointWithGain,
-            DataSampleFormat::IeeeFloat32 => Self::IeeeFloat32,
-            DataSampleFormat::Int8 => Self::Int8,
-        }
-    }
-}
-
 /// Trace data samples in various formats
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TraceData {
@@ -154,9 +130,11 @@ impl TraceData {
         let exponent = ((ibm >> 24) & 0x7F) as i32;
         let mantissa = ibm & 0x00FFFFFF;
 
-        // IBM exponent is base 16, excess 64
-        // Convert to IEEE exponent (base 2, excess 127)
-        let ieee_exponent = ((exponent - 64) * 4) + 127;
+        // IBM exponent is base 16, excess 64; the 24-bit mantissa is a fraction
+        // with weight 2^-24. Converting to a normalized IEEE 1.f mantissa moves
+        // one factor of two into the exponent, so the bias is 126 (not 127);
+        // using 127 yields values that are exactly 2x too large.
+        let ieee_exponent = ((exponent - 64) * 4) + 126;
 
         // Normalize mantissa
         // IBM mantissa has implicit radix point: 0.MMMMMM (base 16)
@@ -365,11 +343,10 @@ mod tests {
 
     #[test]
     fn test_ibm_float_simple() {
-        // Test a known IBM float value
-        // For now, just test that the conversion doesn't panic
+        // 0x41100000 is the canonical IBM-hex-float encoding of 1.0:
+        // 16^(0x41-64) * (0x100000 / 2^24) = 16 * (1/16) = 1.0.
         let result = TraceData::ibm_to_ieee_fast(0x41100000);
-        // The conversion algorithm produces a value
-        assert!(result.is_finite());
+        assert!((result - 1.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -433,19 +410,19 @@ mod tests {
     #[test]
     fn test_read_trace_data_ibm_float32() {
         // Write known IBM float32 bytes and verify roundtrip conversion.
-        // IBM float values (from existing ibm_to_ieee_fast tests):
-        // 0x41100000 → 2.0, 0xC1100000 → -2.0, 0x42040000 → 8.0, 0x41A00000 → 20.0
+        // True IBM-hex-float values: value = 16^(exp-64) * (mantissa / 2^24).
+        // 0x41100000 → 1.0, 0xC1100000 → -1.0, 0x42040000 → 4.0, 0x41A00000 → 10.0
         let ibm_values: Vec<u32> = vec![
             0x00000000, // 0.0
-            0x41100000, // 2.0
-            0xC1100000, // -2.0
-            0x42040000, // 8.0
-            0x41A00000, // 20.0
+            0x41100000, // 1.0
+            0xC1100000, // -1.0
+            0x42040000, // 4.0
+            0x41A00000, // 10.0
             0x00000000, // 0.0
-            0x41100000, // 2.0
-            0xC1100000, // -2.0
+            0x41100000, // 1.0
+            0xC1100000, // -1.0
             0x00000000, // 0.0
-            0x41100000, // 2.0
+            0x41100000, // 1.0
         ];
 
         let mut buf = Vec::new();
@@ -462,10 +439,10 @@ mod tests {
                 assert_eq!(samples.len(), 10);
                 // Verify known values from the conversion algorithm
                 assert_eq!(samples[0], 0.0);
-                assert!((samples[1] - 2.0).abs() < 0.01);
-                assert!((samples[2] - (-2.0)).abs() < 0.01);
-                assert!((samples[3] - 8.0).abs() < 0.01);
-                assert!((samples[4] - 20.0).abs() < 0.01);
+                assert!((samples[1] - 1.0).abs() < 0.01);
+                assert!((samples[2] - (-1.0)).abs() < 0.01);
+                assert!((samples[3] - 4.0).abs() < 0.01);
+                assert!((samples[4] - 10.0).abs() < 0.01);
             }
             _ => panic!("Expected IbmFloat32 variant"),
         }
@@ -610,24 +587,4 @@ mod tests {
         assert!(!data.is_empty());
     }
 
-    #[test]
-    fn test_sample_format_conversion() {
-        let sample_format: SampleFormat = DataSampleFormat::IbmFloat32.into();
-        assert_eq!(sample_format, SampleFormat::IbmFloat32);
-
-        let sample_format: SampleFormat = DataSampleFormat::IeeeFloat32.into();
-        assert_eq!(sample_format, SampleFormat::IeeeFloat32);
-
-        let sample_format: SampleFormat = DataSampleFormat::Int32.into();
-        assert_eq!(sample_format, SampleFormat::Int32);
-
-        let sample_format: SampleFormat = DataSampleFormat::Int16.into();
-        assert_eq!(sample_format, SampleFormat::Int16);
-
-        let sample_format: SampleFormat = DataSampleFormat::FixedPointWithGain.into();
-        assert_eq!(sample_format, SampleFormat::FixedPointWithGain);
-
-        let sample_format: SampleFormat = DataSampleFormat::Int8.into();
-        assert_eq!(sample_format, SampleFormat::Int8);
-    }
 }

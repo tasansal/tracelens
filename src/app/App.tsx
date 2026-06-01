@@ -150,7 +150,7 @@ export const App = () => {
         useAppStore.setState({ segyData: data });
         resetTraceState();
 
-        // Reset zoom to defaults (zoomX=1 shows INITIAL_VISIBLE_TRACES=500 traces wide,
+        // Reset zoom to defaults (zoomX=1 shows INITIAL_VISIBLE_TRACES=1000 traces wide,
         // zoomY=1 fits all samples in height) and pan to origin.
         useTraceVisualizationStore.setState({
           zoomX: 1.0,

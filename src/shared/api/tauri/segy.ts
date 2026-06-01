@@ -12,13 +12,6 @@ import { invoke } from '@tauri-apps/api/core';
 export type SegyRevision = 'Rev0' | 'Rev1' | 'Rev2' | 'Rev21' | 'Unknown';
 
 /**
- * Header-only payload for an individual trace.
- */
-export interface SingleTrace {
-  header: Record<string, unknown>;
-}
-
-/**
  * Header field data with resolved values.
  */
 export interface HeaderFieldData {
@@ -39,28 +32,11 @@ export async function loadSegyFile(filePath: string): Promise<SegyData> {
 }
 
 /**
- * Load a single trace header with optional sample cap for preview.
- */
-export async function loadSingleTrace(params: {
-  filePath: string;
-  traceIndex: number;
-  maxSamples: number;
-}): Promise<SingleTrace> {
-  return invoke<SingleTrace>('load_single_trace', {
-    filePath: params.filePath,
-    traceIndex: params.traceIndex,
-    maxSamples: params.maxSamples,
-  });
-}
-
-/**
  * Fetch backend spec for binary header fields.
  * @param revision Optional SEG-Y revision. If undefined, uses default (Rev 0).
  */
 export async function getBinaryHeaderSpec(revision?: SegyRevision): Promise<HeaderFieldSpec[]> {
-  return revision
-    ? invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision })
-    : invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision: null });
+  return invoke<HeaderFieldSpec[]>('get_binary_header_spec', { revision: revision ?? null });
 }
 
 /**
@@ -68,9 +44,7 @@ export async function getBinaryHeaderSpec(revision?: SegyRevision): Promise<Head
  * @param revision Optional SEG-Y revision. If undefined, uses default (Rev 0).
  */
 export async function getTraceHeaderSpec(revision?: SegyRevision): Promise<HeaderFieldSpec[]> {
-  return revision
-    ? invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision })
-    : invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision: null });
+  return invoke<HeaderFieldSpec[]>('get_trace_header_spec', { revision: revision ?? null });
 }
 
 /**

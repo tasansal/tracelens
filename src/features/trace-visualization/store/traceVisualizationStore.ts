@@ -39,12 +39,8 @@ interface TraceVisualizationState {
   setColormap: (colormap: ColormapType) => void;
   setInvertColormap: (invert: boolean) => void;
   setAmplitudeScaling: (scaling: AmplitudeScaling) => void;
-  setAmplitudeStats: (stats: AmplitudeStats | null) => void;
-  setAmplitudeScanFailed: (failed: boolean) => void;
   setWiggleConfig: (config: Partial<WiggleConfig>) => void;
   updateViewport: (viewport: Partial<ViewportConfig>) => void;
-  setZoomX: (zoom: number) => void;
-  setZoomY: (zoom: number) => void;
   setPanOffset: (offset: { x: number; y: number }) => void;
   resetView: () => void;
 }
@@ -89,8 +85,6 @@ export const useTraceVisualizationStore = create<TraceVisualizationState>(set =>
   setColormap: colormap => set({ colormap }),
   setInvertColormap: invert => set({ invertColormap: invert }),
   setAmplitudeScaling: scaling => set({ amplitudeScaling: scaling }),
-  setAmplitudeStats: stats => set({ amplitudeStats: stats }),
-  setAmplitudeScanFailed: failed => set({ amplitudeScanFailed: failed }),
   setWiggleConfig: partial => {
     const clamped: Partial<WiggleConfig> = { ...partial };
     if (clamped.lineColor) clamped.lineColor = clampRgb(clamped.lineColor);
@@ -105,8 +99,6 @@ export const useTraceVisualizationStore = create<TraceVisualizationState>(set =>
     set(state => ({
       viewport: { ...state.viewport, ...partial },
     })),
-  setZoomX: zoom => set({ zoomX: zoom }),
-  setZoomY: zoom => set({ zoomY: zoom }),
   setPanOffset: offset => set({ panOffset: offset }),
   resetView: () =>
     set({

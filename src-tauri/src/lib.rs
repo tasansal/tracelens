@@ -8,7 +8,6 @@ use tauri::Manager;
 /// IPC command handlers — thin adapters organized by domain.
 pub mod ipc;
 
-mod commands;
 pub mod error;
 
 /// I/O layer: storage backends, caching, URI routing, and binary parsing.
@@ -25,9 +24,6 @@ pub mod storage_config;
 
 /// Application settings for user preferences.
 mod app_settings;
-
-/// Window management commands.
-mod windows;
 
 /// Build and run the Tauri application.
 ///
@@ -47,7 +43,6 @@ pub fn run() {
         .manage(storage_config::StorageConfigState::default())
         .invoke_handler(tauri::generate_handler![
             ipc::file::load_segy_file,
-            ipc::file::load_single_trace,
             ipc::headers::get_binary_header_spec,
             ipc::headers::get_trace_header_spec,
             ipc::headers::get_binary_header_data,

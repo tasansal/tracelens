@@ -10,7 +10,7 @@ use crate::segy::{BinaryHeader, ByteOrder, SegyRevision, TextEncoding, TextualHe
 /// SEG-Y file data structure containing headers only (no traces loaded eagerly)
 ///
 /// This structure is optimized for fast loading - traces are loaded on demand
-/// using the load_single_trace command.
+/// via the trace-fetching commands (e.g. `fetch_trace_samples`).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SegyData {
     /// Textual file header (3200 bytes EBCDIC converted to ASCII)

@@ -213,30 +213,6 @@ impl SegyReader {
         Ok(apply_trace_limit(trace, max_samples))
     }
 
-    /// Load only trace sample data for a contiguous range of traces.
-    ///
-    /// More efficient than loading full `TraceBlock` values when only sample
-    /// data is needed.
-    pub async fn load_trace_data_range(
-        &self,
-        start_index: usize,
-        count: usize,
-        max_samples: Option<usize>,
-    ) -> Result<Vec<TraceData>, AppError> {
-        io::validate_trace_range(&self.config, start_index, count, self.total_traces)?;
-        if count == 0 {
-            return Ok(Vec::new());
-        }
-
-        let window = self.get_or_load_window(start_index, count).await?;
-        // Parse outside the cache lock so other tile fetches can proceed.
-        let traces = window.extract_traces(start_index, count, &self.config)?;
-        Ok(traces
-            .into_iter()
-            .map(|trace| apply_data_limit(trace.data, max_samples))
-            .collect())
-    }
-
     /// Acquire a covering window. The cache does its own internal locking and
     /// runs network I/O lock-free, so concurrent fetches parallelize naturally.
     async fn get_or_load_window(
@@ -419,12 +395,6 @@ impl SegyReaderState {
         specs.remove(file_path);
     }
 
-    /// Check if a custom spec exists for a file.
-    pub async fn has_custom_spec(&self, file_path: &str) -> bool {
-        let specs = self.custom_specs.read().await;
-        specs.contains_key(file_path)
-    }
-
     /// Get or create a merged spec (standard + custom) for a file.
     ///
     /// If a custom spec exists, merge its fields with the standard spec.
@@ -486,14 +456,6 @@ fn apply_trace_limit(trace: TraceBlock, max_samples: Option<usize>) -> TraceBloc
     match max_samples {
         Some(limit) => trace.downsample(limit),
         None => trace,
-    }
-}
-
-/// Apply a sample limit to raw trace data.
-fn apply_data_limit(data: TraceData, max_samples: Option<usize>) -> TraceData {
-    match max_samples {
-        Some(limit) => data.downsample(limit),
-        None => data,
     }
 }
 

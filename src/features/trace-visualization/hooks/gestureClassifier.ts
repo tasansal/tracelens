@@ -20,7 +20,7 @@ export const MOUSE_DELTA_THRESHOLD = 50;
 const AXIS_LOCK_TAN = Math.tan((15 * Math.PI) / 180); // tan(15°) ≈ 0.268
 const DECAY_THRESHOLD = 0.5;
 export const DECAY_WINDOW = 5;
-export const MAX_ZOOM = 50;
+const MAX_ZOOM = 50;
 export const MIN_ZOOM_Y = 1.0;
 export const MAX_ZOOM_Y = MAX_ZOOM;
 

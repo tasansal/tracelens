@@ -149,6 +149,12 @@ where
     };
     mutator(fields);
 
+    // Validate the mutated spec just like load_custom_spec does, so an
+    // out-of-bounds or overlapping field is rejected here instead of being
+    // stored and later panicking/dropping during header extraction.
+    crate::segy::validate(&spec)
+        .map_err(|errors| format!("Spec validation failed: {:?}", errors))?;
+
     reader_state.set_custom_spec(file_path, spec.clone()).await;
     Ok(spec)
 }

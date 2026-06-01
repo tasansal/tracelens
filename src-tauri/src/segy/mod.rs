@@ -56,8 +56,7 @@ pub mod fixtures;
 pub use constants::*;
 /// Binary header definition and byte-order detection.
 pub use parser::{
-    BinaryHeader, ByteOrder, DataSampleFormat, SampleFormat, TextualHeader, TraceBlock, TraceData,
-    TraceHeader,
+    BinaryHeader, ByteOrder, DataSampleFormat, TextualHeader, TraceBlock, TraceData, TraceHeader,
 };
 
 /// Dynamic header field extraction types.
