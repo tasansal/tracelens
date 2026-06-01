@@ -356,7 +356,10 @@ mod tests {
         ));
         let chunk = cache.get_or_load(0, 5, &storage).await.unwrap();
         assert_eq!(chunk.start_trace, 0);
-        assert!(chunk.trace_count >= 5, "chunk should cover the requested traces");
+        assert!(
+            chunk.trace_count >= 5,
+            "chunk should cover the requested traces"
+        );
     }
 
     #[tokio::test]

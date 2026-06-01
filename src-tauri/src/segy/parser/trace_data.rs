@@ -586,5 +586,4 @@ mod tests {
         let data = TraceData::Int8(vec![1]);
         assert!(!data.is_empty());
     }
-
 }
