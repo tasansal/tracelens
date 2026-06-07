@@ -6,6 +6,68 @@ A modern, cross-platform desktop application for viewing and inspecting SEG-Y se
 Parihaka 3D seismic data courtesy of New Zealand Petroleum and Minerals (NZPM) / New Zealand Crown
 Minerals, supplied as a public dataset.
 
+## Download
+
+Grab the latest installer for your platform from the
+[**Releases**](https://github.com/tasansal/tracelens/releases/latest) page.
+
+| Platform | File | Notes |
+|----------|------|-------|
+| macOS (Apple Silicon) | `tracelens_*_aarch64.dmg` | M-series Macs |
+| macOS (Intel) | `tracelens_*_x64.dmg` | Intel Macs |
+| Windows 10/11 | `tracelens_*_x64-setup.exe` | Per-user install; no admin needed |
+| Linux (universal) | `tracelens_*_amd64.AppImage` | Runs on most distros; self-updating |
+| Linux (Debian/Ubuntu) | `tracelens_*_amd64.deb` | Native install + menu integration |
+| Linux (Rocky/RHEL/Fedora) | `tracelens_*_amd64.flatpak` | `flatpak install tracelens_*.flatpak` |
+
+The app is currently **unsigned**, so on first launch macOS ("unidentified
+developer") and Windows SmartScreen will warn you. On macOS, right-click the app
+and choose **Open**; on Windows, click **More info → Run anyway**.
+
+The macOS `.dmg`, Windows `.exe`, and Linux `.AppImage` builds auto-update from
+GitHub Releases. Flatpak updates via `flatpak update`; `.deb` users re-download.
+
+## Building installers locally
+
+Installers are normally produced by the tag-triggered `release` workflow, but you
+can build them by hand.
+
+**Prerequisites:** Node 22, the Rust toolchain, and the platform's Tauri
+[system dependencies](https://v2.tauri.app/start/prerequisites/). On Debian/Ubuntu:
+
+```bash
+sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+```
+
+**Build for the current platform:**
+
+```bash
+npm ci
+npm run tauri build
+```
+
+**macOS — build a specific architecture:**
+
+```bash
+npm run tauri build -- --target aarch64-apple-darwin   # Apple Silicon
+npm run tauri build -- --target x86_64-apple-darwin    # Intel
+```
+
+Artifacts are written under `src-tauri/target/release/bundle/`.
+
+**Flatpak (Linux):**
+
+```bash
+flatpak install -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
+# Build the .deb first (npm run tauri build), then copy it to ./tracelens.deb
+flatpak-builder --force-clean --repo=flatpak-repo flatpak-build flatpak/com.tracelens.desktop.yml
+flatpak build-bundle flatpak-repo tracelens.flatpak com.tracelens.desktop
+```
+
+> Locally built binaries are **not** updater-signed unless you export
+> `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` before
+> building. Unsigned local builds still run; they just can't publish updates.
+
 ## Features
 
 - **Multi-Revision SEG-Y Parsing** - Automatic revision detection (Rev 0 / Rev 1) with manual override when detection is ambiguous
