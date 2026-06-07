@@ -14,7 +14,6 @@ import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import { getErrorMessage, parseBackendError } from '@/shared/api/tauri/error';
-import { checkForUpdates } from '@/shared/update/checkForUpdates';
 import {
   loadSegyFile as loadSegyFileCommand,
   scanAmplitudeRange,
@@ -23,6 +22,7 @@ import {
 import { getAppSettings, openSettingsWindow, type AppSettings } from '@/shared/api/tauri/settings';
 import { useAppStore } from '@/shared/store/appStore';
 import { TooltipProvider } from '@/shared/ui/tooltip';
+import { checkForUpdates } from '@/shared/update/checkForUpdates';
 import { isTauri } from '@/shared/utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
