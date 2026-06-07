@@ -14,6 +14,7 @@ import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
 import { getErrorMessage, parseBackendError } from '@/shared/api/tauri/error';
+import { checkForUpdates } from '@/shared/update/checkForUpdates';
 import {
   loadSegyFile as loadSegyFileCommand,
   scanAmplitudeRange,
@@ -108,6 +109,12 @@ export const App = () => {
 
     loadSettings();
   }, [applyTheme]);
+
+  // Check for updates on startup (Tauri only; best-effort).
+  useEffect(() => {
+    if (!isTauri()) return;
+    void checkForUpdates();
+  }, []);
 
   // Listen for settings changes from settings window
   useEffect(() => {
