@@ -6,11 +6,11 @@
  */
 import { ask } from '@tauri-apps/plugin-dialog';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { check } from '@tauri-apps/plugin-updater';
+import { check, type Update } from '@tauri-apps/plugin-updater';
 
 export async function checkForUpdates(): Promise<void> {
   try {
-    const update = await check();
+    const update: Update | null = await check();
     if (!update) return;
 
     const shouldInstall = await ask(

@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkForUpdates } from './checkForUpdates';
 
 const check = vi.fn();
 const ask = vi.fn();
 const relaunch = vi.fn();
+// Attached to the resolved update object in tests, not a mocked module export.
 const downloadAndInstall = vi.fn();
 
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: () => check() }));
@@ -12,10 +13,11 @@ vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: () => relaunch() }));
 
 describe('checkForUpdates', () => {
   beforeEach(() => {
-    check.mockReset();
-    ask.mockReset();
-    relaunch.mockReset();
-    downloadAndInstall.mockReset();
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('does nothing when no update is available', async () => {
