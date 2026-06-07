@@ -7,6 +7,7 @@ command: tracelens
 finish-args:
   - --socket=wayland
   - --socket=fallback-x11
+  - --socket=session-bus
   - --device=dri
   - --share=ipc
   - --share=network
