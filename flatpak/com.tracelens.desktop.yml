@@ -1,0 +1,31 @@
+id: com.tracelens.desktop
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+command: tracelens
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=ipc
+  - --share=network
+  - --filesystem=host
+
+modules:
+  - name: tracelens
+    buildsystem: simple
+    sources:
+      - type: file
+        path: ../tracelens.deb
+      - type: file
+        path: com.tracelens.desktop.metainfo.xml
+    build-commands:
+      - mkdir -p deb-extract
+      - ar -x tracelens.deb --output deb-extract
+      - tar -C deb-extract -xf deb-extract/data.tar.gz
+      - install -Dm755 deb-extract/usr/bin/tracelens /app/bin/tracelens
+      - install -Dm644 deb-extract/usr/share/applications/tracelens.desktop /app/share/applications/com.tracelens.desktop.desktop
+      - sed -i 's/^Icon=.*/Icon=com.tracelens.desktop/' /app/share/applications/com.tracelens.desktop.desktop
+      - install -Dm644 deb-extract/usr/share/icons/hicolor/128x128/apps/tracelens.png /app/share/icons/hicolor/128x128/apps/com.tracelens.desktop.png
+      - install -Dm644 com.tracelens.desktop.metainfo.xml /app/share/metainfo/com.tracelens.desktop.metainfo.xml

@@ -91,3 +91,40 @@ jobs:
             (macOS / Windows / AppImage). You do not need to download them manually.
 
             </details>
+
+  flatpak:
+    needs: release
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+
+      - name: Add Flathub remote and runtime
+        run: |
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
+
+      - name: Download the .deb from the draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ github.ref_name }}" \
+            --pattern '*_amd64.deb' --output tracelens.deb --clobber
+
+      - name: Build the Flatpak bundle
+        run: |
+          sudo flatpak-builder --force-clean --disable-cache --repo=flatpak-repo \
+            flatpak-build flatpak/com.tracelens.desktop.yml
+          sudo flatpak build-bundle flatpak-repo \
+            "tracelens_${{ github.ref_name }}_amd64.flatpak" com.tracelens.desktop
+
+      - name: Upload the Flatpak to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            "tracelens_${{ github.ref_name }}_amd64.flatpak" --clobber

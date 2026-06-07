@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.tracelens.desktop</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT OR Apache-2.0</project_license>
+  <name>TraceLens</name>
+  <summary>View and analyze SEG-Y seismic data files</summary>
+  <description>
+    <p>
+      TraceLens is a modern desktop application for viewing and analyzing
+      SEG-Y seismic data files, with support for local and cloud object stores.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.tracelens.desktop.desktop</launchable>
+  <url type="homepage">https://github.com/tasansal/tracelens</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="0.1.0" date="2026-06-07" />
+  </releases>
+</component>
