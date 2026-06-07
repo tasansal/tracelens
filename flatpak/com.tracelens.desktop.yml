@@ -23,7 +23,7 @@ modules:
     build-commands:
       - mkdir -p deb-extract
       - ar -x tracelens.deb --output deb-extract
-      - tar -C deb-extract -xf deb-extract/data.tar.gz
+      - tar -C deb-extract -xf deb-extract/data.tar.*
       - install -Dm755 deb-extract/usr/bin/tracelens /app/bin/tracelens
       - install -Dm644 deb-extract/usr/share/applications/tracelens.desktop /app/share/applications/com.tracelens.desktop.desktop
       - sed -i 's/^Icon=.*/Icon=com.tracelens.desktop/' /app/share/applications/com.tracelens.desktop.desktop
