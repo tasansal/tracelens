@@ -58,6 +58,7 @@ Artifacts are written under `src-tauri/target/release/bundle/`.
 **Flatpak (Linux):**
 
 ```bash
+flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 flatpak install -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
 # Build the .deb first (npm run tauri build), then copy it to ./tracelens.deb
 flatpak-builder --force-clean --repo=flatpak-repo flatpak-build flatpak/com.tracelens.desktop.yml

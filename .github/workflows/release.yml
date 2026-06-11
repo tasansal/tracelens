@@ -12,6 +12,12 @@ jobs:
   release:
     strategy:
       fail-fast: false
+      # Serialize the legs: tauri-action merges each platform's entry into the
+      # shared draft `latest.json` with a non-atomic read-modify-write, so
+      # concurrent legs can clobber each other and drop a platform from the
+      # updater manifest. One-at-a-time trades release wall-clock for a correct
+      # multi-platform manifest.
+      max-parallel: 1
       matrix:
         include:
           - platform: macos-latest # Apple Silicon (native aarch64)
@@ -94,6 +100,12 @@ jobs:
 
   flatpak:
     needs: release
+    # `needs: release` only goes green when every matrix leg succeeds, so an
+    # unrelated macOS/Windows flake would skip the Flatpak even though the Linux
+    # `.deb` is already on the draft release. Run whenever the workflow wasn't
+    # cancelled; the `.deb` download below fails loudly if the Linux leg didn't
+    # actually produce one.
+    if: ${{ always() && needs.release.result != 'cancelled' }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v5
@@ -115,16 +127,29 @@ jobs:
           gh release download "${{ github.ref_name }}" \
             --pattern '*_amd64.deb' --output tracelens.deb --clobber
 
+      # Use tauri.conf.json's bare version (e.g. 0.1.0) as the single source of
+      # truth so the Flatpak filename matches tauri-action's other artifacts
+      # (github.ref_name carries the leading `v`) and the AppStream release entry
+      # reflects the version actually being shipped.
+      - name: Compute version
+        id: ver
+        run: echo "version=$(jq -r .version src-tauri/tauri.conf.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Inject release version into metainfo
+        run: |
+          sed -i "s|<release version=\"[^\"]*\" date=\"[^\"]*\" />|<release version=\"${{ steps.ver.outputs.version }}\" date=\"$(date -u +%Y-%m-%d)\" />|" \
+            flatpak/com.tracelens.desktop.metainfo.xml
+
       - name: Build the Flatpak bundle
         run: |
           sudo flatpak-builder --force-clean --disable-cache --repo=flatpak-repo \
             flatpak-build flatpak/com.tracelens.desktop.yml
           sudo flatpak build-bundle flatpak-repo \
-            "tracelens_${{ github.ref_name }}_amd64.flatpak" com.tracelens.desktop
+            "tracelens_${{ steps.ver.outputs.version }}_amd64.flatpak" com.tracelens.desktop
 
       - name: Upload the Flatpak to the release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release upload "${{ github.ref_name }}" \
-            "tracelens_${{ github.ref_name }}_amd64.flatpak" --clobber
+            "tracelens_${{ steps.ver.outputs.version }}_amd64.flatpak" --clobber
