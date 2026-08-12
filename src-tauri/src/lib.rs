@@ -70,6 +70,7 @@ pub fn run() {
             ipc::settings::get_storage_config_settings,
             ipc::settings::update_storage_config_settings,
             ipc::desktop::take_opened_file,
+            ipc::desktop::install_flavor,
             ipc::desktop::updater_supported,
         ])
         .setup(|app| {

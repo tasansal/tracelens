@@ -53,6 +53,35 @@ pub fn take_opened_file(state: tauri::State<'_, OpenedFile>) -> Option<String> {
     state.path.take()
 }
 
+/// Install / update channel for this running binary.
+///
+/// - `tauri-updater`: macOS, Windows, or Linux AppImage (`APPIMAGE` set)
+/// - `flatpak`: running inside a Flatpak sandbox
+/// - `deb-or-other`: Linux native package or unknown (no Tauri self-update)
+#[tauri::command]
+pub fn install_flavor() -> &'static str {
+    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    {
+        "tauri-updater"
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if std::path::Path::new("/.flatpak-info").exists()
+            || std::env::var_os("FLATPAK_ID").is_some()
+        {
+            "flatpak"
+        } else if std::env::var_os("APPIMAGE").is_some() {
+            "tauri-updater"
+        } else {
+            "deb-or-other"
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+    {
+        "deb-or-other"
+    }
+}
+
 /// Whether Tauri's in-app updater can actually install on this build.
 ///
 /// macOS and Windows are always supported. On Linux only the AppImage bundle
@@ -61,16 +90,5 @@ pub fn take_opened_file(state: tauri::State<'_, OpenedFile>) -> Option<String> {
 /// AppImage sets `APPIMAGE`, which we use as the discriminator.
 #[tauri::command]
 pub fn updater_supported() -> bool {
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
-    {
-        true
-    }
-    #[cfg(target_os = "linux")]
-    {
-        std::env::var_os("APPIMAGE").is_some()
-    }
-    #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    {
-        false
-    }
+    install_flavor() == "tauri-updater"
 }
