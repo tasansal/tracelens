@@ -2,29 +2,45 @@
 //! routing for file associations.
 
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
 
 /// Pending file the OS asked us to open (via CLI argv on first launch, or a
 /// macOS "open document" Apple event), plus a flag tracking whether the
-/// frontend has come online to receive `open-file` events directly.
+/// frontend has come online to receive `open-file` events directly. Both fields
+/// live behind one lock so the ready-check and the stash are atomic with
+/// respect to the frontend's drain in [`take_opened_file`].
+#[derive(Default)]
+struct OpenedFileState {
+    path: Option<String>,
+    frontend_ready: bool,
+}
+
 #[derive(Default)]
 pub struct OpenedFile {
-    path: Mutex<Option<String>>,
-    frontend_ready: AtomicBool,
+    inner: Mutex<OpenedFileState>,
 }
 
 impl OpenedFile {
     /// Stash a path to be drained by the frontend once it mounts. Used before
     /// the webview is ready to receive events.
     pub fn set(&self, path: String) {
-        *self.path.lock().unwrap() = Some(path);
+        self.inner.lock().unwrap().path = Some(path);
     }
 
-    /// Whether the frontend has drained the pending file at least once, meaning
-    /// it now has an `open-file` listener registered and live events should be
-    /// emitted instead of stashed.
-    pub fn frontend_ready(&self) -> bool {
-        self.frontend_ready.load(Ordering::SeqCst)
+    /// Hand off a freshly opened path. If the frontend is already listening,
+    /// returns `Some(path)` so the caller emits it live; otherwise stashes it
+    /// for the next drain and returns `None`.
+    ///
+    /// The ready-check and the stash happen under one lock, so a concurrent
+    /// `take_opened_file` cannot observe an empty slot and then leave us
+    /// stashing into an already-ready state that nothing re-drains.
+    pub fn stash_or_emit(&self, path: String) -> Option<String> {
+        let mut state = self.inner.lock().unwrap();
+        if state.frontend_ready {
+            Some(path)
+        } else {
+            state.path = Some(path);
+            None
+        }
     }
 }
 
@@ -32,8 +48,9 @@ impl OpenedFile {
 /// ready, and mark the frontend as ready for live `open-file` events.
 #[tauri::command]
 pub fn take_opened_file(state: tauri::State<'_, OpenedFile>) -> Option<String> {
-    state.frontend_ready.store(true, Ordering::SeqCst);
-    state.path.lock().unwrap().take()
+    let mut state = state.inner.lock().unwrap();
+    state.frontend_ready = true;
+    state.path.take()
 }
 
 /// Whether Tauri's in-app updater can actually install on this build.

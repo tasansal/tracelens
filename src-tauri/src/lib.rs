@@ -77,10 +77,14 @@ pub fn run() {
             // binary with the file path as argv[1]. macOS instead delivers it as
             // a RunEvent::Opened, handled below. Stash it for the frontend to
             // drain once it mounts (see ipc::desktop).
-            if let Some(arg) = std::env::args().nth(1) {
+            // `args_os` (not `args`) so a non-UTF-8 path — arbitrary bytes on
+            // Linux, unpaired surrogates on Windows — can't panic the iterator.
+            if let Some(arg) = std::env::args_os().nth(1) {
+                let arg = arg.to_string_lossy();
                 let lower = arg.to_lowercase();
                 if lower.ends_with(".segy") || lower.ends_with(".sgy") {
-                    app.state::<ipc::desktop::OpenedFile>().set(arg);
+                    app.state::<ipc::desktop::OpenedFile>()
+                        .set(arg.into_owned());
                 }
             }
 
@@ -113,10 +117,11 @@ pub fn run() {
                             continue;
                         };
                         let path = path.to_string_lossy().into_owned();
-                        if state.frontend_ready() {
+                        // Ready-check and stash happen under one lock inside
+                        // `stash_or_emit`, so a concurrent `take_opened_file`
+                        // drain can't strand this path.
+                        if let Some(path) = state.stash_or_emit(path) {
                             let _ = app_handle.emit("open-file", path);
-                        } else {
-                            state.set(path);
                         }
                     }
                 }
