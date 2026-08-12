@@ -92,3 +92,17 @@ pub fn install_flavor() -> &'static str {
 pub fn updater_supported() -> bool {
     install_flavor() == "tauri-updater"
 }
+
+/// Run the Flatpak host's update command for TraceLens.
+#[tauri::command]
+pub fn try_flatpak_update() -> Result<(), String> {
+    let status = std::process::Command::new("flatpak-spawn")
+        .args(["--host", "flatpak", "update", "-y", "com.tracelens.desktop"])
+        .status()
+        .map_err(|e| format!("flatpak-spawn failed: {e}"))?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("flatpak update exited with {status}"))
+    }
+}

@@ -22,8 +22,10 @@ export async function updaterSupported(): Promise<boolean> {
   return invoke<boolean>('updater_supported');
 }
 
-export async function getInstallFlavor(): Promise<
-  'tauri-updater' | 'flatpak' | 'deb-or-other'
-> {
+export async function getInstallFlavor(): Promise<'tauri-updater' | 'flatpak' | 'deb-or-other'> {
   return invoke('install_flavor');
+}
+
+export async function tryFlatpakUpdate(): Promise<void> {
+  await invoke('try_flatpak_update');
 }

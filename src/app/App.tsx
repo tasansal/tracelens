@@ -13,13 +13,13 @@ import { SegyLoadingState } from '@/features/segy/components/SegyLoadingState';
 import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
+import { takeOpenedFile } from '@/shared/api/tauri/desktop';
 import { getErrorMessage, parseBackendError } from '@/shared/api/tauri/error';
 import {
   loadSegyFile as loadSegyFileCommand,
   scanAmplitudeRange,
   type SegyRevision,
 } from '@/shared/api/tauri/segy';
-import { takeOpenedFile, updaterSupported } from '@/shared/api/tauri/desktop';
 import { getAppSettings, openSettingsWindow, type AppSettings } from '@/shared/api/tauri/settings';
 import { useAppStore } from '@/shared/store/appStore';
 import { TooltipProvider } from '@/shared/ui/tooltip';
@@ -111,20 +111,10 @@ export const App = () => {
     loadSettings();
   }, [applyTheme]);
 
-  // Check for updates on startup (best-effort). Only the macOS/Windows and Linux
-  // AppImage builds can self-update; skip the prompt on Linux .deb/Flatpak where
-  // the install would always fail.
+  // Check for updates on startup using the backend for this install flavor.
   useEffect(() => {
     if (!isTauri()) return;
-    void (async () => {
-      try {
-        if (!(await updaterSupported())) return;
-      } catch (error) {
-        console.error('Updater capability check failed:', error);
-        return;
-      }
-      void checkForUpdates();
-    })();
+    void checkForUpdates();
   }, []);
 
   // Listen for settings changes from settings window
