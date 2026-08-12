@@ -12,7 +12,6 @@ finish-args:
   - --share=ipc
   - --share=network
   - --filesystem=host
-  - --talk-name=org.freedesktop.Flatpak
 
 modules:
   - name: tracelens
@@ -22,6 +21,8 @@ modules:
         path: ../tracelens.deb
       - type: file
         path: com.tracelens.desktop.metainfo.xml
+      - type: file
+        path: com.tracelens.desktop.mime.xml
     build-commands:
       - mkdir -p deb-extract
       - ar -x tracelens.deb --output deb-extract
@@ -34,3 +35,10 @@ modules:
       - sed -i 's/^Icon=.*/Icon=com.tracelens.desktop/' /app/share/applications/com.tracelens.desktop.desktop
       - install -Dm644 deb-extract/usr/share/icons/hicolor/128x128/apps/tracelens.png /app/share/icons/hicolor/128x128/apps/com.tracelens.desktop.png
       - install -Dm644 com.tracelens.desktop.metainfo.xml /app/share/metainfo/com.tracelens.desktop.metainfo.xml
+      # The desktop file's MimeType= only associates an existing type; without a
+      # shared-mime-info package nothing maps *.segy / *.sgy to
+      # application/x-segy, so "Open With TraceLens" never appears.
+      - install -Dm644 com.tracelens.desktop.mime.xml /app/share/mime/packages/com.tracelens.desktop.xml
+      # Best-effort: the host merges /app/share/mime at runtime via XDG_DATA_DIRS,
+      # so a missing update-mime-database in the SDK is not fatal.
+      - update-mime-database /app/share/mime || true

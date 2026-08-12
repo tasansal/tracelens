@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-segy">
+    <comment>SEG-Y seismic data</comment>
+    <!-- All-lowercase globs also match uppercase extensions per the
+         shared-mime-info spec, so *.SEGY / *.SGY need no separate entries. -->
+    <glob pattern="*.segy" />
+    <glob pattern="*.sgy" />
+  </mime-type>
+</mime-info>

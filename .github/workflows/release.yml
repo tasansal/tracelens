@@ -30,6 +30,10 @@ jobs:
       mode: ${{ steps.classify.outputs.mode }}
       force_unsigned: ${{ steps.classify.outputs.force_unsigned }}
     steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
       - name: Classify release mode
         id: classify
         env:
@@ -38,6 +42,19 @@ jobs:
         run: |
           if [[ "$TAG" != v* ]]; then
             echo "::error::Tag '$TAG' must start with 'v' (e.g. v0.1.0 or v0.1.0-beta.1)"
+            exit 1
+          fi
+          # The tag names the release everywhere (artifact URLs, updater
+          # manifest), but tauri.conf.json's version names the binaries and the
+          # AppStream release entry. A mismatch ships v0.2.0 artifacts that
+          # report themselves as 0.1.0, which permanently re-prompts the
+          # in-app updater.
+          # Comparison is exact, so a prerelease tag needs the suffix in the
+          # config too (v0.2.0-beta.1 -> "version": "0.2.0-beta.1"). Safe here
+          # because we bundle NSIS rather than MSI, which rejects prereleases.
+          CONF_VERSION="$(jq -r .version src-tauri/tauri.conf.json)"
+          if [ "${TAG#v}" != "$CONF_VERSION" ]; then
+            echo "::error::Tag '$TAG' does not match src-tauri/tauri.conf.json version '$CONF_VERSION'. Set the config version to '${TAG#v}', commit, and re-tag."
             exit 1
           fi
           # A `-` in the tag marks a prerelease (v0.2.0-beta.1); manual dispatch
@@ -205,7 +222,9 @@ jobs:
           @{ bundle = @{ windows = @{ signCommand = $signCmd } } } |
             ConvertTo-Json -Depth 5 |
             Set-Content src-tauri/windows-signing.ci.json
-          Add-Content -Path $env:GITHUB_OUTPUT -Value 'extra_args=--config windows-signing.ci.json'
+          # tauri-action runs from the repo root, so the path must include the
+          # `src-tauri/` directory the config was written to.
+          Add-Content -Path $env:GITHUB_OUTPUT -Value 'extra_args=--config src-tauri/windows-signing.ci.json'
 
       # tauri-action splits `args` on whitespace, so collapse the matrix args and
       # any signing args into one clean string instead of concatenating inline.
@@ -265,14 +284,16 @@ jobs:
 
             Flatpak is the recommended Linux install: it bundles its own WebKit
             runtime, so it works on older enterprise distros (RHEL/Rocky) as well
-            as on Ubuntu, and it updates with `flatpak update`.
+            as on Ubuntu. It ships as a single-file bundle rather than through a
+            Flatpak remote, so update by re-downloading the `.flatpak` from this
+            page (`flatpak update` has no remote to pull from).
 
             <details><summary>Updater files</summary>
 
             `latest.json` and the `*.sig` files power the in-app auto-updater
-            (macOS / Windows / AppImage only — Flatpak updates through Flatpak and
-            `.deb` installs are re-downloaded from this page). You do not need to
-            download them manually.
+            (macOS / Windows / AppImage only — Flatpak and `.deb` installs are
+            re-downloaded from this page). You do not need to download them
+            manually.
 
             </details>
 
