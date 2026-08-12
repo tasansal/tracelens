@@ -138,7 +138,8 @@ jobs:
         include:
           - platform: macos-latest # Apple Silicon (native aarch64)
             args: '--target aarch64-apple-darwin'
-          - platform: macos-13 # Intel (native x86_64)
+          # Replaces the retired macos-13 label; still a native x86_64 host.
+          - platform: macos-15-intel # Intel (native x86_64)
             args: '--target x86_64-apple-darwin'
           - platform: ubuntu-22.04 # AppImage + deb (glibc 2.35 floor)
             args: ''
