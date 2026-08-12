@@ -13,19 +13,21 @@ Grab the latest installer for your platform from the
 
 | Platform | File | Notes |
 |----------|------|-------|
-| macOS (Apple Silicon) | `tracelens_*_aarch64.dmg` | M-series Macs |
-| macOS (Intel) | `tracelens_*_x64.dmg` | Intel Macs |
-| Windows 10/11 | `tracelens_*_x64-setup.exe` | Per-user install; no admin needed |
-| Linux (universal) | `tracelens_*_amd64.AppImage` | Runs on most distros; self-updating |
-| Linux (Debian/Ubuntu) | `tracelens_*_amd64.deb` | Native install + menu integration |
-| Linux (Rocky/RHEL/Fedora) | `tracelens_*_amd64.flatpak` | `flatpak install tracelens_*.flatpak` |
+| macOS (Apple Silicon) | `tracelens_*_aarch64.dmg` | Recommended (M-series) |
+| macOS (Intel) | `tracelens_*_x64.dmg` | Recommended (Intel) |
+| Windows 10/11 | `tracelens_*_x64-setup.exe` | Recommended |
+| Linux (Flatpak) | `tracelens_*_amd64.flatpak` | **Recommended** — Rocky/RHEL/Fedora/Ubuntu; menu + associations; `flatpak update` |
+| Linux (AppImage) | `tracelens_*_amd64.AppImage` | Portable; Ubuntu 22.04+ / glibc ≥ 2.35; Tauri auto-update |
+| Linux (Debian/Ubuntu) | `tracelens_*_amd64.deb` | Native `.deb`; re-download to update |
 
-The app is currently **unsigned**, so on first launch macOS ("unidentified
-developer") and Windows SmartScreen will warn you. On macOS, right-click the app
-and choose **Open**; on Windows, click **More info → Run anyway**.
+Production GitHub Releases are OS-signed (Apple notarized / Windows Authenticode)
+when CI secrets are configured.
 
-The macOS `.dmg`, Windows `.exe`, and Linux `.AppImage` builds auto-update from
-GitHub Releases. Flatpak updates via `flatpak update`; `.deb` users re-download.
+Prerelease / rehearsal builds may be **unsigned** — macOS right-click → Open;
+Windows More info → Run anyway.
+
+Auto-update: macOS / Windows / AppImage via in-app updater; Flatpak via Flatpak;
+`.deb` via Releases page.
 
 ## Building installers locally
 
