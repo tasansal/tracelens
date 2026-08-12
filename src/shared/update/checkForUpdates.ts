@@ -1,6 +1,6 @@
-import { getInstallFlavor, tryFlatpakUpdate } from '@/shared/api/tauri/desktop';
+import { getInstallFlavor } from '@/shared/api/tauri/desktop';
 import { getVersion } from '@tauri-apps/api/app';
-import { ask, message } from '@tauri-apps/plugin-dialog';
+import { ask } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check, type Update } from '@tauri-apps/plugin-updater';
@@ -35,40 +35,19 @@ async function checkTauriUpdater(): Promise<void> {
   await relaunch();
 }
 
-async function checkSidecarUpdate(flavor: 'flatpak' | 'deb-or-other'): Promise<void> {
+/**
+ * Update path for installs the Tauri updater cannot self-replace: compare the
+ * running version against the latest GitHub tag and offer the Releases page.
+ *
+ * Flatpak is included here because we publish a single-file `.flatpak` bundle
+ * rather than a Flatpak repo, so an installed bundle has no remote to update
+ * from — `flatpak update` would report "Nothing to do" and we would claim a
+ * success that never happened. Re-downloading from Releases is the real path.
+ */
+async function checkSidecarUpdate(): Promise<void> {
   const current = await getVersion();
   const latest = await latestReleaseVersion();
   if (!latest || latest === current) return;
-
-  if (flavor === 'flatpak') {
-    const should = await ask(`TraceLens ${latest} is available. Update via Flatpak now?`, {
-      title: 'Update available',
-      kind: 'info',
-      okLabel: 'Update',
-      cancelLabel: 'Later',
-    });
-    if (!should) return;
-    try {
-      await tryFlatpakUpdate();
-      await message('Update applied. Please restart TraceLens.', {
-        title: 'Update installed',
-        kind: 'info',
-      });
-    } catch (error) {
-      console.error('Flatpak update failed:', error);
-      const open = await ask(
-        'Could not run Flatpak update from the app. Open the Releases page instead?',
-        {
-          title: 'Update available',
-          kind: 'warning',
-          okLabel: 'Open Releases',
-          cancelLabel: 'Cancel',
-        }
-      );
-      if (open) await openUrl(RELEASES_LATEST);
-    }
-    return;
-  }
 
   const should = await ask(`TraceLens ${latest} is available. Open the download page?`, {
     title: 'Update available',
@@ -89,7 +68,7 @@ export async function checkForUpdates(): Promise<void> {
     if (flavor === 'tauri-updater') {
       await checkTauriUpdater();
     } else {
-      await checkSidecarUpdate(flavor);
+      await checkSidecarUpdate();
     }
   } catch (error) {
     console.error('Update check failed:', error);

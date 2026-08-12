@@ -2,6 +2,7 @@
  * Tauri command wrappers for desktop integration: OS file-open routing and
  * self-updater capability detection.
  */
+import type { InstallFlavor } from '@/shared/update/installFlavor';
 import { invoke } from '@tauri-apps/api/core';
 
 /**
@@ -22,10 +23,7 @@ export async function updaterSupported(): Promise<boolean> {
   return invoke<boolean>('updater_supported');
 }
 
-export async function getInstallFlavor(): Promise<'tauri-updater' | 'flatpak' | 'deb-or-other'> {
+/** Detection itself lives in Rust (`install_flavor`); see `installFlavor.ts` for the order. */
+export async function getInstallFlavor(): Promise<InstallFlavor> {
   return invoke('install_flavor');
-}
-
-export async function tryFlatpakUpdate(): Promise<void> {
-  await invoke('try_flatpak_update');
 }

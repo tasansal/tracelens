@@ -16,7 +16,7 @@ Grab the latest installer for your platform from the
 | macOS (Apple Silicon) | `tracelens_*_aarch64.dmg` | Recommended (M-series) |
 | macOS (Intel) | `tracelens_*_x64.dmg` | Recommended (Intel) |
 | Windows 10/11 | `tracelens_*_x64-setup.exe` | Recommended |
-| Linux (Flatpak) | `tracelens_*_amd64.flatpak` | **Recommended** — Rocky/RHEL/Fedora/Ubuntu; menu + associations; `flatpak update` |
+| Linux (Flatpak) | `tracelens_*_amd64.flatpak` | **Recommended** — Rocky/RHEL/Fedora/Ubuntu; menu + associations; re-download to update |
 | Linux (AppImage) | `tracelens_*_amd64.AppImage` | Portable; Ubuntu 22.04+ / glibc ≥ 2.35; Tauri auto-update |
 | Linux (Debian/Ubuntu) | `tracelens_*_amd64.deb` | Native `.deb`; re-download to update |
 

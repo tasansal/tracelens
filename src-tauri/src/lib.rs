@@ -73,7 +73,6 @@ pub fn run() {
             ipc::desktop::take_opened_file,
             ipc::desktop::install_flavor,
             ipc::desktop::updater_supported,
-            ipc::desktop::try_flatpak_update,
         ])
         .setup(|app| {
             // Cold-start file association: on Windows/Linux the OS launches the
