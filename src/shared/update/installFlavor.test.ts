@@ -3,9 +3,9 @@ import { flavorFromEnv } from './installFlavor';
 
 describe('flavorFromEnv', () => {
   it('returns flatpak when FLATPAK_ID is set', () => {
-    expect(
-      flavorFromEnv({ flatpakId: 'com.tracelens.desktop', flatpakInfoExists: false })
-    ).toBe('flatpak');
+    expect(flavorFromEnv({ flatpakId: 'com.tracelens.desktop', flatpakInfoExists: false })).toBe(
+      'flatpak'
+    );
   });
 
   it('returns flatpak when /.flatpak-info would exist', () => {
