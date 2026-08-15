@@ -36,13 +36,12 @@ async function checkTauriUpdater(): Promise<void> {
 }
 
 /**
- * Update path for installs the Tauri updater cannot self-replace: compare the
- * running version against the latest GitHub tag and offer the Releases page.
+ * For installs the Tauri updater cannot replace in place: compare against the
+ * latest GitHub tag and offer the Releases page.
  *
- * Flatpak is included here because we publish a single-file `.flatpak` bundle
- * rather than a Flatpak repo, so an installed bundle has no remote to update
- * from — `flatpak update` would report "Nothing to do" and we would claim a
- * success that never happened. Re-downloading from Releases is the real path.
+ * Flatpak uses this path too. We ship a single-file `.flatpak` bundle with no
+ * update remote, so `flatpak update` exits successfully with nothing to do.
+ * Re-download from Releases instead.
  */
 async function checkSidecarUpdate(): Promise<void> {
   const current = await getVersion();

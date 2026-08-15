@@ -7,8 +7,8 @@
   <summary>View and analyze SEG-Y seismic data files</summary>
   <description>
     <p>
-      TraceLens is a modern desktop application for viewing and analyzing
-      SEG-Y seismic data files, with support for local and cloud object stores.
+      TraceLens views and inspects SEG-Y seismic data from local files and
+      cloud object stores (S3, GCS, Azure Blob, HTTPS).
     </p>
   </description>
   <launchable type="desktop-id">com.tracelens.desktop.desktop</launchable>

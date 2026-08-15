@@ -85,7 +85,7 @@ pub fn install_flavor() -> &'static str {
 /// Whether Tauri's in-app updater can actually install on this build.
 ///
 /// macOS and Windows are always supported. On Linux only the AppImage bundle
-/// self-updates — `.deb` and Flatpak installs cannot (read-only `/app` sandbox,
+/// self-updates. `.deb` and Flatpak installs cannot (read-only `/app` sandbox,
 /// no `APPIMAGE` env), so the updater plugin's install step always fails there.
 /// AppImage sets `APPIMAGE`, which we use as the discriminator.
 #[tauri::command]

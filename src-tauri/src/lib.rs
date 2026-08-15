@@ -79,8 +79,8 @@ pub fn run() {
             // binary with the file path as argv[1]. macOS instead delivers it as
             // a RunEvent::Opened, handled below. Stash it for the frontend to
             // drain once it mounts (see ipc::desktop).
-            // `args_os` (not `args`) so a non-UTF-8 path — arbitrary bytes on
-            // Linux, unpaired surrogates on Windows — can't panic the iterator.
+            // `args_os` (not `args`) so a non-UTF-8 path (arbitrary bytes on
+            // Linux, unpaired surrogates on Windows) can't panic the iterator.
             if let Some(arg) = std::env::args_os().nth(1) {
                 let arg = arg.to_string_lossy();
                 let lower = arg.to_lowercase();

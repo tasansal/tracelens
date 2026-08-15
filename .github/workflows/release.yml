@@ -192,7 +192,7 @@ jobs:
           cache: 'npm'
 
       # Each leg builds the runner's native arch, so the host toolchain's default
-      # target is sufficient — no `targets:` needed (matches ci.yml).
+      # target is enough (matches ci.yml; no `targets:` list).
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Cache Rust dependencies
@@ -203,9 +203,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      # Authenticode via Azure Trusted Signing. The account-specific endpoint /
-      # account / profile never land in the repo — the config is generated here
-      # from secrets and merged over tauri.conf.json for this build only.
+      # Authenticode via Azure Trusted Signing. Endpoint/account/profile stay in
+      # secrets; this step writes a short-lived merge config over tauri.conf.json.
       - name: Configure Azure Trusted Signing (Windows)
         id: azure_signing
         if: matrix.platform == 'windows-latest' && env.HAS_AZURE_SIGNING == 'true' && needs.prepare.outputs.force_unsigned != 'true'
@@ -238,14 +237,13 @@ jobs:
           read -r -a parts <<< "$BASE_ARGS $EXTRA_ARGS"
           echo "args=${parts[*]}" >> "$GITHUB_OUTPUT"
 
-      # In a parallel matrix, tauri-action fetches the release's existing
-      # latest.json, merges this leg's platform entry, and re-uploads it — so the
-      # final draft release carries a multi-platform updater manifest.
+      # tauri-action merges each platform into the draft latest.json. Legs run
+      # one at a time (see max-parallel) so they do not overwrite each other.
       #
       # The Apple variables are passed as `secret-or-empty`: tauri-action signs
       # and notarizes only when they are non-empty, so a rehearsal (missing
       # secrets, or force_unsigned) builds an unsigned .app/.dmg instead of
-      # failing. The `x != 'true' && secret || ''` shape is deliberate — the
+      # failing. The `x != 'true' && secret || ''` shape is deliberate: the
       # usual ternary breaks when the "true" branch is an empty string.
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
@@ -269,31 +267,29 @@ jobs:
           prerelease: ${{ needs.prepare.outputs.mode == 'prerelease' }}
           args: ${{ steps.build_args.outputs.args }}
           releaseBody: |
-            ${{ needs.prepare.outputs.mode == 'production' && '✅ Signed and notarized where applicable: macOS notarized, Windows Authenticode, Linux `.flatpak` / AppImage GPG-signed (`*.gpg` detached signatures).' || '⚠️ Unsigned development / prerelease build. macOS users right-click → **Open**; Windows users click **More info → Run anyway**.' }}
+            ${{ needs.prepare.outputs.mode == 'production' && 'Signed builds: macOS notarized, Windows Authenticode, Linux Flatpak/AppImage with detached `.gpg` signatures.' || 'Unsigned prerelease. macOS: right-click → Open. Windows: More info → Run anyway.' }}
 
             ## Downloads
 
             | Platform | File |
             |----------|------|
-            | Linux (recommended) | `tracelens_*_amd64.flatpak` |
-            | Linux (portable) | `tracelens_*_amd64.AppImage` |
+            | Linux (Flatpak, preferred) | `tracelens_*_amd64.flatpak` |
+            | Linux (AppImage) | `tracelens_*_amd64.AppImage` |
             | Linux (Debian/Ubuntu) | `tracelens_*_amd64.deb` |
             | macOS (Apple Silicon) | `tracelens_*_aarch64.dmg` |
             | macOS (Intel) | `tracelens_*_x64.dmg` |
             | Windows 10/11 | `tracelens_*_x64-setup.exe` |
 
-            Flatpak is the recommended Linux install: it bundles its own WebKit
-            runtime, so it works on older enterprise distros (RHEL/Rocky) as well
-            as on Ubuntu. It ships as a single-file bundle rather than through a
-            Flatpak remote, so update by re-downloading the `.flatpak` from this
-            page (`flatpak update` has no remote to pull from).
+            Prefer Flatpak on Linux. It ships its own WebKit runtime, so RHEL/Rocky
+            work as well as Ubuntu. This release attaches a single-file `.flatpak`
+            bundle (no Flathub remote), so update by downloading a newer file here.
+            `flatpak update` will not find anything to pull.
 
             <details><summary>Updater files</summary>
 
-            `latest.json` and the `*.sig` files power the in-app auto-updater
-            (macOS / Windows / AppImage only — Flatpak and `.deb` installs are
-            re-downloaded from this page). You do not need to download them
-            manually.
+            `latest.json` and `*.sig` are for the in-app updater on macOS, Windows,
+            and AppImage. Flatpak and `.deb` users re-download from this page.
+            You can ignore these files unless you are debugging the updater.
 
             </details>
 
