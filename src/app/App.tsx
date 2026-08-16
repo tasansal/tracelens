@@ -13,7 +13,7 @@ import { SegyLoadingState } from '@/features/segy/components/SegyLoadingState';
 import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
-import { takeOpenedFile } from '@/shared/api/tauri/desktop';
+import { releaseOpenedFileListener, takeOpenedFile } from '@/shared/api/tauri/desktop';
 import { getErrorMessage, parseBackendError } from '@/shared/api/tauri/error';
 import {
   loadSegyFile as loadSegyFileCommand,
@@ -276,6 +276,7 @@ export const App = () => {
       if (unlisten) {
         unlisten();
       }
+      void releaseOpenedFileListener();
     };
   }, [handleOpenedFile]);
 

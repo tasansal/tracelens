@@ -60,9 +60,12 @@ flatpak-builder --force-clean --repo=flatpak-repo flatpak-build flatpak/com.trac
 flatpak build-bundle flatpak-repo tracelens.flatpak com.tracelens.desktop
 ```
 
-Local builds are not updater-signed unless `TAURI_SIGNING_PRIVATE_KEY` and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` are set in the environment. They still run;
-they just cannot publish updates.
+`npm run tauri build` creates updater artifacts, so it needs
+`TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Without
+them the bundler exits with "a public key has been found, but no private key".
+For a local installer that cannot publish updates, use
+`npm run tauri:build:unsigned`. `npm run tauri dev` does not need the key.
+
 ## Features
 
 - **Multi-Revision SEG-Y Parsing** - Automatic revision detection (Rev 0 / Rev 1) with manual override when detection is ambiguous

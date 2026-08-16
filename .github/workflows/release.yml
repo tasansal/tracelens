@@ -39,10 +39,25 @@ jobs:
         env:
           TAG: ${{ github.event.inputs.tag || github.ref_name }}
           FORCE_UNSIGNED: ${{ github.event.inputs.force_unsigned || 'false' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           if [[ "$TAG" != v* ]]; then
             echo "::error::Tag '$TAG' must start with 'v' (e.g. v0.1.0 or v0.1.0-beta.1)"
             exit 1
+          fi
+          # Dispatch is always classified as a rehearsal (prerelease + default
+          # force_unsigned). tauri-action reuses an existing GitHub Release for
+          # the tag, so rebuilding a *published* production tag would upload
+          # unsigned artifacts over the signed ones. Drafts and missing
+          # releases are fine — those are the rehearsal path.
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+              if [ "$draft" = "false" ]; then
+                echo "::error::A published (non-draft) release already exists for $TAG. Refusing workflow_dispatch so a rehearsal cannot overwrite it. Delete the release (keep the tag) or push a new tag."
+                exit 1
+              fi
+            fi
           fi
           # The tag names the release everywhere (artifact URLs, updater
           # manifest), but tauri.conf.json's version names the binaries and the
@@ -170,6 +185,7 @@ jobs:
     env:
       HAS_AZURE_SIGNING: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT != '' && secrets.AZURE_TRUSTED_SIGNING_ACCOUNT != '' && secrets.AZURE_TRUSTED_SIGNING_PROFILE != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_TENANT_ID != '' }}
       HAS_LINUX_GPG: ${{ secrets.LINUX_GPG_PRIVATE_KEY != '' }}
+      HAS_TAURI_UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -221,9 +237,20 @@ jobs:
           @{ bundle = @{ windows = @{ signCommand = $signCmd } } } |
             ConvertTo-Json -Depth 5 |
             Set-Content src-tauri/windows-signing.ci.json
-          # tauri-action runs from the repo root, so the path must include the
-          # `src-tauri/` directory the config was written to.
+          # ConfigValue::from_str reads this path from the process CWD (repo
+          # root here) at clap parse time. A missing file fails the build; it
+          # is not resolved relative to src-tauri and cannot silently skip
+          # Authenticode.
           Add-Content -Path $env:GITHUB_OUTPUT -Value 'extra_args=--config src-tauri/windows-signing.ci.json'
+
+      # createUpdaterArtifacts + plugins.updater.pubkey makes the bundler
+      # refuse to build when TAURI_SIGNING_PRIVATE_KEY is absent. Production
+      # is already gated; forks and secret-less rehearsals need the overlay.
+      - name: Disable updater artifacts when no signing key
+        id: updater_artifacts
+        if: env.HAS_TAURI_UPDATER_KEY != 'true'
+        shell: bash
+        run: echo 'extra_args=--config src-tauri/tauri.unsigned.conf.json' >> "$GITHUB_OUTPUT"
 
       # tauri-action splits `args` on whitespace, so collapse the matrix args and
       # any signing args into one clean string instead of concatenating inline.
@@ -232,9 +259,10 @@ jobs:
         shell: bash
         env:
           BASE_ARGS: ${{ matrix.args }}
-          EXTRA_ARGS: ${{ steps.azure_signing.outputs.extra_args }}
+          AZURE_ARGS: ${{ steps.azure_signing.outputs.extra_args }}
+          UNSIGNED_ARGS: ${{ steps.updater_artifacts.outputs.extra_args }}
         run: |
-          read -r -a parts <<< "$BASE_ARGS $EXTRA_ARGS"
+          read -r -a parts <<< "$BASE_ARGS $AZURE_ARGS $UNSIGNED_ARGS"
           echo "args=${parts[*]}" >> "$GITHUB_OUTPUT"
 
       # tauri-action merges each platform into the draft latest.json. Legs run
@@ -242,9 +270,12 @@ jobs:
       #
       # The Apple variables are passed as `secret-or-empty`: tauri-action signs
       # and notarizes only when they are non-empty, so a rehearsal (missing
-      # secrets, or force_unsigned) builds an unsigned .app/.dmg instead of
-      # failing. The `x != 'true' && secret || ''` shape is deliberate: the
-      # usual ternary breaks when the "true" branch is an empty string.
+      # Apple secrets, or force_unsigned) builds an unsigned .app/.dmg instead
+      # of failing. That is OS signing only. Updater artifacts still need
+      # TAURI_SIGNING_PRIVATE_KEY; when it is absent the previous step merges
+      # tauri.unsigned.conf.json so the bundler does not hard-fail.
+      # The `x != 'true' && secret || ''` shape is deliberate: the usual
+      # ternary breaks when the "true" branch is an empty string.
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -306,6 +337,9 @@ jobs:
           LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
           TAG: ${{ needs.prepare.outputs.tag }}
         run: |
+          GNUPGHOME="$(mktemp -d)"
+          export GNUPGHOME
+          trap 'gpgconf --kill all >/dev/null 2>&1 || true; rm -rf "$GNUPGHOME"' EXIT
           printf '%s\n' "$LINUX_GPG_PRIVATE_KEY" | gpg --batch --quiet --import
           shopt -s nullglob
           artifacts=(
@@ -391,6 +425,9 @@ jobs:
           TAG: ${{ needs.prepare.outputs.tag }}
           BUNDLE: tracelens_${{ steps.ver.outputs.version }}_amd64.flatpak
         run: |
+          GNUPGHOME="$(mktemp -d)"
+          export GNUPGHOME
+          trap 'gpgconf --kill all >/dev/null 2>&1 || true; rm -rf "$GNUPGHOME"' EXIT
           printf '%s\n' "$LINUX_GPG_PRIVATE_KEY" | gpg --batch --quiet --import
           gpg --batch --yes --pinentry-mode loopback --passphrase "$LINUX_GPG_PASSPHRASE" \
             --detach-sign -o "$BUNDLE.gpg" "$BUNDLE"
