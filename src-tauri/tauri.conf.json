@@ -28,7 +28,19 @@
         "mimeType": "application/x-segy",
         "role": "Viewer"
       }
-    ]
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/mime/packages/com.tracelens.desktop.xml": "../flatpak/com.tracelens.desktop.mime.xml"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/mime/packages/com.tracelens.desktop.xml": "../flatpak/com.tracelens.desktop.mime.xml"
+        }
+      }
+    }
   },
   "app": {
     "windows": [
