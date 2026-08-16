@@ -32,6 +32,10 @@ modules:
       - sed -i 's/^MimeType=.*/MimeType=application\/x-segy;/' /app/share/applications/com.tracelens.desktop.desktop || true
       - grep -q '^MimeType=' /app/share/applications/com.tracelens.desktop.desktop || echo 'MimeType=application/x-segy;' >> /app/share/applications/com.tracelens.desktop.desktop
       - sed -i 's/^Icon=.*/Icon=com.tracelens.desktop/' /app/share/applications/com.tracelens.desktop.desktop
+      # appstreamcli compose (flatpak-builder 1.4+) requires a Freedesktop
+      # main category. Tauri's .desktop often has none.
+      - sed -i 's/^Categories=.*/Categories=Science;Geoscience;Viewer;/' /app/share/applications/com.tracelens.desktop.desktop || true
+      - grep -q '^Categories=' /app/share/applications/com.tracelens.desktop.desktop || echo 'Categories=Science;Geoscience;Viewer;' >> /app/share/applications/com.tracelens.desktop.desktop
       - install -Dm644 deb-extract/usr/share/icons/hicolor/128x128/apps/tracelens.png /app/share/icons/hicolor/128x128/apps/com.tracelens.desktop.png
       - install -Dm644 com.tracelens.desktop.metainfo.xml /app/share/metainfo/com.tracelens.desktop.metainfo.xml
       # The desktop file's MimeType= only associates an existing type; without a

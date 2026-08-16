@@ -12,6 +12,11 @@
     </p>
   </description>
   <launchable type="desktop-id">com.tracelens.desktop.desktop</launchable>
+  <categories>
+    <category>Science</category>
+    <category>Geoscience</category>
+    <category>Viewer</category>
+  </categories>
   <mimetypes>
     <mimetype>application/x-segy</mimetype>
   </mimetypes>
