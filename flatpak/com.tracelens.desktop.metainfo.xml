@@ -16,6 +16,9 @@
     <mimetype>application/x-segy</mimetype>
   </mimetypes>
   <url type="homepage">https://github.com/tasansal/tracelens</url>
+  <developer id="io.github.tasansal">
+    <name>Altay Sansal</name>
+  </developer>
   <content_rating type="oars-1.1" />
   <releases>
     <release version="0.1.0" date="2026-06-07" />

@@ -378,7 +378,12 @@ jobs:
     # actually ran and wasn't cancelled; the `.deb` download below fails loudly
     # if the Linux leg didn't produce one.
     if: ${{ always() && needs.prepare.result == 'success' && needs.release.result != 'cancelled' && needs.release.result != 'skipped' }}
-    runs-on: ubuntu-22.04
+    # 24.04, not 22.04: GNOME 48 dropped `appstream-compose` from the SDK.
+    # Ubuntu 22.04's flatpak-builder 1.2 still runs that binary inside the
+    # sandbox and dies. 1.4+ (24.04) calls `appstreamcli compose` on the host.
+    # This job only repacks the already-built .deb, so the newer image does
+    # not raise the AppImage/deb glibc floor.
+    runs-on: ubuntu-24.04
     env:
       HAS_LINUX_GPG: ${{ secrets.LINUX_GPG_PRIVATE_KEY != '' }}
     steps:
@@ -389,7 +394,7 @@ jobs:
       - name: Install Flatpak tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak flatpak-builder appstream
 
       - name: Add Flathub remote and runtime
         run: |

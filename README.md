@@ -51,7 +51,9 @@ npm run tauri build -- --target x86_64-apple-darwin    # Intel
 
 Outputs land under `src-tauri/target/release/bundle/`.
 
-Flatpak (Linux), after you have a `.deb` at `./tracelens.deb`:
+Flatpak (Linux), after you have a `.deb` at `./tracelens.deb`. Needs
+`flatpak-builder` ≥ 1.4 (Ubuntu 24.04+); GNOME 48 no longer ships
+`appstream-compose`.
 
 ```bash
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
