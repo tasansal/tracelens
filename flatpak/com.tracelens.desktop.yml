@@ -30,8 +30,7 @@ modules:
       - install -Dm755 deb-extract/usr/bin/tracelens /app/bin/tracelens
       - install -Dm644 deb-extract/usr/share/applications/tracelens.desktop /app/share/applications/com.tracelens.desktop.desktop
       - sed -i 's/^MimeType=.*/MimeType=application\/x-segy;/' /app/share/applications/com.tracelens.desktop.desktop || true
-      - grep -q '^MimeType=' /app/share/applications/com.tracelens.desktop.desktop || \
-          echo 'MimeType=application/x-segy;' >> /app/share/applications/com.tracelens.desktop.desktop
+      - grep -q '^MimeType=' /app/share/applications/com.tracelens.desktop.desktop || echo 'MimeType=application/x-segy;' >> /app/share/applications/com.tracelens.desktop.desktop
       - sed -i 's/^Icon=.*/Icon=com.tracelens.desktop/' /app/share/applications/com.tracelens.desktop.desktop
       - install -Dm644 deb-extract/usr/share/icons/hicolor/128x128/apps/tracelens.png /app/share/icons/hicolor/128x128/apps/com.tracelens.desktop.png
       - install -Dm644 com.tracelens.desktop.metainfo.xml /app/share/metainfo/com.tracelens.desktop.metainfo.xml
