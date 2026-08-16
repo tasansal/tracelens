@@ -121,4 +121,15 @@ describe('checkForUpdates', () => {
     expect(ask).not.toHaveBeenCalled();
     expect(openUrl).not.toHaveBeenCalled();
   });
+
+  it('does not prompt a newer prerelease to install an older stable release', async () => {
+    getFlavor.mockResolvedValue('deb-or-other');
+    getVersion.mockResolvedValue('0.2.0-beta.1');
+    stubLatestTag('v0.1.0');
+
+    await checkForUpdates();
+
+    expect(ask).not.toHaveBeenCalled();
+    expect(openUrl).not.toHaveBeenCalled();
+  });
 });

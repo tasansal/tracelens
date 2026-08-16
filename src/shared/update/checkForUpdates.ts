@@ -4,6 +4,7 @@ import { ask } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check, type Update } from '@tauri-apps/plugin-updater';
+import { isNewerVersion } from './semver';
 
 const RELEASES_LATEST = 'https://github.com/tasansal/tracelens/releases/latest';
 const RELEASES_API = 'https://api.github.com/repos/tasansal/tracelens/releases/latest';
@@ -46,7 +47,7 @@ async function checkTauriUpdater(): Promise<void> {
 async function checkSidecarUpdate(): Promise<void> {
   const current = await getVersion();
   const latest = await latestReleaseVersion();
-  if (!latest || latest === current) return;
+  if (!latest || !isNewerVersion(latest, current)) return;
 
   const should = await ask(`TraceLens ${latest} is available. Open the download page?`, {
     title: 'Update available',
