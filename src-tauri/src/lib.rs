@@ -39,8 +39,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(segy::SegyReaderState::new())
         .manage(storage_config::StorageConfigState::default())
+        .manage(ipc::desktop::OpenedFile::default())
         .invoke_handler(tauri::generate_handler![
             ipc::file::load_segy_file,
             ipc::headers::get_binary_header_spec,
@@ -66,8 +68,25 @@ pub fn run() {
             ipc::settings::update_app_settings,
             ipc::settings::get_storage_config_settings,
             ipc::settings::update_storage_config_settings,
+            ipc::desktop::take_opened_file,
+            ipc::desktop::release_opened_file_listener,
+            ipc::desktop::install_flavor,
         ])
         .setup(|app| {
+            // Cold-start file association: on Windows/Linux the OS launches the
+            // binary with the file path as argv[1]. macOS instead delivers it as
+            // a RunEvent::Opened, handled below. Stash it for the frontend to
+            // drain once it mounts (see ipc::desktop).
+            // `args_os` (not `args`) so a non-UTF-8 path cannot panic; invalid
+            // UTF-8 is rejected rather than lossily rewritten with U+FFFD.
+            if let Some(arg) = std::env::args_os().nth(1) {
+                if let Some(path) = ipc::desktop::utf8_segy_path(&arg) {
+                    app.state::<ipc::desktop::OpenedFile>().set(path);
+                } else if arg.to_str().is_none() {
+                    log::warn!("Ignoring launch path that is not valid UTF-8");
+                }
+            }
+
             // Set up main window close handler to close all child windows
             if let Some(main_window) = app.get_webview_window("main") {
                 let app_handle = app.app_handle().clone();
@@ -82,6 +101,33 @@ pub fn run() {
             }
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|app_handle, event| {
+            // macOS delivers "open with TraceLens" / double-click as an Apple
+            // event surfaced here. If the frontend is live, emit straight to it;
+            // otherwise stash for it to drain on mount.
+            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            {
+                if let tauri::RunEvent::Opened { urls } = event {
+                    for url in urls {
+                        let Ok(path) = url.to_file_path() else {
+                            continue;
+                        };
+                        let Some(path) = path.to_str() else {
+                            log::warn!("Ignoring opened path that is not valid UTF-8");
+                            continue;
+                        };
+                        // Ready-check and stash happen under one lock inside
+                        // `stash_or_emit`, so a concurrent `take_opened_file`
+                        // drain can't strand this path.
+                        ipc::desktop::route_open_path(app_handle, path.to_owned());
+                    }
+                }
+            }
+            #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+            {
+                let _ = (app_handle, event);
+            }
+        });
 }

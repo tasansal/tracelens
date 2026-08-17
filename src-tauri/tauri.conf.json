@@ -10,13 +10,37 @@
     "beforeBuildCommand": "npm run build"
   },
   "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "appimage", "deb", "nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["segy", "sgy"],
+        "name": "SEG-Y Seismic Data",
+        "description": "SEG-Y seismic data file",
+        "mimeType": "application/x-segy",
+        "role": "Viewer"
+      }
+    ],
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/share/mime/packages/com.tracelens.desktop.xml": "../flatpak/com.tracelens.desktop.mime.xml"
+        }
+      },
+      "appimage": {
+        "files": {
+          "/usr/share/mime/packages/com.tracelens.desktop.xml": "../flatpak/com.tracelens.desktop.mime.xml"
+        }
+      }
+    }
   },
   "app": {
     "windows": [
@@ -40,9 +64,10 @@
   "plugins": {
     "updater": {
       "active": true,
-      "endpoints": ["https://releases.myapp.com/{{target}}/{{arch}}/{{current_version}}"],
-      "dialog": true,
-      "pubkey": "YOUR_UPDATER_PUBLIC_KEY_HERE"
+      "endpoints": [
+        "https://github.com/tasansal/tracelens/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ2NDIzNDA0NTdBRjlDNzkKUldSNW5LOVhCRFJDUnZaSWhnVUVEcC8vWUNpVERqMDVnZXVNaHJLak56OENoWUxqdjNkc0hILy8K"
     }
   }
 }

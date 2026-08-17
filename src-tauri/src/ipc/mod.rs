@@ -7,10 +7,12 @@
 //! - [`amplitude`] — Amplitude statistics and point-value reads
 //! - [`custom_spec`] — Custom spec CRUD operations
 //! - [`settings`] — App settings persistence and storage configuration
+//! - [`desktop`] — Desktop integration (updater capability, OS file-open routing)
 
 pub mod amplitude;
 pub mod custom_spec;
 pub mod data;
+pub mod desktop;
 pub mod file;
 pub mod headers;
 pub mod settings;

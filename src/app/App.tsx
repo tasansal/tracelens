@@ -13,6 +13,7 @@ import { SegyLoadingState } from '@/features/segy/components/SegyLoadingState';
 import { useTraceHeader } from '@/features/segy/hooks/useTraceHeader';
 import { TraceVisualizationContainer } from '@/features/trace-visualization/components/TraceVisualizationContainer';
 import { useTraceVisualizationStore } from '@/features/trace-visualization/store/traceVisualizationStore';
+import { releaseOpenedFileListener, takeOpenedFile } from '@/shared/api/tauri/desktop';
 import { getErrorMessage, parseBackendError } from '@/shared/api/tauri/error';
 import {
   loadSegyFile as loadSegyFileCommand,
@@ -22,6 +23,7 @@ import {
 import { getAppSettings, openSettingsWindow, type AppSettings } from '@/shared/api/tauri/settings';
 import { useAppStore } from '@/shared/store/appStore';
 import { TooltipProvider } from '@/shared/ui/tooltip';
+import { checkForUpdates } from '@/shared/update/checkForUpdates';
 import { isTauri } from '@/shared/utils/tauri';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -108,6 +110,12 @@ export const App = () => {
 
     loadSettings();
   }, [applyTheme]);
+
+  // Check for updates on startup using the backend for this install flavor.
+  useEffect(() => {
+    if (!isTauri()) return;
+    void checkForUpdates();
+  }, []);
 
   // Listen for settings changes from settings window
   useEffect(() => {
@@ -207,6 +215,70 @@ export const App = () => {
     },
     [loadSegyData, setFilePath]
   );
+
+  /**
+   * Load a file the OS handed us via a file association (double-click / "Open
+   * with"), validating the extension the same way drag-drop does.
+   */
+  const handleOpenedFile = useCallback(
+    async (path: string) => {
+      const lowerPath = path.toLowerCase();
+      if (!lowerPath.endsWith('.segy') && !lowerPath.endsWith('.sgy')) {
+        const errorMsg = 'Unsupported file type. Open a .segy or .sgy file.';
+        setError(errorMsg);
+        toast.error(errorMsg);
+        return;
+      }
+
+      if (isLoadingRef.current) {
+        toast.error('A file is already loading. Please wait.');
+        return;
+      }
+
+      await handleFileLoad(path);
+    },
+    [handleFileLoad, setError]
+  );
+
+  /**
+   * Route OS "open file" requests from file associations into the load pipeline.
+   * Registers the live listener first (so a macOS open-event isn't missed), then
+   * drains any path captured before the frontend mounted.
+   */
+  useEffect(() => {
+    if (!isTauri()) return;
+
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+
+    const setupOpenFileHandler = async () => {
+      unlisten = await listen<string>('open-file', event => {
+        void handleOpenedFile(event.payload);
+      });
+
+      if (cancelled) {
+        unlisten();
+        return;
+      }
+
+      const pending = await takeOpenedFile();
+      if (pending) {
+        void handleOpenedFile(pending);
+      }
+    };
+
+    setupOpenFileHandler().catch(error => {
+      console.error('Failed to set up open-file handler:', error);
+    });
+
+    return () => {
+      cancelled = true;
+      if (unlisten) {
+        unlisten();
+      }
+      void releaseOpenedFileListener();
+    };
+  }, [handleOpenedFile]);
 
   /**
    * Open a native file picker and trigger data load for the chosen file.

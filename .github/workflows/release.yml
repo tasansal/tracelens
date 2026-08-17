@@ -1,0 +1,453 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to rebuild (e.g. v0.1.0-beta.1)'
+        required: true
+        type: string
+      force_unsigned:
+        description: 'Allow unsigned artifacts even if secrets exist'
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  # Single source of truth for the tag and the signing regime. Every downstream
+  # job builds/uploads against `prepare.outputs.tag` (never `github.ref_name`)
+  # so a workflow_dispatch rebuild targets the tag the operator asked for.
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.classify.outputs.tag }}
+      mode: ${{ steps.classify.outputs.mode }}
+      force_unsigned: ${{ steps.classify.outputs.force_unsigned }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref_name }}
+
+      - name: Classify release mode
+        id: classify
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          FORCE_UNSIGNED: ${{ github.event.inputs.force_unsigned || 'false' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$TAG" != v* ]]; then
+            echo "::error::Tag '$TAG' must start with 'v' (e.g. v0.1.0 or v0.1.0-beta.1)"
+            exit 1
+          fi
+          # Dispatch is always classified as a rehearsal (prerelease + default
+          # force_unsigned). tauri-action reuses an existing GitHub Release for
+          # the tag, so rebuilding a *published* production tag would upload
+          # unsigned artifacts over the signed ones. Drafts and missing
+          # releases are fine — those are the rehearsal path.
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if draft="$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)"; then
+              if [ "$draft" = "false" ]; then
+                echo "::error::A published (non-draft) release already exists for $TAG. Refusing workflow_dispatch so a rehearsal cannot overwrite it. Delete the release (keep the tag) or push a new tag."
+                exit 1
+              fi
+            fi
+          fi
+          # The tag names the release everywhere (artifact URLs, updater
+          # manifest), but tauri.conf.json's version names the binaries and the
+          # AppStream release entry. A mismatch ships v0.2.0 artifacts that
+          # report themselves as 0.1.0, which permanently re-prompts the
+          # in-app updater.
+          # Comparison is exact, so a prerelease tag needs the suffix in the
+          # config too (v0.2.0-beta.1 -> "version": "0.2.0-beta.1"). Safe here
+          # because we bundle NSIS rather than MSI, which rejects prereleases.
+          CONF_VERSION="$(jq -r .version src-tauri/tauri.conf.json)"
+          if [ "${TAG#v}" != "$CONF_VERSION" ]; then
+            echo "::error::Tag '$TAG' does not match src-tauri/tauri.conf.json version '$CONF_VERSION'. Set the config version to '${TAG#v}', commit, and re-tag."
+            exit 1
+          fi
+          # A `-` in the tag marks a prerelease (v0.2.0-beta.1); manual dispatch
+          # is always a rehearsal, never a production release.
+          if [[ "$TAG" == *-* ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "mode=prerelease" >> "$GITHUB_OUTPUT"
+          else
+            echo "mode=production" >> "$GITHUB_OUTPUT"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "force_unsigned=$FORCE_UNSIGNED" >> "$GITHUB_OUTPUT"
+
+  # Production tags must never publish silently unsigned artifacts. This job is
+  # skipped for prereleases and manual dispatches, which may build unsigned.
+  # The checks live in `run:` bodies rather than `if:` expressions because the
+  # `secrets` context is not available in job-level conditionals.
+  require-prod-secrets:
+    needs: prepare
+    if: needs.prepare.outputs.mode == 'production'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require Tauri updater secrets
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          missing=()
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] || missing+=(TAURI_SIGNING_PRIVATE_KEY)
+          [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ] || missing+=(TAURI_SIGNING_PRIVATE_KEY_PASSWORD)
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Production release is missing updater secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Require Apple signing secrets
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=()
+          for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY \
+                      APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Production release is missing Apple Developer ID / notarization secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Require Azure Trusted Signing secrets
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          AZURE_TRUSTED_SIGNING_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+        run: |
+          missing=()
+          for name in AZURE_CLIENT_ID AZURE_CLIENT_SECRET AZURE_TENANT_ID \
+                      AZURE_TRUSTED_SIGNING_ENDPOINT AZURE_TRUSTED_SIGNING_ACCOUNT \
+                      AZURE_TRUSTED_SIGNING_PROFILE; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Production release is missing Azure Trusted Signing secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Require Linux GPG secret
+        env:
+          LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "$LINUX_GPG_PRIVATE_KEY" ]; then
+            echo "::error::Production release is missing LINUX_GPG_PRIVATE_KEY"
+            exit 1
+          fi
+
+  release:
+    needs: [prepare, require-prod-secrets]
+    # `require-prod-secrets` is skipped on prerelease/dispatch, and a skipped
+    # dependency would otherwise skip this job too.
+    if: ${{ always() && needs.prepare.result == 'success' && (needs.require-prod-secrets.result == 'success' || needs.require-prod-secrets.result == 'skipped') }}
+
+    strategy:
+      fail-fast: false
+      # Serialize the legs: tauri-action merges each platform's entry into the
+      # shared draft `latest.json` with a non-atomic read-modify-write, so
+      # concurrent legs can clobber each other and drop a platform from the
+      # updater manifest. One-at-a-time trades release wall-clock for a correct
+      # multi-platform manifest.
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: macos-latest # Apple Silicon (native aarch64)
+            args: '--target aarch64-apple-darwin'
+          # Replaces the retired macos-13 label; still a native x86_64 host.
+          - platform: macos-15-intel # Intel (native x86_64)
+            args: '--target x86_64-apple-darwin'
+          - platform: ubuntu-22.04 # AppImage + deb (glibc 2.35 floor)
+            args: ''
+          - platform: windows-latest # NSIS
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    # Secret *presence* flags: the `secrets` context is unavailable in `if:`,
+    # but job-level `env` can carry the booleans derived from it.
+    env:
+      HAS_AZURE_SIGNING: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT != '' && secrets.AZURE_TRUSTED_SIGNING_ACCOUNT != '' && secrets.AZURE_TRUSTED_SIGNING_PROFILE != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.AZURE_TENANT_ID != '' }}
+      HAS_LINUX_GPG: ${{ secrets.LINUX_GPG_PRIVATE_KEY != '' }}
+      HAS_TAURI_UPDATER_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
+      HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Install Tauri system dependencies (Linux)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      # Each leg builds the runner's native arch, so the host toolchain's default
+      # target is enough (matches ci.yml; no `targets:` list).
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      # Authenticode via Azure Trusted Signing. Endpoint/account/profile stay in
+      # secrets; this step writes a short-lived merge config over tauri.conf.json.
+      - name: Configure Azure Trusted Signing (Windows)
+        id: azure_signing
+        if: matrix.platform == 'windows-latest' && env.HAS_AZURE_SIGNING == 'true' && needs.prepare.outputs.force_unsigned != 'true'
+        shell: pwsh
+        env:
+          AZURE_TRUSTED_SIGNING_ENDPOINT: ${{ secrets.AZURE_TRUSTED_SIGNING_ENDPOINT }}
+          AZURE_TRUSTED_SIGNING_ACCOUNT: ${{ secrets.AZURE_TRUSTED_SIGNING_ACCOUNT }}
+          AZURE_TRUSTED_SIGNING_PROFILE: ${{ secrets.AZURE_TRUSTED_SIGNING_PROFILE }}
+        run: |
+          cargo install artifact-signing-cli --version '^0.11' --locked
+          $signCmd = "artifact-signing-cli -e $env:AZURE_TRUSTED_SIGNING_ENDPOINT" +
+                     " -a $env:AZURE_TRUSTED_SIGNING_ACCOUNT" +
+                     " -c $env:AZURE_TRUSTED_SIGNING_PROFILE -d TraceLens %1"
+          @{ bundle = @{ windows = @{ signCommand = $signCmd } } } |
+            ConvertTo-Json -Depth 5 |
+            Set-Content src-tauri/windows-signing.ci.json
+          # ConfigValue::from_str reads this path from the process CWD (repo
+          # root here) at clap parse time. A missing file fails the build; it
+          # is not resolved relative to src-tauri and cannot silently skip
+          # Authenticode.
+          Add-Content -Path $env:GITHUB_OUTPUT -Value 'extra_args=--config src-tauri/windows-signing.ci.json'
+
+      # createUpdaterArtifacts + plugins.updater.pubkey makes the bundler
+      # refuse to build when TAURI_SIGNING_PRIVATE_KEY is absent. Production
+      # is already gated; forks and secret-less rehearsals need the overlay.
+      - name: Disable updater artifacts when no signing key
+        id: updater_artifacts
+        if: env.HAS_TAURI_UPDATER_KEY != 'true'
+        shell: bash
+        run: echo 'extra_args=--config src-tauri/tauri.unsigned.conf.json' >> "$GITHUB_OUTPUT"
+
+      # tauri-action splits `args` on whitespace, so collapse the matrix args and
+      # any signing args into one clean string instead of concatenating inline.
+      - name: Compose build args
+        id: build_args
+        shell: bash
+        env:
+          BASE_ARGS: ${{ matrix.args }}
+          AZURE_ARGS: ${{ steps.azure_signing.outputs.extra_args }}
+          UNSIGNED_ARGS: ${{ steps.updater_artifacts.outputs.extra_args }}
+        run: |
+          read -r -a parts <<< "$BASE_ARGS $AZURE_ARGS $UNSIGNED_ARGS"
+          echo "args=${parts[*]}" >> "$GITHUB_OUTPUT"
+
+      # tauri-action / the bundler treat APPLE_CERTIFICATE as "sign" when the
+      # *variable is set*, including to an empty string. `env: APPLE_*: ''`
+      # therefore runs `security import` on an empty p12 and dies with
+      # SecKeychainItemImport. Only export these when a real cert exists.
+      - name: Export Apple signing env
+        if: runner.os == 'macOS' && env.HAS_APPLE_CERTIFICATE == 'true' && needs.prepare.outputs.force_unsigned != 'true'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          {
+            echo "APPLE_CERTIFICATE=$APPLE_CERTIFICATE"
+            echo "APPLE_CERTIFICATE_PASSWORD=$APPLE_CERTIFICATE_PASSWORD"
+            echo "APPLE_SIGNING_IDENTITY=$APPLE_SIGNING_IDENTITY"
+            [ -n "$APPLE_ID" ] && echo "APPLE_ID=$APPLE_ID"
+            [ -n "$APPLE_PASSWORD" ] && echo "APPLE_PASSWORD=$APPLE_PASSWORD"
+            [ -n "$APPLE_TEAM_ID" ] && echo "APPLE_TEAM_ID=$APPLE_TEAM_ID"
+          } >> "$GITHUB_ENV"
+
+      # tauri-action merges each platform into the draft latest.json. Legs run
+      # one at a time (see max-parallel) so they do not overwrite each other.
+      #
+      # Apple signing is the previous step (unset → unsigned .app/.dmg).
+      # Updater artifacts still need TAURI_SIGNING_PRIVATE_KEY; when it is
+      # absent the overlay step merges tauri.unsigned.conf.json so the
+      # bundler does not hard-fail.
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+        with:
+          tagName: ${{ needs.prepare.outputs.tag }}
+          releaseName: 'TraceLens ${{ needs.prepare.outputs.tag }}'
+          releaseDraft: true
+          prerelease: ${{ needs.prepare.outputs.mode == 'prerelease' }}
+          args: ${{ steps.build_args.outputs.args }}
+          releaseBody: |
+            ${{ needs.prepare.outputs.mode == 'production' && 'Signed builds: macOS notarized, Windows Authenticode, Linux Flatpak/AppImage with detached `.gpg` signatures.' || 'Unsigned prerelease. macOS: right-click → Open. Windows: More info → Run anyway.' }}
+
+            ## Downloads
+
+            | Platform | File |
+            |----------|------|
+            | Linux (Flatpak, preferred) | `tracelens_*_amd64.flatpak` |
+            | Linux (AppImage) | `tracelens_*_amd64.AppImage` |
+            | Linux (Debian/Ubuntu) | `tracelens_*_amd64.deb` |
+            | macOS (Apple Silicon) | `tracelens_*_aarch64.dmg` |
+            | macOS (Intel) | `tracelens_*_x64.dmg` |
+            | Windows 10/11 | `tracelens_*_x64-setup.exe` |
+
+            Prefer Flatpak on Linux. It ships its own WebKit runtime, so RHEL/Rocky
+            work as well as Ubuntu. This release attaches a single-file `.flatpak`
+            bundle (no Flathub remote), so update by downloading a newer file here.
+            `flatpak update` will not find anything to pull.
+
+            <details><summary>Updater files</summary>
+
+            `latest.json` and `*.sig` are for the in-app updater on macOS, Windows,
+            and AppImage. Flatpak and `.deb` users re-download from this page.
+            You can ignore these files unless you are debugging the updater.
+
+            </details>
+
+      # Detached GPG signatures make the Linux downloads verifiable outside the
+      # Tauri updater. Missing key is fatal on production tags (already gated by
+      # require-prod-secrets); on rehearsals the step just doesn't run.
+      # LINUX_GPG_PRIVATE_KEY holds the ASCII-armored private key; the
+      # passphrase secret is optional (empty for an unprotected key).
+      - name: GPG-sign Linux artifacts
+        if: matrix.platform == 'ubuntu-22.04' && env.HAS_LINUX_GPG == 'true' && needs.prepare.outputs.force_unsigned != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+          LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          GNUPGHOME="$(mktemp -d)"
+          export GNUPGHOME
+          trap 'gpgconf --kill all >/dev/null 2>&1 || true; rm -rf "$GNUPGHOME"' EXIT
+          printf '%s\n' "$LINUX_GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+          shopt -s nullglob
+          artifacts=(
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+          )
+          if [ ${#artifacts[@]} -eq 0 ]; then
+            echo "::error::No AppImage/.deb bundles found to sign"
+            exit 1
+          fi
+          for artifact in "${artifacts[@]}"; do
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$LINUX_GPG_PASSPHRASE" \
+              --detach-sign -o "$artifact.gpg" "$artifact"
+            gh release upload "$TAG" "$artifact.gpg" --clobber
+          done
+
+  flatpak:
+    needs: [prepare, release]
+    # `needs: release` only goes green when every matrix leg succeeds, so an
+    # unrelated macOS/Windows flake would skip the Flatpak even though the Linux
+    # `.deb` is already on the draft release. Run whenever the release job
+    # actually ran and wasn't cancelled; the `.deb` download below fails loudly
+    # if the Linux leg didn't produce one.
+    if: ${{ always() && needs.prepare.result == 'success' && needs.release.result != 'cancelled' && needs.release.result != 'skipped' }}
+    # 24.04, not 22.04: GNOME 48 dropped `appstream-compose` from the SDK.
+    # Ubuntu 22.04's flatpak-builder 1.2 still runs that binary inside the
+    # sandbox and dies. 1.4+ (24.04) calls `appstreamcli compose` on the host.
+    # This job only repacks the already-built .deb, so the newer image does
+    # not raise the AppImage/deb glibc floor.
+    runs-on: ubuntu-24.04
+    env:
+      HAS_LINUX_GPG: ${{ secrets.LINUX_GPG_PRIVATE_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.prepare.outputs.tag }}
+
+      - name: Install Flatpak tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder appstream
+
+      - name: Add Flathub remote and runtime
+        run: |
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          sudo flatpak install -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
+
+      - name: Download the .deb from the draft release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "${{ needs.prepare.outputs.tag }}" \
+            --pattern '*_amd64.deb' --output tracelens.deb --clobber
+
+      # Use tauri.conf.json's bare version (e.g. 0.1.0) as the single source of
+      # truth so the Flatpak filename matches tauri-action's other artifacts
+      # (the tag carries the leading `v`) and the AppStream release entry
+      # reflects the version actually being shipped.
+      - name: Compute version
+        id: ver
+        run: echo "version=$(jq -r .version src-tauri/tauri.conf.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Inject release version into metainfo
+        run: |
+          sed -i "s|<release version=\"[^\"]*\" date=\"[^\"]*\" />|<release version=\"${{ steps.ver.outputs.version }}\" date=\"$(date -u +%Y-%m-%d)\" />|" \
+            flatpak/com.tracelens.desktop.metainfo.xml
+
+      - name: Build the Flatpak bundle
+        run: |
+          sudo flatpak-builder --force-clean --disable-cache --repo=flatpak-repo \
+            flatpak-build flatpak/com.tracelens.desktop.yml
+          sudo flatpak build-bundle flatpak-repo \
+            "tracelens_${{ steps.ver.outputs.version }}_amd64.flatpak" com.tracelens.desktop
+
+      - name: Upload the Flatpak to the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.prepare.outputs.tag }}" \
+            "tracelens_${{ steps.ver.outputs.version }}_amd64.flatpak" --clobber
+
+      - name: GPG-sign the Flatpak bundle
+        if: env.HAS_LINUX_GPG == 'true' && needs.prepare.outputs.force_unsigned != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LINUX_GPG_PRIVATE_KEY: ${{ secrets.LINUX_GPG_PRIVATE_KEY }}
+          LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          BUNDLE: tracelens_${{ steps.ver.outputs.version }}_amd64.flatpak
+        run: |
+          GNUPGHOME="$(mktemp -d)"
+          export GNUPGHOME
+          trap 'gpgconf --kill all >/dev/null 2>&1 || true; rm -rf "$GNUPGHOME"' EXIT
+          printf '%s\n' "$LINUX_GPG_PRIVATE_KEY" | gpg --batch --quiet --import
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$LINUX_GPG_PASSPHRASE" \
+            --detach-sign -o "$BUNDLE.gpg" "$BUNDLE"
+          gh release upload "$TAG" "$BUNDLE.gpg" --clobber

@@ -12,6 +12,9 @@
     "core:window:allow-start-dragging",
     "core:webview:allow-set-webview-zoom",
     "dialog:default",
-    "process:allow-exit"
+    "process:allow-exit",
+    "process:allow-restart",
+    "updater:default",
+    "opener:default"
   ]
 }
