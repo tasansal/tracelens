@@ -1,6 +1,6 @@
 [package]
 name = "tracelens"
-version = "0.1.0-beta.4"
+version = "0.1.0"
 description = "TraceLens - A modern desktop app for viewing and analyzing SEG-Y seismic data files"
 authors = ["Altay Sansal"]
 license = "MIT OR Apache-2.0"
